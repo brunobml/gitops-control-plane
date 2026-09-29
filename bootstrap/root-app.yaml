@@ -6,7 +6,7 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  project: default
+  project: control-plane
   source:
     repoURL: https://github.com/brunobml/gitops-control-plane.git
     targetRevision: main

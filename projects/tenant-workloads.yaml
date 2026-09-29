@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: tenant-workloads
+  namespace: argocd
+spec:
+  description: "Multi-tenant application workloads (Tenant-A, etc.)"
+  sourceRepos:
+    - "https://github.com/brunobml/tenant-workloads.git"
+  destinations:
+    - name: "spoke-nonprod"
+      namespace: "tenant-*"
+    - name: "spoke-prod"
+      namespace: "tenant-*"
+    - server: "https://k3d-spoke-nonprod-server-0:6443"
+      namespace: "tenant-*"
+    - server: "https://k3d-spoke-prod-server-0:6443"
+      namespace: "tenant-*"
+  clusterResourceWhitelist:
+    - group: ""
+      kind: "Namespace"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform-catalog
+  namespace: argocd
+spec:
+  description: "Platform engineering Kro blueprints and ACK configurations"
+  sourceRepos:
+    - "https://github.com/brunobml/platform-catalog.git"
+  destinations:
+    - name: "spoke-nonprod"
+      namespace: "*"
+    - name: "spoke-prod"
+      namespace: "*"
+    - server: "https://k3d-spoke-nonprod-server-0:6443"
+      namespace: "*"
+    - server: "https://k3d-spoke-prod-server-0:6443"
+      namespace: "*"
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

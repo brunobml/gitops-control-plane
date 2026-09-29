@@ -17,7 +17,7 @@ spec:
     metadata:
       name: "kro-blueprints-{{name}}"
     spec:
-      project: default
+      project: platform-catalog
       source:
         repoURL: https://github.com/brunobml/platform-catalog.git
         targetRevision: main

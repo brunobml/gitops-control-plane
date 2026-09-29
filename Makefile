@@ -24,8 +24,9 @@ setup:
 	@bash scripts/setup-hub-spoke.sh
 
 bootstrap:
+	@kubectl --context k3d-hub-cluster apply -f projects/ --validate=false
 	@kubectl --context k3d-hub-cluster apply -f bootstrap/root-app.yaml --validate=false
-	@echo "✔ Root application deployed to Hub Argo CD"
+	@echo "✔ Projects & Root application deployed to Hub Argo CD"
 
 test:
 	@bash scripts/smoke-test-hub-spoke.sh
