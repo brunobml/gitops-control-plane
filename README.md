@@ -59,20 +59,26 @@ flowchart TD
 
 ```
 ├── applicationsets/
-│   ├── kro-blueprints.yaml     # Distributes ResourceGraphDefinitions to all spoke clusters
-│   └── tenant-workloads.yaml   # Dynamically routes tenant environments:
-│                               #   - dev & test -> k3d-spoke-nonprod
-│                               #   - prod       -> k3d-spoke-prod
+│   ├── kro-blueprints.yaml           # Distributes ResourceGraphDefinitions to all spoke clusters (Project: platform-catalog)
+│   ├── tenant-workloads-nonprod.yaml # Routes dev & test workloads to k3d-spoke-nonprod (Project: tenant-workloads)
+│   └── tenant-workloads-prod.yaml    # Routes prod workloads to k3d-spoke-prod (Project: tenant-workloads)
 ├── bootstrap/
-│   └── root-app.yaml           # App-of-Apps root application for Hub Argo CD
+│   └── root-app.yaml                 # App-of-Apps root application for Hub Argo CD (Project: control-plane)
 ├── clusters/
-│   └── values-argocd-hub.yaml  # Argo CD Helm values with Lua health checks for Kro & ACK
+│   └── values-argocd-hub.yaml        # Argo CD Helm values with Lua health checks for Kro & ACK
+├── projects/                         # 🛡️ Enterprise AppProject boundaries & security guardrails
+│   ├── control-plane.yaml            # Control plane machinery isolation
+│   ├── platform-catalog.yaml         # Platform engineering blueprint distribution
+│   └── tenant-workloads.yaml         # Multi-tenant workload isolation and cluster guardrails
+├── docs/
+│   └── developer-tutorial.md         # Comprehensive developer onboarding guide
 ├── scripts/
-│   ├── setup-hub-spoke.sh      # Provisions Moto, k3d clusters, Argo CD, Kro & ACK
-│   ├── register-spokes.sh      # Creates tokens and registers spokes in Hub Argo CD
-│   ├── smoke-test-hub-spoke.sh # Verifies connectivity, controllers, and queues
-│   └── teardown-hub-spoke.sh   # Cleans up clusters, containers, and network
-├── Makefile                    # Developer workflow automation
+│   ├── setup-hub-spoke.sh            # Provisions Moto, k3d clusters, Argo CD, Kro & ACK
+│   ├── register-spokes.sh            # Creates tokens and registers spokes in Hub Argo CD
+│   ├── smoke-test-hub-spoke.sh       # Verifies connectivity, controllers, and queues
+│   ├── push-all.sh                   # Pushes all 3 local repos to GitHub
+│   └── teardown-hub-spoke.sh         # Cleans up clusters, containers, and network
+├── Makefile                          # Developer workflow automation
 └── README.md
 ```
 
