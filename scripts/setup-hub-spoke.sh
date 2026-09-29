@@ -71,6 +71,10 @@ helm --kube-context "k3d-${HUB_CLUSTER}" upgrade --install argo-cd argo/argo-cd 
   -f "${REPO_ROOT}/clusters/values-argocd-hub.yaml"
 kubectl --context "k3d-${HUB_CLUSTER}" wait --for=condition=ready --timeout=120s pod -l app.kubernetes.io/name=argocd-server -n argocd
 
+# 4b. Apply Enterprise AppProjects
+echo -e "\n${YELLOW}[4b/6] Creating Enterprise AppProjects on ${HUB_CLUSTER}...${NC}"
+kubectl --context "k3d-${HUB_CLUSTER}" apply -f "${REPO_ROOT}/projects/" --validate=false
+
 # 5. Register Spokes into Hub Argo CD
 echo -e "\n${YELLOW}[5/6] Registering spokes into Hub Argo CD...${NC}"
 bash "${SCRIPT_DIR}/register-spokes.sh"
