@@ -12,6 +12,10 @@ server:
 configs:
   params:
     server.insecure: true
+  secret:
+    # Predefined lab admin credentials: admin / admin123
+    argocdServerAdminPassword: "$2a$10$AMG7vuA2rrnzxNB1bsA0KOHHHYEHa9sG31PHaAf3mkNHLoKzWMHWO"
+    argocdServerAdminPasswordMtime: "2026-09-29T16:00:00Z"
   cm:
     url: http://localhost:8080
     resource.customizations: |

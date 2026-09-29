@@ -93,7 +93,7 @@ Run the automated setup to create the Docker network, Moto cloud, 3 k3d clusters
 make setup
 ```
 
-Access Hub Argo CD at **http://localhost:8080** (Username: `admin`, Password retrieved via `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d`).
+Access Hub Argo CD at **http://localhost:8080** (Username: `admin`, Password: `admin123`).
 
 ### 2. Push Repositories to GitHub
 Make sure your 3 GitHub repositories are created under `https://github.com/brunobml`:

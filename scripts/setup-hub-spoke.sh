@@ -94,7 +94,9 @@ for ctx in "k3d-${SPOKE_NONPROD}" "k3d-${SPOKE_PROD}"; do
     --create-namespace
 done
 
-ADMIN_PASS=$(kubectl --context "k3d-${HUB_CLUSTER}" -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d 2>/dev/null || echo "admin")
+# Clean up temporary initial-admin-secret if present, using predefined lab credentials
+kubectl --context "k3d-${HUB_CLUSTER}" -n argocd delete secret argocd-initial-admin-secret 2>/dev/null || true
+ADMIN_PASS="admin123"
 
 echo -e "\n${GREEN}============================================================${NC}"
 echo -e "${GREEN}  Hub-and-Spoke Environment Ready!                         ${NC}"

@@ -79,7 +79,7 @@ The GitOps platform uses folder names to make decisions:
 ### Step 1: Open Your Dashboards
 - **Hub Argo CD UI**: [http://localhost:8080](http://localhost:8080)
   - Username: `admin`
-  - Password: Run `kubectl --context k3d-hub-cluster -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d`
+  - Password: `admin123`
   - Here you will see all your tenant applications: `tenant-a-dev`, `tenant-a-test`, `tenant-a-prod`.
 - **Central Moto Cloud API**: [http://localhost:5000/moto-api/](http://localhost:5000/moto-api/)
 

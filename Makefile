@@ -28,9 +28,9 @@ open-prod:
 	@kubectl --context k3d-spoke-prod -n tenant-a-prod port-forward svc/orders-prod 8003:80
 
 password:
-	@echo -n "Argo CD Admin Password: "
-	@kubectl --context k3d-hub-cluster -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
-	@echo ""
+	@echo "Argo CD Admin Credentials:"
+	@echo "  Username: admin"
+	@echo "  Password: admin123"
 
 push:
 	@bash scripts/push-all.sh
