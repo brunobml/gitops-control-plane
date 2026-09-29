@@ -1,31 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: tenant-workloads
+  name: tenant-workloads-nonprod
   namespace: argocd
 spec:
   generators:
-    # Non-Production workloads (dev & test) route to spoke-nonprod
     - git:
         repoURL: https://github.com/brunobml/tenant-workloads.git
         revision: main
         directories:
           - path: tenants/*/dev
           - path: tenants/*/test
-      values:
-        targetCluster: "https://k3d-spoke-nonprod-server-0:6443"
-
-    # Production workloads (prod) route to spoke-prod
-    - git:
-        repoURL: https://github.com/brunobml/tenant-workloads.git
-        revision: main
-        directories:
-          - path: tenants/*/prod
-      values:
-        targetCluster: "https://k3d-spoke-prod-server-0:6443"
   template:
     metadata:
-      name: "{{path.segments[1]}}-{{path.segments[2]}}"
+      name: "{{path[1]}}-{{path[2]}}"
     spec:
       project: default
       source:
@@ -33,8 +21,8 @@ spec:
         targetRevision: main
         path: "{{path}}"
       destination:
-        server: "{{values.targetCluster}}"
-        namespace: "{{path.segments[1]}}-{{path.segments[2]}}"
+        name: spoke-nonprod
+        namespace: "{{path[1]}}-{{path[2]}}"
       syncPolicy:
         automated:
           prune: true

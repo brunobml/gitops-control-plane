@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: tenant-workloads-prod
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/brunobml/tenant-workloads.git
+        revision: main
+        directories:
+          - path: tenants/*/prod
+  template:
+    metadata:
+      name: "{{path[1]}}-{{path[2]}}"
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/brunobml/tenant-workloads.git
+        targetRevision: main
+        path: "{{path}}"
+      destination:
+        name: spoke-prod
+        namespace: "{{path[1]}}-{{path[2]}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
