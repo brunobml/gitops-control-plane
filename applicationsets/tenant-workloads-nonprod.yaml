@@ -14,8 +14,15 @@ spec:
   template:
     metadata:
       name: "{{path[1]}}-{{path[2]}}"
+      annotations:
+        link.argocd.argoproj.io/external-link: "http://orders-{{path[2]}}.localhost:8081"
     spec:
       project: tenant-workloads
+      info:
+        - name: "Live Orders Dashboard"
+          value: "http://orders-{{path[2]}}.localhost:8081"
+        - name: "Central Moto Cloud"
+          value: "http://localhost:5000/moto-api/"
       source:
         repoURL: https://github.com/brunobml/tenant-workloads.git
         targetRevision: main
