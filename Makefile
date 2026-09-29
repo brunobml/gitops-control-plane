@@ -1,4 +1,4 @@
-.PHONY: all setup push test bootstrap teardown status password help
+.PHONY: all setup push test bootstrap teardown status password open-dev open-test open-prod help
 
 all: help
 
@@ -8,9 +8,24 @@ help:
 	@echo "  make push       - Push all 3 repositories to GitHub (origin main)"
 	@echo "  make bootstrap  - Apply root-control-plane Argo CD application to Hub"
 	@echo "  make password   - Print Argo CD web UI admin password"
+	@echo "  make open-dev   - Port-forward Tenant-A DEV web dashboard to http://localhost:8001"
+	@echo "  make open-test  - Port-forward Tenant-A TEST web dashboard to http://localhost:8002"
+	@echo "  make open-prod  - Port-forward Tenant-A PROD web dashboard to http://localhost:8003"
 	@echo "  make test       - Run end-to-end smoke tests across Hub, Spokes, and Moto Cloud"
 	@echo "  make status     - Inspect cluster statuses, pods, and AWS SQS queues"
 	@echo "  make teardown   - Destroy all k3d clusters, Moto container, and network"
+
+open-dev:
+	@echo "🌐 Exposing Tenant-A DEV Orders Dashboard on http://localhost:8001..."
+	@kubectl --context k3d-spoke-nonprod -n tenant-a-dev port-forward svc/orders-dev 8001:80
+
+open-test:
+	@echo "🌐 Exposing Tenant-A TEST Orders Dashboard on http://localhost:8002..."
+	@kubectl --context k3d-spoke-nonprod -n tenant-a-test port-forward svc/orders-test 8002:80
+
+open-prod:
+	@echo "🌐 Exposing Tenant-A PROD Orders Dashboard on http://localhost:8003..."
+	@kubectl --context k3d-spoke-prod -n tenant-a-prod port-forward svc/orders-prod 8003:80
 
 password:
 	@echo -n "Argo CD Admin Password: "
