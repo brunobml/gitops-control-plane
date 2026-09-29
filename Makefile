@@ -1,4 +1,4 @@
-.PHONY: all setup push test bootstrap teardown status help
+.PHONY: all setup push test bootstrap teardown status password help
 
 all: help
 
@@ -7,9 +7,15 @@ help:
 	@echo "  make setup      - Provision Moto, k3d clusters (hub, spoke-nonprod, spoke-prod), Argo CD, Kro & ACK"
 	@echo "  make push       - Push all 3 repositories to GitHub (origin main)"
 	@echo "  make bootstrap  - Apply root-control-plane Argo CD application to Hub"
+	@echo "  make password   - Print Argo CD web UI admin password"
 	@echo "  make test       - Run end-to-end smoke tests across Hub, Spokes, and Moto Cloud"
 	@echo "  make status     - Inspect cluster statuses, pods, and AWS SQS queues"
 	@echo "  make teardown   - Destroy all k3d clusters, Moto container, and network"
+
+password:
+	@echo -n "Argo CD Admin Password: "
+	@kubectl --context k3d-hub-cluster -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+	@echo ""
 
 push:
 	@bash scripts/push-all.sh
