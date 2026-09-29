@@ -131,15 +131,39 @@ kubectl --context k3d-spoke-nonprod -n tenant-a-test get pods
 kubectl --context k3d-spoke-prod -n tenant-a-prod get pods
 ```
 
-#### Check Pod Logs (Connecting to AWS SQS):
+#### Check Pod Logs (Real-Time SQS Message Processing):
 ```bash
-kubectl --context k3d-spoke-nonprod -n tenant-a-dev logs -l app=orders-dev-worker --tail=5
+kubectl --context k3d-spoke-nonprod -n tenant-a-dev logs -l app=orders-dev-worker --tail=10
 ```
 Output:
 ```text
-Worker started for Queue: http://moto-cloud:5000/123456789012/orders-dev-queue
-Worker active and polling from http://moto-cloud:5000/123456789012/orders-dev-queue
+🚀 Worker started for [dev] listening on http://moto-cloud:5000/123456789012/orders-dev-queue
+🌐 HTTP Web Dashboard listening on port 8080
+📦 [dev] Received Order from SQS: {"orderId": "ORD-999", "item": "Laptop"} (MsgId: f47add7a...)
+✔ [dev] Processed and deleted order f47add7a... from queue
 ```
+
+---
+
+### Step 3b: Access the Interactive Microservice Web Dashboard
+
+Every `MessageProcessor` automatically includes an internal Kubernetes `Service` and web interface!
+
+To view your microservice in your web browser:
+
+```bash
+# In gitops-control-plane:
+make open-dev
+
+# Or directly with kubectl:
+kubectl --context k3d-spoke-nonprod -n tenant-a-dev port-forward svc/orders-dev 8001:80
+```
+
+Open your browser at **http://localhost:8001**:
+- See live pod hostname and connected SQS queue.
+- See real-time count of processed orders.
+- Type in an order and click **"Send to SQS Queue"** to test producing and consuming live!
+- See the recent order history feed.
 
 ---
 
