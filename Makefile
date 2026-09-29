@@ -1,14 +1,18 @@
-.PHONY: all setup test bootstrap teardown status help
+.PHONY: all setup push test bootstrap teardown status help
 
 all: help
 
 help:
 	@echo "Multi-Cluster Hub-and-Spoke Lab Commands:"
 	@echo "  make setup      - Provision Moto, k3d clusters (hub, spoke-nonprod, spoke-prod), Argo CD, Kro & ACK"
+	@echo "  make push       - Push all 3 repositories to GitHub (origin main)"
 	@echo "  make bootstrap  - Apply root-control-plane Argo CD application to Hub"
 	@echo "  make test       - Run end-to-end smoke tests across Hub, Spokes, and Moto Cloud"
 	@echo "  make status     - Inspect cluster statuses, pods, and AWS SQS queues"
 	@echo "  make teardown   - Destroy all k3d clusters, Moto container, and network"
+
+push:
+	@bash scripts/push-all.sh
 
 setup:
 	@bash scripts/setup-hub-spoke.sh
