@@ -51,14 +51,14 @@ if ! k3d cluster list | grep -q "${SPOKE_NONPROD}"; then
   k3d cluster create "${SPOKE_NONPROD}" \
     --network "${NETWORK_NAME}" \
     --servers 1 --agents 1 \
-    --k3s-arg "--disable=traefik@server:*"
+    --port "8081:80@loadbalancer"
 fi
 
 if ! k3d cluster list | grep -q "${SPOKE_PROD}"; then
   k3d cluster create "${SPOKE_PROD}" \
     --network "${NETWORK_NAME}" \
     --servers 1 --agents 1 \
-    --k3s-arg "--disable=traefik@server:*"
+    --port "8082:80@loadbalancer"
 fi
 
 # 4. Install Argo CD on Hub
@@ -101,5 +101,8 @@ echo -e "${GREEN}  Hub-and-Spoke Environment Ready!                         ${NC
 echo -e "${GREEN}============================================================${NC}"
 echo -e "  Hub Argo CD UI:     http://localhost:8080 (admin / ${ADMIN_PASS})"
 echo -e "  Central Moto Cloud: http://localhost:5000/moto-api/"
-echo -e "  Spoke Non-Prod:     k3d-spoke-nonprod (DEV & TEST target)"
-echo -e "  Spoke Prod:         k3d-spoke-prod    (PROD target)"
+echo -e "  Spoke Non-Prod:     k3d-spoke-nonprod (Traefik Ingress on port 8081)"
+echo -e "    - Dev Orders:     http://orders-dev.localhost:8081"
+echo -e "    - Test Orders:    http://orders-test.localhost:8081"
+echo -e "  Spoke Prod:         k3d-spoke-prod    (Traefik Ingress on port 8082)"
+echo -e "    - Prod Orders:    http://orders-prod.localhost:8082"
