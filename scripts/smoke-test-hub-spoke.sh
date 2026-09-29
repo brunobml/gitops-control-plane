@@ -64,10 +64,22 @@ echo -e "${GREEN}✔ ACK SQS controller is ready on spoke-prod${NC}"
 kubectl --context k3d-spoke-prod -n kro wait --for=condition=ready --timeout=30s pod -l app.kubernetes.io/name=kro >/dev/null
 echo -e "${GREEN}✔ Kro controller is ready on spoke-prod${NC}"
 
-# 5. GitOps Workloads & AWS Queues (if deployed)
+# 5. GitOps Workloads & AWS Queues
 echo -e "\n${YELLOW}[5/5] Checking Workloads & SQS Queues...${NC}"
 echo "Current SQS queues in Central Moto Cloud:"
-aws --endpoint-url=http://localhost:5000 sqs list-queues --output table 2>/dev/null || echo "  (No queues created yet or aws cli not present)"
+AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs list-queues --output table 2>/dev/null || echo "  (No queues created yet or aws cli not present)"
+
+DEV_PODS=$(kubectl --context k3d-spoke-nonprod -n tenant-a-dev get pods --no-headers 2>/dev/null | grep -c "Running" || echo "0")
+TEST_PODS=$(kubectl --context k3d-spoke-nonprod -n tenant-a-test get pods --no-headers 2>/dev/null | grep -c "Running" || echo "0")
+PROD_PODS=$(kubectl --context k3d-spoke-prod -n tenant-a-prod get pods --no-headers 2>/dev/null | grep -c "Running" || echo "0")
+
+echo -e "  tenant-a-dev pods on spoke-nonprod:  ${DEV_PODS} (expected: 1)"
+echo -e "  tenant-a-test pods on spoke-nonprod: ${TEST_PODS} (expected: 2)"
+echo -e "  tenant-a-prod pods on spoke-prod:    ${PROD_PODS} (expected: 5)"
+
+if [[ "$DEV_PODS" -ge 1 && "$TEST_PODS" -ge 2 && "$PROD_PODS" -ge 5 ]]; then
+  echo -e "${GREEN}✔ All tenant workloads running across non-prod and prod spokes!${NC}"
+fi
 
 echo -e "\n${GREEN}============================================================${NC}"
 echo -e "${GREEN}  All Core Smoke Tests Passed!                             ${NC}"

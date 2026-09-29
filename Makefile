@@ -35,7 +35,7 @@ status:
 	@kubectl --context k3d-spoke-prod get pods -A -l 'app.kubernetes.io/name in (sqs-chart,kro,orders-service)' 2>/dev/null || true
 	@echo ""
 	@echo "=== CENTRAL MOTO CLOUD SQS QUEUES ==="
-	@aws --endpoint-url=http://localhost:5000 sqs list-queues --output table 2>/dev/null || echo "No queues found."
+	@AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs list-queues --output table 2>/dev/null || echo "No queues found."
 
 teardown:
 	@bash scripts/teardown-hub-spoke.sh
