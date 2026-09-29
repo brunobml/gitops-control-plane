@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: kro-blueprints
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchExpressions:
+            - key: environment
+              operator: In
+              values:
+                - nonprod
+                - prod
+  template:
+    metadata:
+      name: "kro-blueprints-{{name}}"
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/brunobml/platform-catalog.git
+        targetRevision: main
+        path: blueprints
+      destination:
+        server: "{{server}}"
+        namespace: default
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

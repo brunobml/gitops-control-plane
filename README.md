@@ -1,0 +1,148 @@
+# GitOps Control Plane (Hub Cluster)
+
+This repository serves as the central GitOps control plane for a multi-cluster **Hub-and-Spoke** architecture using **Argo CD**, **Kro (K8s Resource Orchestrator)**, and **AWS Controllers for Kubernetes (ACK)** against a local centralized mock AWS cloud (**Moto**).
+
+---
+
+## 🏛 Architecture Overview
+
+```mermaid
+flowchart TD
+    subgraph Repos["GitHub Repositories (github.com/brunobml)"]
+        GCP["gitops-control-plane<br/>(Root Apps & AppSets)"]
+        PC["platform-catalog<br/>(Kro Blueprints & ACK Configs)"]
+        TW["tenant-workloads<br/>(Tenant-A Dev, Test, Prod Specs)"]
+    end
+
+    subgraph Hub["Hub Cluster (k3d-hub-cluster)"]
+        ArgoCD["Argo CD Control Plane<br/>Web UI: http://localhost:8080"]
+        AppSetBlueprints["ApplicationSet: kro-blueprints"]
+        AppSetTenants["ApplicationSet: tenant-workloads"]
+    end
+
+    subgraph SpokeNonProd["Spoke Non-Production (k3d-spoke-nonprod)"]
+        KroNP["Kro Controller"]
+        AckNP["ACK SQS Controller"]
+        Dev["tenant-a-dev<br/>(1 replica, dev-queue)"]
+        Test["tenant-a-test<br/>(2 replicas, test-queue)"]
+    end
+
+    subgraph SpokeProd["Spoke Production (k3d-spoke-prod)"]
+        KroP["Kro Controller"]
+        AckP["ACK SQS Controller"]
+        Prod["tenant-a-prod<br/>(5 replicas, prod-queue)"]
+    end
+
+    subgraph Cloud["Central Mock Cloud (Docker)"]
+        Moto["moto-cloud:5000<br/>Mock AWS SQS Service"]
+    end
+
+    GCP --> ArgoCD
+    ArgoCD --> AppSetBlueprints
+    ArgoCD --> AppSetTenants
+    PC --> AppSetBlueprints
+    TW --> AppSetTenants
+
+    AppSetBlueprints -->|Distributes Blueprints| KroNP
+    AppSetBlueprints -->|Distributes Blueprints| KroP
+
+    AppSetTenants -->|Deploys Dev & Test| SpokeNonProd
+    AppSetTenants -->|Deploys Prod| SpokeProd
+
+    AckNP -->|Creates SQS Queues| Moto
+    AckP -->|Creates SQS Queues| Moto
+```
+
+---
+
+## 📂 Repository Structure
+
+```
+├── applicationsets/
+│   ├── kro-blueprints.yaml     # Distributes ResourceGraphDefinitions to all spoke clusters
+│   └── tenant-workloads.yaml   # Dynamically routes tenant environments:
+│                               #   - dev & test -> k3d-spoke-nonprod
+│                               #   - prod       -> k3d-spoke-prod
+├── bootstrap/
+│   └── root-app.yaml           # App-of-Apps root application for Hub Argo CD
+├── clusters/
+│   └── values-argocd-hub.yaml  # Argo CD Helm values with Lua health checks for Kro & ACK
+├── scripts/
+│   ├── setup-hub-spoke.sh      # Provisions Moto, k3d clusters, Argo CD, Kro & ACK
+│   ├── register-spokes.sh      # Creates tokens and registers spokes in Hub Argo CD
+│   ├── smoke-test-hub-spoke.sh # Verifies connectivity, controllers, and queues
+│   └── teardown-hub-spoke.sh   # Cleans up clusters, containers, and network
+├── Makefile                    # Developer workflow automation
+└── README.md
+```
+
+---
+
+## 🚀 Quick Start Guide
+
+### 1. Provision Multi-Cluster Environment
+Run the automated setup to create the Docker network, Moto cloud, 3 k3d clusters, install Argo CD, register the spokes, and install the Kro and ACK controllers:
+
+```bash
+make setup
+```
+
+Access Hub Argo CD at **http://localhost:8080** (Username: `admin`, Password retrieved via `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d`).
+
+### 2. Push Repositories to GitHub
+Make sure your 3 GitHub repositories are created under `https://github.com/brunobml`:
+- `gitops-control-plane`
+- `platform-catalog`
+- `tenant-workloads`
+
+Push each local repository to GitHub:
+
+```bash
+# Push gitops-control-plane
+cd /home/bleite/repos/gitops-control-plane
+git push -u origin main
+
+# Push platform-catalog
+cd /home/bleite/repos/platform-catalog
+git push -u origin main
+
+# Push tenant-workloads
+cd /home/bleite/repos/tenant-workloads
+git push -u origin main
+```
+
+### 3. Bootstrap the Control Plane
+Deploy the root application onto the Hub cluster:
+
+```bash
+cd /home/bleite/repos/gitops-control-plane
+make bootstrap
+```
+
+Argo CD will automatically discover the ApplicationSets and synchronize:
+1. `kro-blueprints` to `spoke-nonprod` and `spoke-prod`.
+2. `tenant-a-dev` and `tenant-a-test` workloads to `spoke-nonprod`.
+3. `tenant-a-prod` workloads to `spoke-prod`.
+
+### 4. Verify & Test
+Run the end-to-end smoke test suite:
+
+```bash
+make test
+```
+
+Check resource statuses across all clusters and Moto SQS queues:
+
+```bash
+make status
+```
+
+---
+
+## 🧹 Teardown
+
+To completely clean up all clusters, mock cloud containers, and networks:
+
+```bash
+make teardown
+```
