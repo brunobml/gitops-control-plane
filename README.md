@@ -72,7 +72,8 @@ flowchart TD
 │   └── tenant-workloads.yaml         # Multi-tenant workload isolation and cluster guardrails
 ├── docs/
 │   ├── developer-tutorial.md         # Comprehensive developer onboarding guide
-│   └── production-promotion-guardrails.md # Enterprise production promotion patterns & guardrails
+│   ├── production-promotion-guardrails.md # Enterprise production promotion patterns & guardrails
+│   └── argocd-visual-design-and-naming-standards.md # UI/UX design standards, labels, deep links & naming conventions
 ├── scripts/
 │   ├── setup-hub-spoke.sh            # Provisions Moto, k3d clusters, Argo CD, Kro & ACK
 │   ├── register-spokes.sh            # Creates tokens and registers spokes in Hub Argo CD
