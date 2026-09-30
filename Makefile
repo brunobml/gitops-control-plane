@@ -20,7 +20,7 @@ TAG ?= v1.0.0
 
 build-app:
 	@echo "🔨 Building & pushing orders-processor:$(TAG)..."
-	@bash /home/bleite/repos/tenant-workloads/apps/orders-processor/build-and-push.sh $(TAG)
+	@bash /home/bleite/repos/orders-processor/build-and-push.sh $(TAG)
 
 open-dev:
 	@echo "🌐 Exposing Tenant-A DEV Orders Dashboard on http://localhost:8001..."

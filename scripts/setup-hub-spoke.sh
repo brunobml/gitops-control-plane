@@ -44,8 +44,8 @@ fi
 
 # 2c. Build and publish initial app container image
 echo -e "\n${YELLOW}[2c/6] Building & pushing orders-processor container image...${NC}"
-if [ -f "${REPOS_DIR}/tenant-workloads/apps/orders-processor/build-and-push.sh" ]; then
-  bash "${REPOS_DIR}/tenant-workloads/apps/orders-processor/build-and-push.sh" v1.0.0
+if [ -f "${REPOS_DIR}/orders-processor/build-and-push.sh" ]; then
+  bash "${REPOS_DIR}/orders-processor/build-and-push.sh" v1.0.0
 fi
 
 # 3. Create k3d Clusters
