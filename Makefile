@@ -23,16 +23,16 @@ build-app:
 	@bash /home/bleite/repos/orders-processor/build-and-push.sh $(TAG)
 
 open-dev:
-	@echo "🌐 Exposing Tenant-A DEV Orders Dashboard on http://localhost:8001..."
-	@kubectl --context k3d-spoke-nonprod -n tenant-a-dev port-forward svc/orders-dev 8001:80
+	@echo "🌐 Exposing DEV Orders Dashboard on http://localhost:8001..."
+	@kubectl --context k3d-spoke-nonprod -n orders-dev port-forward svc/orders-dev 8001:80
 
 open-test:
-	@echo "🌐 Exposing Tenant-A TEST Orders Dashboard on http://localhost:8002..."
-	@kubectl --context k3d-spoke-nonprod -n tenant-a-test port-forward svc/orders-test 8002:80
+	@echo "🌐 Exposing TEST Orders Dashboard on http://localhost:8002..."
+	@kubectl --context k3d-spoke-nonprod -n orders-test port-forward svc/orders-test 8002:80
 
 open-prod:
-	@echo "🌐 Exposing Tenant-A PROD Orders Dashboard on http://localhost:8003..."
-	@kubectl --context k3d-spoke-prod -n tenant-a-prod port-forward svc/orders-prod 8003:80
+	@echo "🌐 Exposing PROD Orders Dashboard on http://localhost:8003..."
+	@kubectl --context k3d-spoke-prod -n orders-prod port-forward svc/orders-prod 8003:80
 
 password:
 	@echo "Argo CD Admin Credentials:"

@@ -13,14 +13,35 @@ spec:
             port: "8082"
   template:
     metadata:
-      name: "{{tenant}}-{{env}}"
+      name: "{{app}}-{{env}}"
+      labels:
+        app.kubernetes.io/name: "{{app}}"
+        app: "{{app}}"
+        environment: "{{env}}"
+        team: "e-commerce"
+        tier: "backend"
+        framework: "kro-ack"
       annotations:
         link.argocd.argoproj.io/external-link: "http://orders-{{env}}.localhost:{{port}}"
+        link.argocd.argoproj.io/dashboard: "http://orders-{{env}}.localhost:{{port}}"
+        link.argocd.argoproj.io/source-code: "https://github.com/brunobml/orders-processor"
+        link.argocd.argoproj.io/platform-chart: "https://github.com/brunobml/platform-charts"
+        description: "Orders processing microservice with AWS SQS & DynamoDB via Kro"
     spec:
       project: tenant-workloads
       info:
-        - name: "Live Orders Dashboard"
+        - name: "Application"
+          value: "Orders Processor"
+        - name: "Environment"
+          value: "{{env}}"
+        - name: "Team"
+          value: "E-Commerce Squad"
+        - name: "Live Dashboard"
           value: "http://orders-{{env}}.localhost:{{port}}"
+        - name: "Source Code"
+          value: "https://github.com/brunobml/orders-processor"
+        - name: "Platform Golden Chart"
+          value: "ghcr.io/brunobml/charts/message-processor:1.0.0"
         - name: "Central Moto Cloud"
           value: "http://localhost:5000/moto-api/"
       sources:
@@ -35,7 +56,7 @@ spec:
           ref: values
       destination:
         name: spoke-prod
-        namespace: "{{tenant}}-{{env}}"
+        namespace: "{{app}}-{{env}}"
       syncPolicy:
         automated:
           prune: true

@@ -69,16 +69,16 @@ echo -e "\n${YELLOW}[5/5] Checking Workloads & SQS Queues...${NC}"
 echo "Current SQS queues in Central Moto Cloud:"
 AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs list-queues --output table 2>/dev/null || echo "  (No queues created yet or aws cli not present)"
 
-DEV_PODS=$(kubectl --context k3d-spoke-nonprod -n tenant-a-dev get pods --no-headers 2>/dev/null | grep -c "Running" || echo "0")
-TEST_PODS=$(kubectl --context k3d-spoke-nonprod -n tenant-a-test get pods --no-headers 2>/dev/null | grep -c "Running" || echo "0")
-PROD_PODS=$(kubectl --context k3d-spoke-prod -n tenant-a-prod get pods --no-headers 2>/dev/null | grep -c "Running" || echo "0")
+DEV_PODS=$(kubectl --context k3d-spoke-nonprod -n orders-dev get pods --no-headers 2>/dev/null | grep -c "Running" || echo "0")
+TEST_PODS=$(kubectl --context k3d-spoke-nonprod -n orders-test get pods --no-headers 2>/dev/null | grep -c "Running" || echo "0")
+PROD_PODS=$(kubectl --context k3d-spoke-prod -n orders-prod get pods --no-headers 2>/dev/null | grep -c "Running" || echo "0")
 
-echo -e "  tenant-a-dev pods on spoke-nonprod:  ${DEV_PODS} (expected: 1)"
-echo -e "  tenant-a-test pods on spoke-nonprod: ${TEST_PODS} (expected: 1)"
-echo -e "  tenant-a-prod pods on spoke-prod:    ${PROD_PODS} (expected: 2)"
+echo -e "  orders-dev pods on spoke-nonprod:  ${DEV_PODS} (expected: 1)"
+echo -e "  orders-test pods on spoke-nonprod: ${TEST_PODS} (expected: 1)"
+echo -e "  orders-prod pods on spoke-prod:    ${PROD_PODS} (expected: 2)"
 
 if [[ "$DEV_PODS" -ge 1 && "$TEST_PODS" -ge 1 && "$PROD_PODS" -ge 2 ]]; then
-  echo -e "${GREEN}✔ All tenant workloads running across non-prod and prod spokes!${NC}"
+  echo -e "${GREEN}✔ All orders workloads running across non-prod and prod spokes!${NC}"
 fi
 
 echo -e "\n${GREEN}============================================================${NC}"
