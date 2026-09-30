@@ -83,7 +83,8 @@ flowchart TD
 │   ├── developer-tutorial.md         # Comprehensive developer onboarding guide
 │   ├── production-promotion-guardrails.md # Enterprise production promotion patterns & guardrails
 │   ├── argocd-visual-design-and-naming-standards.md # UI/UX design standards, labels, deep links & naming conventions
-│   └── aws-well-architected-production-guide.md # 6-Pillar AWS Well-Architected audit & production transition blueprint
+│   ├── aws-well-architected-production-guide.md # 6-Pillar AWS Well-Architected audit & production transition blueprint
+│   └── lab-progression-and-next-steps.md # Advanced enterprise roadmap (KEDA, Rollouts, Kyverno, Chaos, Telemetry)
 ├── scripts/
 │   ├── setup-hub-spoke.sh            # Provisions Moto, k3d clusters, Traefik, Argo CD, Kro & ACK
 │   ├── register-spokes.sh            # Creates tokens and registers spokes in Hub Argo CD
