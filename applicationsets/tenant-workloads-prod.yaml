@@ -41,11 +41,11 @@ spec:
         - name: "Source Code"
           value: "https://github.com/brunobml/orders-processor"
         - name: "Platform Golden Chart"
-          value: "ghcr.io/brunobml/charts/message-processor:1.0.0"
+          value: "ghcr.io/brunobml/charts/queue-backed-service:1.0.0"
         - name: "Central Moto Cloud"
           value: "http://localhost:5000/moto-api/"
       sources:
-        - chart: message-processor
+        - chart: queue-backed-service
           repoURL: ghcr.io/brunobml/charts
           targetRevision: 1.0.0
           helm:
