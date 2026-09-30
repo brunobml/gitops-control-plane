@@ -71,7 +71,8 @@ flowchart TD
 │   ├── platform-catalog.yaml         # Platform engineering blueprint distribution
 │   └── tenant-workloads.yaml         # Multi-tenant workload isolation and cluster guardrails
 ├── docs/
-│   └── developer-tutorial.md         # Comprehensive developer onboarding guide
+│   ├── developer-tutorial.md         # Comprehensive developer onboarding guide
+│   └── production-promotion-guardrails.md # Enterprise production promotion patterns & guardrails
 ├── scripts/
 │   ├── setup-hub-spoke.sh            # Provisions Moto, k3d clusters, Argo CD, Kro & ACK
 │   ├── register-spokes.sh            # Creates tokens and registers spokes in Hub Argo CD
