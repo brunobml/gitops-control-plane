@@ -5,30 +5,37 @@ metadata:
   namespace: argocd
 spec:
   generators:
-    - git:
-        repoURL: https://github.com/brunobml/tenant-workloads.git
-        revision: main
-        directories:
-          - path: tenants/*/prod
+    - list:
+        elements:
+          - app: orders
+            tenant: tenant-a
+            env: prod
+            port: "8082"
   template:
     metadata:
-      name: "{{path[1]}}-{{path[2]}}"
+      name: "{{tenant}}-{{env}}"
       annotations:
-        link.argocd.argoproj.io/external-link: "http://orders-{{path[2]}}.localhost:8082"
+        link.argocd.argoproj.io/external-link: "http://orders-{{env}}.localhost:{{port}}"
     spec:
       project: tenant-workloads
       info:
         - name: "Live Orders Dashboard"
-          value: "http://orders-{{path[2]}}.localhost:8082"
+          value: "http://orders-{{env}}.localhost:{{port}}"
         - name: "Central Moto Cloud"
           value: "http://localhost:5000/moto-api/"
-      source:
-        repoURL: https://github.com/brunobml/tenant-workloads.git
-        targetRevision: main
-        path: "{{path}}"
+      sources:
+        - chart: message-processor
+          repoURL: ghcr.io/brunobml/charts
+          targetRevision: 1.0.0
+          helm:
+            valueFiles:
+              - $values/deploy/values-{{env}}.yaml
+        - repoURL: https://github.com/brunobml/orders-processor.git
+          targetRevision: main
+          ref: values
       destination:
         name: spoke-prod
-        namespace: "{{path[1]}}-{{path[2]}}"
+        namespace: "{{tenant}}-{{env}}"
       syncPolicy:
         automated:
           prune: true

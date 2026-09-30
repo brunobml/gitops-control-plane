@@ -36,24 +36,11 @@ docker run -d --name moto-cloud \
   motoserver/moto:latest \
   -p5000 -H0.0.0.0
 
-# 2b. Ensure Local Container Registry is Running
-echo -e "\n${YELLOW}[2b/6] Starting Local Private OCI Registry (k3d-cloud-registry:5001)...${NC}"
-if ! k3d registry list | grep -q "cloud-registry"; then
-  k3d registry create cloud-registry --port 5001 --default-network "${NETWORK_NAME}"
-fi
-
-# 2c. Build and publish initial app container image
-echo -e "\n${YELLOW}[2c/6] Building & pushing orders-processor container image...${NC}"
-if [ -f "${REPOS_DIR}/orders-processor/build-and-push.sh" ]; then
-  bash "${REPOS_DIR}/orders-processor/build-and-push.sh" v1.0.0
-fi
-
 # 3. Create k3d Clusters
 echo -e "\n${YELLOW}[3/6] Creating k3d clusters (Hub, Spoke Non-Prod, Spoke Prod)...${NC}"
 if ! k3d cluster list | grep -q "${HUB_CLUSTER}"; then
   k3d cluster create "${HUB_CLUSTER}" \
     --network "${NETWORK_NAME}" \
-    --registry-use "k3d-cloud-registry:5001" \
     --servers 1 --agents 0 \
     --port "8080:80@loadbalancer" \
     --port "8443:443@loadbalancer" \
@@ -63,7 +50,6 @@ fi
 if ! k3d cluster list | grep -q "${SPOKE_NONPROD}"; then
   k3d cluster create "${SPOKE_NONPROD}" \
     --network "${NETWORK_NAME}" \
-    --registry-use "k3d-cloud-registry:5001" \
     --servers 1 --agents 1 \
     --port "8081:80@loadbalancer"
 fi
@@ -71,7 +57,6 @@ fi
 if ! k3d cluster list | grep -q "${SPOKE_PROD}"; then
   k3d cluster create "${SPOKE_PROD}" \
     --network "${NETWORK_NAME}" \
-    --registry-use "k3d-cloud-registry:5001" \
     --servers 1 --agents 1 \
     --port "8082:80@loadbalancer"
 fi

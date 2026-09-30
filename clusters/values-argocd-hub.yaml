@@ -12,6 +12,12 @@ server:
 configs:
   params:
     server.insecure: true
+  repositories:
+    ghcr-charts:
+      type: helm
+      name: ghcr-charts
+      url: ghcr.io/brunobml/charts
+      enableOCI: "true"
   secret:
     # Predefined lab admin credentials: admin / admin123
     argocdServerAdminPassword: "$2a$10$AMG7vuA2rrnzxNB1bsA0KOHHHYEHa9sG31PHaAf3mkNHLoKzWMHWO"

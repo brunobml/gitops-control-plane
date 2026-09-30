@@ -10,7 +10,7 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-REPOS=("gitops-control-plane" "platform-catalog" "tenant-workloads" "orders-processor")
+REPOS=("gitops-control-plane" "platform-catalog" "tenant-workloads" "orders-processor" "platform-charts")
 
 echo -e "${BLUE}============================================================${NC}"
 echo -e "${BLUE}  Pushing Hub-and-Spoke Repositories to GitHub             ${NC}"
