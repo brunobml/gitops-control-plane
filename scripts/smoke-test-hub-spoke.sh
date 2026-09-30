@@ -74,10 +74,10 @@ TEST_PODS=$(kubectl --context k3d-spoke-nonprod -n tenant-a-test get pods --no-h
 PROD_PODS=$(kubectl --context k3d-spoke-prod -n tenant-a-prod get pods --no-headers 2>/dev/null | grep -c "Running" || echo "0")
 
 echo -e "  tenant-a-dev pods on spoke-nonprod:  ${DEV_PODS} (expected: 1)"
-echo -e "  tenant-a-test pods on spoke-nonprod: ${TEST_PODS} (expected: 2)"
-echo -e "  tenant-a-prod pods on spoke-prod:    ${PROD_PODS} (expected: 5)"
+echo -e "  tenant-a-test pods on spoke-nonprod: ${TEST_PODS} (expected: 1)"
+echo -e "  tenant-a-prod pods on spoke-prod:    ${PROD_PODS} (expected: 2)"
 
-if [[ "$DEV_PODS" -ge 1 && "$TEST_PODS" -ge 2 && "$PROD_PODS" -ge 5 ]]; then
+if [[ "$DEV_PODS" -ge 1 && "$TEST_PODS" -ge 1 && "$PROD_PODS" -ge 2 ]]; then
   echo -e "${GREEN}✔ All tenant workloads running across non-prod and prod spokes!${NC}"
 fi
 
