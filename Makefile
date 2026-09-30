@@ -5,6 +5,7 @@ all: help
 help:
 	@echo "Multi-Cluster Hub-and-Spoke Lab Commands:"
 	@echo "  make setup      - Provision Moto, k3d clusters (hub, spoke-nonprod, spoke-prod), Argo CD, Kro & ACK"
+	@echo "  make build-app  - Build & push orders-processor container image to local registry (TAG=v1.0.0)"
 	@echo "  make push       - Push all 3 repositories to GitHub (origin main)"
 	@echo "  make bootstrap  - Apply root-control-plane Argo CD application to Hub"
 	@echo "  make password   - Print Argo CD web UI admin password"
@@ -14,6 +15,12 @@ help:
 	@echo "  make test       - Run end-to-end smoke tests across Hub, Spokes, and Moto Cloud"
 	@echo "  make status     - Inspect cluster statuses, pods, and AWS SQS queues"
 	@echo "  make teardown   - Destroy all k3d clusters, Moto container, and network"
+
+TAG ?= v1.0.0
+
+build-app:
+	@echo "🔨 Building & pushing orders-processor:$(TAG)..."
+	@bash /home/bleite/repos/tenant-workloads/apps/orders-processor/build-and-push.sh $(TAG)
 
 open-dev:
 	@echo "🌐 Exposing Tenant-A DEV Orders Dashboard on http://localhost:8001..."
