@@ -37,6 +37,9 @@ spec:
         ingress:
           enabled: true
           ingressClassName: traefik
+          annotations:
+            argocd.argoproj.io/ignore-default-links: "true"
+            link.argocd.argoproj.io/external-link: "http://headlamp.localhost:8080"
           hosts:
             - host: headlamp.localhost
               paths:
