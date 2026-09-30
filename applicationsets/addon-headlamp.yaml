@@ -26,6 +26,13 @@ spec:
           oidc:
             secret:
               create: false
+        probes:
+          livenessProbe:
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            initialDelaySeconds: 5
+            periodSeconds: 10
         volumeMounts:
           - name: kubeconfig
             mountPath: /home/headlamp/.kube/config

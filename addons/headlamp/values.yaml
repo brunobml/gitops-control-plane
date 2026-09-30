@@ -16,6 +16,15 @@ config:
     secret:
       create: false
 
+# Probe configuration to avoid startup connection refused warnings
+probes:
+  livenessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
 # Mount multi-cluster kubeconfig secret
 volumeMounts:
   - name: kubeconfig

@@ -131,7 +131,37 @@ spec:
           extraArgs:
             - "-kubeconfig=/home/headlamp/.kube/config"
             - "-insecure-ssl"
-...
+            - "-dev"
+          oidc:
+            secret:
+              create: false
+        probes:
+          livenessProbe:
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            initialDelaySeconds: 5
+            periodSeconds: 10
+        volumeMounts:
+          - name: kubeconfig
+            mountPath: /home/headlamp/.kube/config
+            subPath: config
+            readOnly: true
+        volumes:
+          - name: kubeconfig
+            secret:
+              secretName: headlamp-kubeconfig
+        ingress:
+          enabled: true
+          ingressClassName: traefik
+          annotations:
+            argocd.argoproj.io/ignore-default-links: "true"
+            link.argocd.argoproj.io/external-link: "http://headlamp.localhost:8080"
+          hosts:
+            - host: headlamp.localhost
+              paths:
+                - path: /
+                  type: Prefix
 ```
 
 ### 2. Multi-Cluster Credentials Secret
@@ -141,6 +171,27 @@ The script [`addons/headlamp/setup-credentials.sh`](file:///home/bleite/repos/gi
 3. Spoke Prod token from Argo CD cluster secret (`cluster-spoke-prod`).
 
 It packages them into a multi-context kubeconfig and stores it in the `headlamp-kubeconfig` secret inside the `headlamp` namespace.
+
+---
+
+## 🔍 Deep-Dive: Probes & Startup Behavior
+
+### Why was `Readiness probe failed: ... dial tcp ... connection refused` observed?
+When a container launches in Kubernetes, the `kubelet` initiates configured liveness and readiness probes against the container port (`:4466`).
+
+* **Root Cause**: By default, the upstream Helm chart sets `initialDelaySeconds: 0`. This instructs `kubelet` to probe `http://<pod-ip>:4466/` immediately at $t = 0$ seconds. Because the Go-based `headlamp-server` takes approximately 1–2 seconds to initialize its runtime, parse mounted kubeconfig contexts, register API proxy routes, and bind to the TCP socket, the initial probe packet at $t=0$ receives an immediate TCP `RST` (`connection refused`).
+* **Impact**: Kubernetes records a transient `Warning` event (`Readiness probe failed`). Because `failureThreshold` is set to 3, the pod does **not** fail or restart; once `headlamp-server` binds port 4466 (typically by second 2), the subsequent probe cycle at $t=10$ passes, and the pod transitions cleanly to `Ready 1/1`.
+* **Resolution**: Setting `initialDelaySeconds: 5` on both `readinessProbe` and `livenessProbe` gives `headlamp-server` adequate startup buffer, preventing any transient warning events from appearing in cluster logs or event feeds.
+
+---
+
+## 🌐 Deep-Dive: CORS & The `-dev` Flag
+
+When accessing Headlamp at `http://headlamp.localhost:8080`, the React client runs directly in the browser and dispatches asynchronous requests (`credentials: "include"`) to the backend `/config` and `/clusters/...` endpoints.
+
+* Without the `-dev` flag, `headlamp-server` enforces strict default origin checks, omitting `Access-Control-Allow-Origin` and `Access-Control-Allow-Credentials` headers on responses and serving `index.html` for HTTP `OPTIONS` preflight requests.
+* Modern browsers block the `/config` fetch under CORS security policies if these headers are missing. In the frontend bundle, when the cluster list is `null`, the UI displays an indefinite loading spinner (`yo` component) under the "All Clusters" tab.
+* Adding `-dev` to `extraArgs` instructs `headlamp-server` to allow cross-origin requests from the browser, respond to `OPTIONS` preflights with `200 OK`, and attach appropriate CORS headers.
 
 ---
 
@@ -154,4 +205,14 @@ kubectl --context k3d-hub-cluster -n headlamp rollout restart deployment headlam
 ```
 
 ### Accessing via Argo CD Deep Links
-Inside Argo CD (`http://localhost:8080`), you can click the **Headlamp Cluster Explorer** external link icon directly on any application card or resource view to jump straight to Headlamp.
+Inside Argo CD (`http://localhost:8080`), you can click the **Headlamp Cluster Explorer** external link icon directly on the `addon-headlamp` application card or resource views to jump straight to Headlamp.
+
+### Troubleshooting Quick Reference
+
+| Symptom | Cause | Solution |
+| :--- | :--- | :--- |
+| **Blue spinner under "All Clusters"** | Browser cached a failed `/config` or CORS preflight rejected | Ensure `-dev` is set in `extraArgs`, then hard-refresh browser (`Ctrl+Shift+R` or `Cmd+Shift+R`). |
+| **`Readiness probe failed: connect refused`** | Probe fired at $t=0$ before server bound to `:4466` | Set `initialDelaySeconds: 5` in `probes.readinessProbe` and `probes.livenessProbe`. |
+| **`Connect` button shown next to cluster** | Cluster has not yet been connected in current browser session | Click **Connect** (or click the cluster name directly); status will transition to `Active` and display the live Kubernetes version. |
+| **404 when accessing `headlamp.localhost:8080`** | Traefik ingress missing or host header not matching | Verify Traefik is running on Hub port 8080 and ingress host is `headlamp.localhost`. |
+
