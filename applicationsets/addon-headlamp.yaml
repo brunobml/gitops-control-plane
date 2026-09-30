@@ -1,0 +1,60 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: addon-headlamp
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: headlamp
+    app.kubernetes.io/part-of: platform-addons
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: control-plane
+  source:
+    repoURL: https://kubernetes-sigs.github.io/headlamp/
+    chart: headlamp
+    targetRevision: 0.45.0
+    helm:
+      releaseName: headlamp
+      valuesObject:
+        config:
+          inCluster: false
+          extraArgs:
+            - "-kubeconfig=/home/headlamp/.kube/config"
+            - "-insecure-ssl"
+          oidc:
+            secret:
+              create: false
+        volumeMounts:
+          - name: kubeconfig
+            mountPath: /home/headlamp/.kube/config
+            subPath: config
+            readOnly: true
+        volumes:
+          - name: kubeconfig
+            secret:
+              secretName: headlamp-kubeconfig
+        ingress:
+          enabled: true
+          ingressClassName: traefik
+          hosts:
+            - host: headlamp.localhost
+              paths:
+                - path: /
+                  type: Prefix
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: headlamp
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

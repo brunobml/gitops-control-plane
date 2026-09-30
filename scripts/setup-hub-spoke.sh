@@ -61,8 +61,17 @@ if ! k3d cluster list | grep -q "${SPOKE_PROD}"; then
     --port "8082:80@loadbalancer"
 fi
 
-# 4. Install Argo CD on Hub
-echo -e "\n${YELLOW}[4/6] Deploying Argo CD on ${HUB_CLUSTER}...${NC}"
+# 4. Install Traefik Ingress Controller on Hub
+echo -e "\n${YELLOW}[4/7] Deploying Traefik Ingress Controller on ${HUB_CLUSTER}...${NC}"
+helm repo add traefik https://traefik.github.io/charts 2>/dev/null || true
+helm repo update traefik
+helm --kube-context "k3d-${HUB_CLUSTER}" upgrade --install traefik traefik/traefik \
+  --namespace traefik \
+  --create-namespace
+kubectl --context "k3d-${HUB_CLUSTER}" wait --for=condition=ready --timeout=120s pod -l app.kubernetes.io/name=traefik -n traefik
+
+# 4b. Install Argo CD on Hub
+echo -e "\n${YELLOW}[4b/7] Deploying Argo CD on ${HUB_CLUSTER}...${NC}"
 helm repo add argo https://argoproj.github.io/argo-helm 2>/dev/null || true
 helm repo update argo
 helm --kube-context "k3d-${HUB_CLUSTER}" upgrade --install argo-cd argo/argo-cd \
@@ -71,16 +80,20 @@ helm --kube-context "k3d-${HUB_CLUSTER}" upgrade --install argo-cd argo/argo-cd 
   -f "${REPO_ROOT}/clusters/values-argocd-hub.yaml"
 kubectl --context "k3d-${HUB_CLUSTER}" wait --for=condition=ready --timeout=120s pod -l app.kubernetes.io/name=argocd-server -n argocd
 
-# 4b. Apply Enterprise AppProjects
-echo -e "\n${YELLOW}[4b/6] Creating Enterprise AppProjects on ${HUB_CLUSTER}...${NC}"
+# 4c. Apply Enterprise AppProjects
+echo -e "\n${YELLOW}[4c/7] Creating Enterprise AppProjects on ${HUB_CLUSTER}...${NC}"
 kubectl --context "k3d-${HUB_CLUSTER}" apply -f "${REPO_ROOT}/projects/" --validate=false
 
 # 5. Register Spokes into Hub Argo CD
-echo -e "\n${YELLOW}[5/6] Registering spokes into Hub Argo CD...${NC}"
+echo -e "\n${YELLOW}[5/7] Registering spokes into Hub Argo CD...${NC}"
 bash "${SCRIPT_DIR}/register-spokes.sh"
 
+# 5b. Configure Headlamp Multi-Cluster Credentials
+echo -e "\n${YELLOW}[5b/7] Configuring Headlamp Multi-Cluster Credentials on ${HUB_CLUSTER}...${NC}"
+bash "${REPO_ROOT}/addons/headlamp/setup-credentials.sh"
+
 # 6. Install Platform Controllers (Kro + ACK) on Spokes
-echo -e "\n${YELLOW}[6/6] Installing Kro & ACK on both spoke clusters...${NC}"
+echo -e "\n${YELLOW}[6/7] Installing Kro & ACK on both spoke clusters...${NC}"
 for ctx in "k3d-${SPOKE_NONPROD}" "k3d-${SPOKE_PROD}"; do
   kubectl --context "$ctx" apply -f "${REPOS_DIR}/platform-catalog/controllers/ack/credentials-secret.yaml"
   helm --kube-context "$ctx" upgrade --install ack-sqs-controller oci://public.ecr.aws/aws-controllers-k8s/sqs-chart \
@@ -101,7 +114,8 @@ ADMIN_PASS="admin123"
 echo -e "\n${GREEN}============================================================${NC}"
 echo -e "${GREEN}  Hub-and-Spoke Environment Ready!                         ${NC}"
 echo -e "${GREEN}============================================================${NC}"
-echo -e "  Hub Argo CD UI:     http://localhost:8080 (admin / ${ADMIN_PASS})"
+echo -e "  Hub Argo CD UI:     http://localhost:8080 (or http://argocd.localhost:8080, admin / ${ADMIN_PASS})"
+echo -e "  Hub Headlamp UI:    http://headlamp.localhost:8080 (Single Pane of Glass Dashboard)"
 echo -e "  Central Moto Cloud: http://localhost:5000/moto-api/"
 echo -e "  Spoke Non-Prod:     k3d-spoke-nonprod (Traefik Ingress on port 8081)"
 echo -e "    - Dev Orders:     http://orders-dev.localhost:8081"

@@ -1,0 +1,47 @@
+# Headlamp Values for Hub-and-Spoke GitOps Management Control Plane
+# Deployed on: k3d-hub-cluster
+# Access URL: http://headlamp.localhost:8080
+
+config:
+  # Multi-cluster setup via mounted kubeconfig containing all 3 clusters:
+  # - k3d-hub-cluster (in-cluster hub management)
+  # - k3d-spoke-nonprod (dev/test workload cluster)
+  # - k3d-spoke-prod (production workload cluster)
+  inCluster: false
+  extraArgs:
+    - "-kubeconfig=/home/headlamp/.kube/config"
+    - "-insecure-ssl"
+  oidc:
+    secret:
+      create: false
+
+# Mount multi-cluster kubeconfig secret
+volumeMounts:
+  - name: kubeconfig
+    mountPath: /home/headlamp/.kube/config
+    subPath: config
+    readOnly: true
+
+volumes:
+  - name: kubeconfig
+    secret:
+      secretName: headlamp-kubeconfig
+
+# Traefik Ingress configuration on Hub port 8080
+ingress:
+  enabled: true
+  ingressClassName: traefik
+  hosts:
+    - host: headlamp.localhost
+      paths:
+        - path: /
+          type: Prefix
+
+# Resource allocations aligned with Well-Architected Framework
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi

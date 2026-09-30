@@ -15,9 +15,12 @@ flowchart TD
     end
 
     subgraph Hub["Hub Cluster (k3d-hub-cluster)"]
+        Traefik["Traefik Ingress Router<br/>Port 8080"]
         ArgoCD["Argo CD Control Plane<br/>Web UI: http://localhost:8080"]
+        Headlamp["Headlamp Single Pane of Glass<br/>Web UI: http://headlamp.localhost:8080"]
         AppSetBlueprints["ApplicationSet: kro-blueprints"]
         AppSetTenants["ApplicationSet: tenant-workloads"]
+        AppAddons["Platform Addon: addon-headlamp"]
     end
 
     subgraph SpokeNonProd["Spoke Non-Production (k3d-spoke-nonprod)"]
@@ -58,7 +61,13 @@ flowchart TD
 ## 📂 Repository Structure
 
 ```
+├── addons/
+│   └── headlamp/                     # 🧭 Single Pane of Glass multi-cluster dashboard
+│       ├── README.md                 # Architecture, routing, and exploration guide
+│       ├── values.yaml               # Headlamp Helm values (Ingress, resources, mounts)
+│       └── setup-credentials.sh      # Assembles multi-cluster kubeconfig secret
 ├── applicationsets/
+│   ├── addon-headlamp.yaml           # Deploys Headlamp dashboard to Hub cluster (Project: control-plane)
 │   ├── kro-blueprints.yaml           # Distributes ResourceGraphDefinitions to all spoke clusters (Project: platform-catalog)
 │   ├── tenant-workloads-nonprod.yaml # Routes dev & test workloads to k3d-spoke-nonprod (Project: tenant-workloads)
 │   └── tenant-workloads-prod.yaml    # Routes prod workloads to k3d-spoke-prod (Project: tenant-workloads)
@@ -76,7 +85,7 @@ flowchart TD
 │   ├── argocd-visual-design-and-naming-standards.md # UI/UX design standards, labels, deep links & naming conventions
 │   └── aws-well-architected-production-guide.md # 6-Pillar AWS Well-Architected audit & production transition blueprint
 ├── scripts/
-│   ├── setup-hub-spoke.sh            # Provisions Moto, k3d clusters, Argo CD, Kro & ACK
+│   ├── setup-hub-spoke.sh            # Provisions Moto, k3d clusters, Traefik, Argo CD, Kro & ACK
 │   ├── register-spokes.sh            # Creates tokens and registers spokes in Hub Argo CD
 │   ├── smoke-test-hub-spoke.sh       # Verifies connectivity, controllers, and queues
 │   ├── push-all.sh                   # Pushes all 3 local repos to GitHub
@@ -90,13 +99,15 @@ flowchart TD
 ## 🚀 Quick Start Guide
 
 ### 1. Provision Multi-Cluster Environment
-Run the automated setup to create the Docker network, Moto cloud, 3 k3d clusters, install Argo CD, register the spokes, and install the Kro and ACK controllers:
+Run the automated setup to create the Docker network, Moto cloud, 3 k3d clusters, install Traefik, Argo CD, Headlamp, register the spokes, and install the Kro and ACK controllers:
 
 ```bash
 make setup
 ```
 
-Access Hub Argo CD at **http://localhost:8080** (Username: `admin`, Password: `admin123`).
+Access Web Dashboards on Port 8080:
+* **Argo CD UI (Desired State)**: [http://localhost:8080](http://localhost:8080) (or `http://argocd.localhost:8080`, Username: `admin`, Password: `admin123`)
+* **Headlamp UI (Runtime State)**: [http://headlamp.localhost:8080](http://headlamp.localhost:8080) (Single Pane of Glass across Hub, Non-Prod, and Prod clusters)
 
 ### 2. Push Repositories to GitHub
 Make sure your 3 GitHub repositories are created under `https://github.com/brunobml`:

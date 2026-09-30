@@ -1,26 +1,36 @@
-.PHONY: all setup push test bootstrap teardown status password open-dev open-test open-prod help
+.PHONY: all setup push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod help
 
 all: help
 
 help:
 	@echo "Multi-Cluster Hub-and-Spoke Lab Commands:"
-	@echo "  make setup      - Provision Moto, k3d clusters (hub, spoke-nonprod, spoke-prod), Argo CD, Kro & ACK"
-	@echo "  make build-app  - Build & push orders-processor container image to local registry (TAG=v1.0.0)"
-	@echo "  make push       - Push all 3 repositories to GitHub (origin main)"
-	@echo "  make bootstrap  - Apply root-control-plane Argo CD application to Hub"
-	@echo "  make password   - Print Argo CD web UI admin password"
-	@echo "  make open-dev   - Port-forward Tenant-A DEV web dashboard to http://localhost:8001"
-	@echo "  make open-test  - Port-forward Tenant-A TEST web dashboard to http://localhost:8002"
-	@echo "  make open-prod  - Port-forward Tenant-A PROD web dashboard to http://localhost:8003"
-	@echo "  make test       - Run end-to-end smoke tests across Hub, Spokes, and Moto Cloud"
-	@echo "  make status     - Inspect cluster statuses, pods, and AWS SQS queues"
-	@echo "  make teardown   - Destroy all k3d clusters, Moto container, and network"
+	@echo "  make setup         - Provision Moto, k3d clusters (hub, spoke-nonprod, spoke-prod), Traefik, Argo CD, Headlamp, Kro & ACK"
+	@echo "  make build-app     - Build & push orders-processor container image to local registry (TAG=v1.0.0)"
+	@echo "  make push          - Push all repositories to GitHub (origin main)"
+	@echo "  make bootstrap     - Apply root-control-plane Argo CD application to Hub"
+	@echo "  make password      - Print Argo CD web UI admin password"
+	@echo "  make open-argocd   - Open Argo CD Web UI (http://localhost:8080)"
+	@echo "  make open-headlamp - Open Headlamp Multi-Cluster Dashboard (http://headlamp.localhost:8080)"
+	@echo "  make open-dev      - Port-forward Tenant-A DEV web dashboard to http://localhost:8001"
+	@echo "  make open-test     - Port-forward Tenant-A TEST web dashboard to http://localhost:8002"
+	@echo "  make open-prod     - Port-forward Tenant-A PROD web dashboard to http://localhost:8003"
+	@echo "  make test          - Run end-to-end smoke tests across Hub, Spokes, and Moto Cloud"
+	@echo "  make status        - Inspect cluster statuses, pods, and AWS SQS queues"
+	@echo "  make teardown      - Destroy all k3d clusters, Moto container, and network"
 
 TAG ?= v1.0.0
 
 build-app:
 	@echo "🔨 Building & pushing orders-processor:$(TAG)..."
 	@bash /home/bleite/repos/orders-processor/build-and-push.sh $(TAG)
+
+open-argocd:
+	@echo "🌐 Opening Argo CD Web UI at http://localhost:8080..."
+	@xdg-open http://localhost:8080 2>/dev/null || sensible-browser http://localhost:8080 2>/dev/null || echo "Open http://localhost:8080 in your browser"
+
+open-headlamp:
+	@echo "🌐 Opening Headlamp Kubernetes Dashboard at http://headlamp.localhost:8080..."
+	@xdg-open http://headlamp.localhost:8080 2>/dev/null || sensible-browser http://headlamp.localhost:8080 2>/dev/null || echo "Open http://headlamp.localhost:8080 in your browser"
 
 open-dev:
 	@echo "🌐 Exposing DEV Orders Dashboard on http://localhost:8001..."
