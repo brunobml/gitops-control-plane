@@ -31,6 +31,17 @@ configs:
       type: helm
       name: headlamp
       url: https://kubernetes-sigs.github.io/headlamp/
+    # Phase 3 B.2: public OCI registries for the spoke controllers (anonymous pulls).
+    kro-charts:
+      type: helm
+      name: kro-charts
+      url: registry.k8s.io/kro/charts
+      enableOCI: "true"
+    ack-charts:
+      type: helm
+      name: ack-charts
+      url: public.ecr.aws/aws-controllers-k8s
+      enableOCI: "true"
   # No admin password in Git (Phase 3 A.2). The built-in admin account is disabled below;
   # use the local accounts. Passwords live only in argocd-secret (see `make password`).
   # Helm must not own argocd-secret: the chart renders it from values only, so every

@@ -1,0 +1,74 @@
+# Phase 3 B.2 (L2-1, L3-8): spoke platform controllers managed from Git instead of
+# `helm upgrade --install` in setup-hub-spoke.sh.
+#
+# - A cluster opts in with the label addons-managed=true on its Argo CD cluster Secret
+#   (written by scripts/register-spokes.sh). Adoption was done one cluster at a time.
+# - Controller values come from platform-catalog at the cluster's blueprints-revision
+#   (nonprod: main, prod: a release tag), so controller config goes through the same
+#   promotion gate as the blueprints.
+# - releaseName matches the original Helm releases, so Argo CD adopts the existing objects.
+# - preserveResourcesOnDeletion (reviewer remark R-2): removing a cluster label or this
+#   ApplicationSet never deletes the controllers.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: addons-spoke
+  namespace: argocd
+spec:
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+  generators:
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  addons-managed: "true"
+          - list:
+              elements:
+                - addon: kro
+                  chart: kro
+                  chartRepo: registry.k8s.io/kro/charts
+                  chartVersion: "0.9.4"
+                  releaseName: kro
+                  targetNamespace: kro
+                  valuesFile: controllers/kro/values-kro.yaml
+                - addon: ack-sqs
+                  chart: sqs-chart
+                  chartRepo: public.ecr.aws/aws-controllers-k8s
+                  chartVersion: "1.7.1"
+                  releaseName: ack-sqs-controller
+                  targetNamespace: ack-system
+                  valuesFile: controllers/ack/values-sqs.yaml
+  template:
+    metadata:
+      name: "addon-{{addon}}-{{name}}"
+      labels:
+        app.kubernetes.io/part-of: platform-addons
+        addon: "{{addon}}"
+    spec:
+      project: platform-addons
+      sources:
+        - chart: "{{chart}}"
+          repoURL: "{{chartRepo}}"
+          targetRevision: "{{chartVersion}}"
+          helm:
+            releaseName: "{{releaseName}}"
+            valueFiles:
+              - "$values/{{valuesFile}}"
+        - repoURL: https://github.com/brunobml/platform-catalog.git
+          targetRevision: "{{metadata.annotations.blueprints-revision}}"
+          ref: values
+      destination:
+        server: "{{server}}"
+        namespace: "{{targetNamespace}}"
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
