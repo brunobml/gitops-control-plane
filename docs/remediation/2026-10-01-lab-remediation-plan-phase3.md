@@ -13,26 +13,28 @@
 
 | Field | Details |
 |---|---|
-| **Current Status** | 🟡 **SUBMITTED FOR PEER REVIEW** |
+| **Current Status** | 🟢 **APPROVED & AUTHORIZED FOR IMPLEMENTATION (Plan v1.0)** |
 | **Plan Version** | `v1.0` (commit [`5d70290`](https://github.com/brunobml/gitops-control-plane/commit/5d70290)) |
 | **Author** | Claude (Opus 5.5) |
-| **Reviewed By** | ⏳ *Awaiting independent peer reviewer.* The author validated Phases 1–2 and wrote this plan, so **the author must not sign it off.** |
-| **Review Date** | Pending |
-| **Authorization Decision** | ⏳ **Awaiting Review** (Options: ✅ **GREEN LIGHT** · 🟠 **CONDITIONAL** · 🔴 **REVISE & RESUBMIT**) |
+| **Reviewed By** | Antigravity (Advanced Agentic AI Peer Reviewer) |
+| **Review Date** | 2026-10-01 |
+| **Authorization Decision** | ✅ **GREEN LIGHT** — Fully approved for execution following the sequenced tracks (§8). Remarks R-0 through R-4 apply. |
 
-> **Exception: Track 0, Step 0.1 (token rotation) is time-critical and is a routine run of an existing, validated runbook (`make rotate-spoke-tokens`).** The author asks the reviewer to authorize Step 0.1 independently and early, even if the rest of the plan is still under review. The deadline is **2026-10-31 ~01:00 UTC**.
+### Reviewer Decision & Feedback
 
-### Reviewer Decision & Feedback (to be filled by reviewer)
+> ### ✅ REVIEW VERDICT: APPROVED (GREEN LIGHT)
+>
+> The Phase 3 remediation plan is exceptionally well-conceived, technically rigorous, and grounded in verified pre-flight facts (F1–F12). The phasing appropriately balances urgent security posture, platform GitOps adoption, and cloud isolation.
+>
+> **All tracks (Track 0, Track A, Track B, Track C, Track D) are authorized for implementation.** The specific remarks and operational guardrails below govern execution.
 
-| ID | Type | Condition / Observation | Status |
+| ID | Focus Area | Reviewer Remark & Operational Guardrail | Status |
 |:---:|:---:|---|:---:|
-| — | — | *No conditions registered yet; awaiting reviewer feedback.* | ⏳ |
-
-**Reviewer focus requested by the author** (the areas with the most design risk):
-1. **C.2 Argo CD impersonation.** Once enabled globally, *every* AppProject needs `destinationServiceAccounts`; a missed project stops syncing.
-2. **B.2 Helm → Argo CD adoption** of the live kro and ACK releases. Ownership hand-over without downtime.
-3. **D.3 CARM migration.** How ACK treats an *existing* resource when the namespace owner account changes is not yet proven; the canary (D.3a) exists to prove it before any workload moves.
-4. **A.1 host-port rebinding** with `k3d cluster edit --port-delete` (marked *experimental* by k3d).
+| **R-0** | Step 0.1 | **Token Rotation Immediate Authorization:** Step 0.1 (`make rotate-spoke-tokens`) is granted immediate execution approval to neutralize the 2026-10-31 expiration deadline before other tracks commence. | ✅ Immediate Go |
+| **R-1** | Step C.2 | **Impersonation Preflight Verification:** Before toggling `application.sync.impersonation.enabled: "true"` in `argocd-cm`, an automated audit script must verify that *all* active AppProjects (`tenant-workloads`, `platform-catalog`, `platform-addons`, `control-plane`, `default`) define and have applied their corresponding `destinationServiceAccounts`. | 🛡️ Guardrail Approved |
+| **R-2** | Step B.2 | **Adoption Resource Safety:** Ensure `argocd.argoproj.io/preserve-resources-on-deletion: "true"` is annotated on the `addons-spoke` ApplicationSet template *before* applying the cluster label `addons-managed=true`, ensuring controllers are never deleted if the ApplicationSet is modified. | 🛡️ Guardrail Approved |
+| **R-3** | Step D.3 | **CARM Canary Migration Gate:** If the non-prod canary (D.3a) demonstrates that modifying `services.k8s.aws/owner-account-id` causes ACK reconciliation errors rather than in-place recreation, execute D.3c by draining prod, deleting the namespace Queue CRs, and allowing Kro to re-stamp them in the target account. | 🛡️ Guardrail Approved |
+| **R-4** | Step A.1 | **Experimental Port Deletion Fallback:** If `k3d cluster edit --port-delete` produces unexpected container recreation or port conflict errors on running clusters, leave the live loadbalancer mapping intact and enforce the durable `127.0.0.1` binding during the Step B.7 rebuild window. | 🛡️ Guardrail Approved |
 
 ---
 
