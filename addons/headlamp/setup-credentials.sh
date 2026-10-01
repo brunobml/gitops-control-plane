@@ -10,7 +10,7 @@ echo "Configuring Headlamp Multi-Cluster Credentials on Hub..."
 # 1. Ensure namespace exists
 kubectl --context "${HUB_CTX}" create namespace headlamp --dry-run=client -o yaml | kubectl --context "${HUB_CTX}" apply -f -
 
-# 2. Ensure ServiceAccount headlamp, ClusterRoleBinding and permanent token exist on Hub
+# 2. Ensure ServiceAccount headlamp and ClusterRoleBinding exist on Hub (without permanent legacy token secret - B2)
 cat <<EOF | kubectl --context "${HUB_CTX}" apply -f -
 apiVersion: v1
 kind: ServiceAccount
@@ -30,22 +30,13 @@ subjects:
 - kind: ServiceAccount
   name: headlamp
   namespace: headlamp
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: headlamp-token
-  namespace: headlamp
-  annotations:
-    kubernetes.io/service-account.name: headlamp
-type: kubernetes.io/service-account-token
 EOF
 
-# Brief pause to ensure token controller populates secret data
-sleep 2
+# Delete legacy permanent token secret if present (B2)
+kubectl --context "${HUB_CTX}" -n headlamp delete secret headlamp-token 2>/dev/null || true
 
-# 3. Retrieve tokens
-HUB_TOKEN=$(kubectl --context "${HUB_CTX}" -n headlamp get secret headlamp-token -o jsonpath='{.data.token}' | base64 -d)
+# 3. Retrieve TokenRequest token for Hub and spoke tokens from Argo CD cluster secrets
+HUB_TOKEN=$(kubectl --context "${HUB_CTX}" -n headlamp create token headlamp --duration=720h)
 NONPROD_TOKEN=$(kubectl --context "${HUB_CTX}" -n argocd get secret cluster-spoke-nonprod -o jsonpath='{.data.config}' | base64 -d | jq -r .bearerToken)
 PROD_TOKEN=$(kubectl --context "${HUB_CTX}" -n argocd get secret cluster-spoke-prod -o jsonpath='{.data.config}' | base64 -d | jq -r .bearerToken)
 
@@ -93,10 +84,14 @@ users:
     token: ${PROD_TOKEN}
 EOF
 
-# 5. Create or update the Kubernetes Secret in namespace headlamp
+# 5. Strip existing plaintext last-applied-configuration annotation before server-side apply (B1)
+kubectl --context "${HUB_CTX}" -n headlamp annotate secret headlamp-kubeconfig \
+  kubectl.kubernetes.io/last-applied-configuration- 2>/dev/null || true
+
+# 6. Create or update the Kubernetes Secret in namespace headlamp via server-side apply (B1)
 kubectl --context "${HUB_CTX}" -n headlamp create secret generic headlamp-kubeconfig \
   --from-file=config="${TMP_KUBECONFIG}" \
-  --dry-run=client -o yaml | kubectl --context "${HUB_CTX}" apply -f -
+  --dry-run=client -o yaml | kubectl --context "${HUB_CTX}" apply --server-side --force-conflicts -f -
 
 rm -f "${TMP_KUBECONFIG}"
-echo "✔ Successfully generated and applied 'headlamp-kubeconfig' secret to namespace 'headlamp'."
+echo "✔ Successfully generated and applied 'headlamp-kubeconfig' secret to namespace 'headlamp' via server-side apply."
