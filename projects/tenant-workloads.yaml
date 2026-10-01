@@ -31,6 +31,9 @@ spec:
   clusterResourceWhitelist:
     - group: ""
       kind: "Namespace"
+  # Phase 3 C.1 (L4-6): tenants may deploy only the golden-path kind. The queue-backed-service
+  # chart renders nothing else; kro creates the children (queues, Deployment, ...) under its
+  # own identity, not the tenant's.
   namespaceResourceWhitelist:
-    - group: "*"
-      kind: "*"
+    - group: "kro.run"
+      kind: "QueueBackedService"
