@@ -25,6 +25,7 @@ echo -e "\n${YELLOW}[1/6] Creating shared Docker network '${NETWORK_NAME}'...${N
 docker network create "${NETWORK_NAME}" 2>/dev/null || true
 
 # 2. Launch Central Moto Cloud
+# moto pinned by registry digest (5.2.3.dev0, the image the lab was validated on; Phase 3 B.5).
 echo -e "\n${YELLOW}[2/6] Starting Central Mock AWS Cloud (moto-cloud)...${NC}"
 docker rm -f moto-cloud 2>/dev/null || true
 docker run -d --name moto-cloud \
@@ -33,7 +34,7 @@ docker run -d --name moto-cloud \
   -e PYTHONUNBUFFERED=1 \
   -e MOTO_ALLOW_NONEXISTENT_SERVICES=true \
   --restart unless-stopped \
-  motoserver/moto:latest \
+  motoserver/moto@sha256:91fd602a21f49cf9eb82fdf474015a3c131d40104c8297ea6a2ca920708ae32c \
   -p5000 -H0.0.0.0
 
 # 3. Create k3d Clusters
@@ -42,6 +43,7 @@ if ! k3d cluster list | grep -q "${HUB_CLUSTER}"; then
   k3d cluster create "${HUB_CLUSTER}" \
     --network "${NETWORK_NAME}" \
     --servers 1 --agents 0 \
+    --image rancher/k3s:v1.35.5-k3s1 \
     --api-port 127.0.0.1:6550 \
     --port "127.0.0.1:8080:80@loadbalancer" \
     --port "127.0.0.1:8443:443@loadbalancer" \
@@ -52,6 +54,7 @@ if ! k3d cluster list | grep -q "${SPOKE_NONPROD}"; then
   k3d cluster create "${SPOKE_NONPROD}" \
     --network "${NETWORK_NAME}" \
     --servers 1 --agents 1 \
+    --image rancher/k3s:v1.35.5-k3s1 \
     --api-port 127.0.0.1:6551 \
     --port "127.0.0.1:8081:80@loadbalancer"
 fi
@@ -60,6 +63,7 @@ if ! k3d cluster list | grep -q "${SPOKE_PROD}"; then
   k3d cluster create "${SPOKE_PROD}" \
     --network "${NETWORK_NAME}" \
     --servers 1 --agents 1 \
+    --image rancher/k3s:v1.35.5-k3s1 \
     --api-port 127.0.0.1:6552 \
     --port "127.0.0.1:8082:80@loadbalancer"
 fi
