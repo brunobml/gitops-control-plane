@@ -130,3 +130,28 @@ docker port k3d-spoke-prod-serverlb
 docker port moto-cloud
 ```
 All published ports (`8080`, `8443`, `8081`, `8082`, `5000`) must show `127.0.0.1:<port>`.
+
+### Issue E: Spoke Agent Node `NotReady` with `not authorized` (cross-wired after IP reshuffle)
+**Seen on 2026-10-01 after a host reboot** (`k3d-spoke-nonprod-agent-0`).
+
+**Symptoms:**
+* `kubectl --context k3d-spoke-nonprod get nodes` shows `agent-0` as `NotReady` ("Kubelet stopped posting node status").
+* Pods on that node crash-loop on probes (e.g. the ACK controller). Its cloud resources are not recreated, while ACK still reports the stale `ResourceSynced=True`.
+* `docker logs k3d-spoke-nonprod-agent-0` repeats: `failed to retrieve configuration from server: not authorized`.
+
+**Cause:** the k3s agent caches server **IP addresses** in `/var/lib/rancher/k3s/agent/etc/k3s-agent-load-balancer.json`. After a Docker restart, containers on `k3d-cloud-net` get new IPs, so a cached address can now belong to **another cluster's** server (on 2026-10-01 nonprod's cache pointed at `spoke-prod`'s server), which correctly rejects the agent's token.
+
+**Diagnose:**
+```bash
+docker network inspect k3d-cloud-net --format '{{range .Containers}}{{.Name}} {{.IPv4Address}}{{"\n"}}{{end}}'
+docker exec k3d-spoke-nonprod-agent-0 cat /var/lib/rancher/k3s/agent/etc/k3s-agent-load-balancer.json
+# ServerAddresses must contain only this cluster's server-0 IP.
+```
+
+**Fix** (affects only that agent node; k3s regenerates the file by resolving K3S_URL by name):
+```bash
+docker exec k3d-spoke-nonprod-agent-0 rm /var/lib/rancher/k3s/agent/etc/k3s-agent-load-balancer.json
+docker restart k3d-spoke-nonprod-agent-0
+kubectl --context k3d-spoke-nonprod get nodes   # Ready within seconds
+```
+Use the same procedure for `k3d-spoke-prod-agent-0` if it shows the symptom. With the 300 s ACK resync, missing queues are recreated automatically once the controller is healthy (observed: within seconds of the node recovering).
