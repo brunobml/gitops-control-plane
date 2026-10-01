@@ -12,6 +12,7 @@ spec:
     - "https://github.com/brunobml/gitops-control-plane.git"
     - "https://kubernetes-sigs.github.io/headlamp/"
     - "https://traefik.github.io/charts"
+    - "https://argoproj.github.io/argo-helm"   # Phase 3 B.4: Argo CD manages itself
   destinations:
     - server: "https://kubernetes.default.svc"
       namespace: "*"

@@ -1,0 +1,44 @@
+# Phase 3 B.4: Argo CD manages its own installation from Git (chart + clusters/values-argocd-hub.yaml).
+#
+# Safety design (the control plane must never delete or lock out itself):
+# - NO resources-finalizer: deleting this Application never cascade-deletes Argo CD.
+# - prune: false and NO automated sync: changes to Argo CD itself require an explicit sync by
+#   platform-admin, so a bad values commit cannot auto-apply.
+# - argocd-secret is not rendered by the chart (configs.secret.createSecret=false, Phase 3 A.2),
+#   so account passwords are never touched by a sync.
+# - Break-glass if a sync breaks Argo CD: from the repo root run
+#     helm --kube-context k3d-hub-cluster -n argocd upgrade --install argo-cd argo/argo-cd \
+#       --version 10.9.4 -f clusters/values-argocd-hub.yaml
+#   (the same pinned chart and values setup-hub-spoke.sh uses for bootstrap).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-cd
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: platform-control-plane
+spec:
+  project: control-plane
+  sources:
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argo-cd
+      targetRevision: 10.9.4
+      helm:
+        releaseName: argo-cd
+        valueFiles:
+          - $values/clusters/values-argocd-hub.yaml
+    - repoURL: https://github.com/brunobml/gitops-control-plane.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m
