@@ -76,3 +76,6 @@ spec:
             pod-security.kubernetes.io/enforce-version: latest
             pod-security.kubernetes.io/warn: restricted
             pod-security.kubernetes.io/audit: restricted
+          # Phase 3 D.3 (L4-4): prod cloud resources live in account 222222222222 (ACK CARM).
+          annotations:
+            services.k8s.aws/owner-account-id: "222222222222"
