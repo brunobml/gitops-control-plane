@@ -1,0 +1,13 @@
+# Phase 3 A.3: authentication in front of Headlamp.
+# The referenced Secret (htpasswd "users" key) is created by addons/headlamp/setup-auth.sh
+# and is deliberately not stored in Git.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: headlamp-auth
+  namespace: headlamp
+spec:
+  basicAuth:
+    secret: headlamp-basic-auth
+    realm: headlamp
+    removeHeader: true

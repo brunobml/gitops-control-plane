@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: addon-headlamp-auth
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: headlamp
+    app.kubernetes.io/part-of: platform-addons
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: control-plane
+  source:
+    repoURL: https://github.com/brunobml/gitops-control-plane.git
+    targetRevision: main
+    path: addons/headlamp/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: headlamp
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
