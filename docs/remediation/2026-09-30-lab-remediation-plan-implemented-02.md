@@ -4,7 +4,7 @@
 |---|---|
 | **Document** | `docs/remediation/2026-09-30-lab-remediation-plan-implemented-02.md` |
 | **Plan Reference** | [`2026-09-30-lab-remediation-plan.md`](2026-09-30-lab-remediation-plan.md) (v3.0, commit `9571f2f`) |
-| **Review Reference** | [`2026-09-30-lab-remediation-plan-review.md`](2026-09-30-lab-remediation-plan-review.md) (Green Light Approval with C1–C3) |
+| **Review Reference** | [`2026-09-30-lab-remediation-plan.md#review--approval-sign-off`](2026-09-30-lab-remediation-plan.md#review--approval-sign-off) (Green Light Approval with C1–C3) |
 | **Validation Reference**| [`2026-09-30-lab-remediation-plan-validation-01.md`](2026-09-30-lab-remediation-plan-validation-01.md) (Validated with Observations V-1 to V-9) |
 | **Supercedes** | [`2026-09-30-lab-remediation-plan-implemented-01.md`](2026-09-30-lab-remediation-plan-implemented-01.md) |
 | **Assessment Target** | [`../assessments/2026-09-30-lab-assessment.md`](../assessments/2026-09-30-lab-assessment.md) |

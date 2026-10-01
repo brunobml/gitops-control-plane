@@ -75,7 +75,7 @@
 | Document | Role | Outcome |
 |---|---|---|
 | [Assessment](../assessments/2026-09-30-lab-assessment.md) | Findings baseline | 7 Low findings in scope, plus L1-5 added |
-| [Plan v3.0](2026-09-30-lab-remediation-plan.md) / [Review](2026-09-30-lab-remediation-plan-review.md) | Design and authorization | Green light with C1–C3 (after blockers B1/B2 in v2.1) |
+| [Plan v3.0 (with Review Sign-Off)](2026-09-30-lab-remediation-plan.md#review--approval-sign-off) | Design and authorization | Green light with C1–C3 (after blockers B1/B2 in v2.1) |
 | [Implemented-01](2026-09-30-lab-remediation-plan-implemented-01.md) / [Validation-01](2026-09-30-lab-remediation-plan-validation-01.md) | Execution | Runtime validated; V-1 to V-9 raised |
 | [Implemented-02](2026-09-30-lab-remediation-plan-implemented-02.md) / [Validation-02](2026-09-30-lab-remediation-plan-validation-02.md) | Corrections | V-1 to V-9 closed; W-1 to W-4 raised |
 | [Implemented-03](2026-09-30-lab-remediation-plan-implemented-03.md) / **Validation-03** | Hardening | W-1 to W-4 closed; X-1 (Info) raised; **cycle closed** |

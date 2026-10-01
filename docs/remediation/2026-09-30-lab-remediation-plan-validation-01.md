@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Validates** | [`2026-09-30-lab-remediation-plan-implemented-01.md`](2026-09-30-lab-remediation-plan-implemented-01.md) (commit `5ac95f2`) |
-| **Against** | Plan [v3.0](2026-09-30-lab-remediation-plan.md) and its [review](2026-09-30-lab-remediation-plan-review.md) (green light with conditions C1–C3) |
+| **Against** | Plan [v3.0](2026-09-30-lab-remediation-plan.md) and its [review](2026-09-30-lab-remediation-plan.md#review--approval-sign-off) (green light with conditions C1–C3) |
 | **Method** | Independent checks against the live clusters, Git (local and `origin`), and the changed scripts and docs. The implementation report's own output was **not** relied on. |
 | **Changes made by this validation** | None. All checks were read-only. |
 

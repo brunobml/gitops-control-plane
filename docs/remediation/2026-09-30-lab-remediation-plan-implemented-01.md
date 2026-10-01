@@ -4,7 +4,7 @@
 |---|---|
 | **Document** | `docs/remediation/2026-09-30-lab-remediation-plan-implemented-01.md` |
 | **Plan Reference** | [`2026-09-30-lab-remediation-plan.md`](2026-09-30-lab-remediation-plan.md) (v3.0, commit `9571f2f`) |
-| **Review Reference** | [`2026-09-30-lab-remediation-plan-review.md`](2026-09-30-lab-remediation-plan-review.md) (Green Light Approval) |
+| **Review Reference** | [`2026-09-30-lab-remediation-plan.md#review--approval-sign-off`](2026-09-30-lab-remediation-plan.md#review--approval-sign-off) (Green Light Approval) |
 | **Assessment Target** | [`../assessments/2026-09-30-lab-assessment.md`](../assessments/2026-09-30-lab-assessment.md) |
 | **Execution Date** | 2026-09-30 |
 | **Execution Status** | ✅ **SUCCESSFUL — ALL STEPS 0–8 EXECUTED & VERIFIED** |

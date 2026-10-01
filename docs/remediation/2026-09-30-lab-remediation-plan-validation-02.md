@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Validates** | [`2026-09-30-lab-remediation-plan-implemented-02.md`](2026-09-30-lab-remediation-plan-implemented-02.md) (commit `a640184`, pushed to `origin/main`) |
-| **Against** | [Validation #01](2026-09-30-lab-remediation-plan-validation-01.md) observations V-1 to V-9, plan [v3.0](2026-09-30-lab-remediation-plan.md), [review](2026-09-30-lab-remediation-plan-review.md) conditions C1–C3 |
+| **Against** | [Validation #01](2026-09-30-lab-remediation-plan-validation-01.md) observations V-1 to V-9, plan [v3.0](2026-09-30-lab-remediation-plan.md), [review](2026-09-30-lab-remediation-plan.md#review--approval-sign-off) conditions C1–C3 |
 | **Method** | Independent checks against the live clusters, Git, and the changed scripts and docs. The report's own output was not relied on. |
 | **Changes made by this validation** | None. Script and cluster checks used guard-only paths, `--dry-run=server`, and `make -n`. |
 
