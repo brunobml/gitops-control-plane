@@ -29,7 +29,7 @@ echo -e "\n${YELLOW}[2/6] Starting Central Mock AWS Cloud (moto-cloud)...${NC}"
 docker rm -f moto-cloud 2>/dev/null || true
 docker run -d --name moto-cloud \
   --network "${NETWORK_NAME}" \
-  -p 5000:5000 \
+  -p 127.0.0.1:5000:5000 \
   -e PYTHONUNBUFFERED=1 \
   -e MOTO_ALLOW_NONEXISTENT_SERVICES=true \
   --restart unless-stopped \
@@ -42,8 +42,9 @@ if ! k3d cluster list | grep -q "${HUB_CLUSTER}"; then
   k3d cluster create "${HUB_CLUSTER}" \
     --network "${NETWORK_NAME}" \
     --servers 1 --agents 0 \
-    --port "8080:80@loadbalancer" \
-    --port "8443:443@loadbalancer" \
+    --api-port 127.0.0.1:6550 \
+    --port "127.0.0.1:8080:80@loadbalancer" \
+    --port "127.0.0.1:8443:443@loadbalancer" \
     --k3s-arg "--disable=traefik@server:*"
 fi
 
@@ -51,14 +52,16 @@ if ! k3d cluster list | grep -q "${SPOKE_NONPROD}"; then
   k3d cluster create "${SPOKE_NONPROD}" \
     --network "${NETWORK_NAME}" \
     --servers 1 --agents 1 \
-    --port "8081:80@loadbalancer"
+    --api-port 127.0.0.1:6551 \
+    --port "127.0.0.1:8081:80@loadbalancer"
 fi
 
 if ! k3d cluster list | grep -q "${SPOKE_PROD}"; then
   k3d cluster create "${SPOKE_PROD}" \
     --network "${NETWORK_NAME}" \
     --servers 1 --agents 1 \
-    --port "8082:80@loadbalancer"
+    --api-port 127.0.0.1:6552 \
+    --port "127.0.0.1:8082:80@loadbalancer"
 fi
 
 # 4. Install Traefik Ingress Controller on Hub
