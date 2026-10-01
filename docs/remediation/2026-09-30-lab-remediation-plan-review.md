@@ -2,177 +2,144 @@
 
 | | |
 |---|---|
-| **Reviewed** | [`2026-09-30-lab-remediation-plan.md`](2026-09-30-lab-remediation-plan.md) **v2.0** (commit `b2883ab`) |
-| **Previous review** | v1.0 of the plan (commit `577f4d7`), review committed in `cb60a30` |
+| **Reviewed** | [`2026-09-30-lab-remediation-plan.md`](2026-09-30-lab-remediation-plan.md) **v2.1** (commit `f04d1a4`) |
+| **Review history** | v1.0 plan reviewed in `cb60a30` → v2.0 plan reviewed in `af49e63` → this review (v2.1) |
 | **Against** | [`../assessments/2026-09-30-lab-assessment.md`](../assessments/2026-09-30-lab-assessment.md), the live clusters, and the five lab repositories |
 
-**Verdict: approve with three blocking fixes.**
+## Authorization decision
 
-v2.0 is a substantial improvement. Of the 14 v1 review points, 11 are fully resolved, 2 are partially resolved, and 1 was deliberately not adopted. The plan is now internally consistent about the PDB, `REPOS_DIR`, CRD ordering and secret cleanup. It also has a staged rollout and a "done when" column for every step.
+> **APPROVED WITH CONDITIONS: authorized in part.**
+>
+> | Steps | Status |
+> |---|---|
+> | **1, 2, 3, 4, 5a** (cleanup, duplicate secret, portability, tutorial, baseline tag) | ✅ **Authorized now.** |
+> | **5b** (cluster-Secret annotations + token scrub/rotation) | ⛔ **Not authorized as written.** Two defects (B1, B2) mean the plaintext tokens stay in the annotation and **the leaked tokens stay valid**. |
+> | **5c, 6, 7** (AppSet wiring, RGD hardening, prod promotion) | ⏸ **Authorized once 5b is corrected**, because they depend on its annotations. Also apply S1 before step 7. |
+> | **8** (documentation) | ✅ Authorized. It can run at any point. |
+>
+> The B1/B2 corrections are small text changes to §3 L4-10 and step 5b. Once they're in the plan, the remaining steps are authorized without a further full review cycle.
 
-Checking v2.0 against the live environment found three new problems that would make execution fail or give a false result:
-
-- **N1:** the RGD hardening never assigns the new ServiceAccount to the pods.
-- **N2:** the portability check always passes, even when paths remain.
-- **N3:** the prod pin points at a tag that doesn't exist.
-
-These need fixing before steps 3, 5 and 6 run. The other new items are improvements, not blockers.
+All three v2.0 blockers (N1 ServiceAccount assignment, N2 broken grep, N3 missing tag) are correctly fixed, and so are 9 of the 10 non-blocking items. The new blockers are both in the token-scrub step v2.1 added in response to N6. I confirmed them by testing on throwaway Secrets, not by inference.
 
 ---
 
-## 1. Status of v1 review points
+## 1. Status of v2.0 review points
 
-| v1 point | Topic | Status in v2.0 | Notes |
+| Point | Topic | Status in v2.1 | Notes |
 |---|---|:-:|---|
-| R1 | PDB `minAvailable` vs `maxUnavailable` contradiction | ✅ Resolved | `includeWhen: ${schema.spec.replicas > 1}` + `minAvailable: 1`. |
-| R2 | Blueprint change reaches prod at the same moment as non-prod | ⚠️ Partial | The gate is designed, but see N3 (missing tag), N4 (prod promoted by an untracked `kubectl` edit, not Git) and N5 (rollback claim). |
-| R3 | Path cleanup under-scoped | ⚠️ Partial | All files listed, but the verification command is broken (N2) and the file count is wrong (N8). |
-| R4 | `REPOS_DIR` defined two ways / `CURDIR` | ✅ Resolved | Uses the `lastword $(MAKEFILE_LIST)` form. |
-| R5 | CRD-before-docs concern inverted | ✅ Resolved | "Loud failure is safer" is now stated correctly, with the right error text. |
-| R6 | "Zero-risk" label, no backups, cache-blind verification | ✅ Resolved | Renamed "Low-risk", `/tmp` backups added, hard-refresh made an explicit step. |
-| R7 | L2-7 resolvable now; unsupported rate-limit claim | ✅ Resolved | Records the verified facts and adds the ESO/Sealed Secrets note. |
-| R8 | L4-10 overstated cost; TokenRequest middle path | ✅ Resolved | Framed as "defer, document the next step". See also N6. |
-| R9 | Don't refactor the setup script | ✅ Resolved | |
-| R10 | Wrong SA verification field; no PSS check; env var placement | ✅ Resolved | PSS dry run added and SA check rewritten. The Dockerfile placement creates a new risk: see N7. |
-| R11 | Scope framing vs Critical/High | ✅ Resolved | A sequencing section was added. The plan keeps lows-first, which is a legitimate choice (see §4). |
-| R12 | README repo count | ✅ Resolved | |
-| R13 | Owner / done-definition | ✅ Resolved | "Done When" column added. No owner or date, which is acceptable for a solo lab. |
-| R14 | Residual credential exposure of stray containers | ✅ Resolved | |
+| N1 | SA never assigned to pods | ✅ Resolved | `serviceAccountName: ${serviceaccount.metadata.name}` plus pod-level `automountServiceAccountToken: false`. The DAG edge is explained. |
+| N2 | Path check always passes | ✅ Resolved | Uses `git grep` with pathspecs and the `[e]` self-match guard. I re-ran it: it correctly reports the 6 remaining files and fails as it should. |
+| N3 | Prod pin `v1.0.0` missing | ✅ Resolved | Step 5a tags `a8825b2` before the AppSet change. |
+| N4 | Promotion via untracked Secret edit | ⚠️ Partial | "Never move tags" is adopted. Prod promotion is still "update the annotation", with the mechanism unspecified. See **S1**. |
+| N5 | Rollback mechanism wrong | ✅ Resolved | Prod: repoint to the previous tag. Non-prod: revert, new GraphRevision, one poll. |
+| N6 | Plaintext token in `last-applied-configuration` | ❌ **Fix doesn't work as written** | See **B1** and **B2**. |
+| N7 | Dockerfile edit would overwrite the running tag | ✅ Resolved | The Dockerfile change was dropped, with the reason documented. |
+| N8 | File count wording | ✅ Resolved | |
+| N9 | Cross-repo relative link | ✅ Resolved | Full GitHub URL. |
+| N10 | Cluster Secret naming | ✅ Resolved | `cluster-spoke-*` is used throughout. |
+| N11 | Hard-refresh race | ⚠️ Partial | See **M1**: the `argocd` CLI isn't logged in, so the racy fallback is what will actually run. |
+| N12 | Fragile SA-volume check | ✅ Resolved | `! … \| grep -q kube-api-access`. |
+| N13 | Tag before AppSet ordering | ✅ Resolved | 5a → 5b → 5c. |
 
 ---
 
-## 2. New findings in v2.0
+## 2. Blocking findings (step 5b)
 
-### Blocking
+### B1. `kubectl apply --server-side` does not remove an existing `last-applied-configuration`; it writes the new token into it
 
-**N1. The new ServiceAccount is created but never assigned to the pods (L4-11, step 6).**
-The RGD snippet adds a `ServiceAccount` resource, but nothing in the Deployment template references it. Without `serviceAccountName`, the pods keep using the namespace `default` SA with its token auto-mounted. Verification #6 would then print `default` and show a `kube-api-access-*` volume. Add it to the pod spec:
+The plan assumes that switching the scripts to `apply --server-side` removes the annotation. That only holds for objects that **never had one**. Tested on the hub with kubectl v1.36.1 and throwaway Secrets in `default`, all deleted afterwards:
 
-```yaml
-    - id: serviceaccount
-      template:
-        apiVersion: v1
-        kind: ServiceAccount
-        metadata:
-          name: ${schema.spec.name}-${schema.spec.environment}
-        automountServiceAccountToken: false
-    # …
-    - id: deployment
-      template:
-        spec:
-          template:
-            spec:
-              serviceAccountName: ${serviceaccount.metadata.name}   # also makes kro order SA → Deployment
-              automountServiceAccountToken: false                    # belt and braces at pod level
-```
+| Sequence | Annotation afterwards |
+|---|---|
+| client-side `apply` (token=OLD) → `apply --server-side` (token=NEW) | **Present, now containing NEW in plaintext** |
+| **fresh** object created with `apply --server-side` | Absent ✅ |
+| client-side `apply` → `kubectl annotate … last-applied-configuration-` → `apply --server-side --force-conflicts` | Absent ✅ |
 
-Referencing `${serviceaccount.metadata.name}` instead of repeating the name string also adds the edge to kro's dependency graph, so the SA always exists before the pods are scheduled.
+`cluster-spoke-nonprod`, `cluster-spoke-prod` and `headlamp/headlamp-kubeconfig` all already carry the annotation. As written, step 5b would put the *rotated* tokens into the same annotation, and verification #8 would fail.
 
-**N2. The portability check always passes, whether paths remain or not (step 3, verification #4).**
-`':!docs/assessments'` is **git pathspec** syntax. Plain `grep` treats it as a filename that doesn't exist, prints a warning, and exits with status 2 even when it found matches. The leading `!` turns that error into success. I ran the exact command against the current tree, which still has 8 matching files, and it **passed**. Two further problems:
-
-- The plan and this review both *quote* the pattern, so a correct grep will always match them.
-- `docs/remediation/` therefore needs excluding (or the pattern needs to avoid matching itself).
-
-A replacement that works:
+**Required change:** before the first server-side apply in each script, delete the Secret or remove the annotation. Removing the annotation avoids a moment where Argo CD has no cluster credentials:
 
 ```bash
-! git grep -nE 'file:///|/home/bleit[e]' -- ':!docs/assessments' ':!docs/remediation'
+kubectl --context "$HUB_CONTEXT" -n argocd annotate secret "cluster-${spoke}" \
+  kubectl.kubernetes.io/last-applied-configuration- 2>/dev/null || true
+kubectl --context "$HUB_CONTEXT" -n argocd apply --server-side --force-conflicts -f - <<EOF
+…
+EOF
 ```
 
-`git grep` understands the pathspecs. The `[e]` character class matches `/home/bleite` in real files but not in the literal text of the command itself. Excluding `docs/remediation` is still the simpler option.
+Do the same for `headlamp-kubeconfig` in `setup-credentials.sh`.
 
-**N3. The prod pin `v1.0.0` doesn't exist, and pinning to the wrong commit would roll prod *backwards* (step 5).**
-`platform-catalog` has **no tags** (`git tag -l` is empty, HEAD = `a8825b2`). If step 5 runs as written, Argo CD cannot resolve `v1.0.0` and `kro-blueprints-spoke-prod` goes into `ComparisonError`. If someone creates `v1.0.0` on an older commit, prod's RGD reverts to that blueprint (for example, before the DLQ or probes hardening). Make tag creation step 5a, pin it to the commit prod runs today, and verify the revision didn't change:
+### B2. The leaked long-lived tokens remain valid: the plan never deletes the legacy token Secrets
 
-```bash
-git -C ../platform-catalog tag -a v1.0.0 a8825b2 -m "Blueprint baseline currently running on spoke-prod"
-git -C ../platform-catalog push origin v1.0.0
-# Done when: kro-blueprints-spoke-prod .status.sync.revision == a8825b2… and the app stays Synced (no-op)
-```
+Step 5b issues new TokenRequest tokens but leaves `kube-system/argocd-manager-token` on both spokes; both still exist today. A `kubernetes.io/service-account-token` Secret stays valid **until that Secret is deleted**. The tokens exposed in the previous review session would keep working indefinitely, so "rotation" would add a credential instead of replacing one. `register-spokes.sh` also **creates** that Secret in its first heredoc, so rerunning the script as written would put the old token back.
 
-### Should fix
+**Required change:**
 
-**N4. Prod promotion is an untracked `kubectl` edit, not a Git change (steps 5 and 7).**
-The `blueprints-revision` annotation lives on the cluster Secrets. Those Secrets are created by `register-spokes.sh` and are not in Git. Consequences:
+1. In `register-spokes.sh`, remove the `Secret argocd-manager-token` document from the spoke-side heredoc. Keep only the ServiceAccount and binding, and replace the wait-for-token loop with `kubectl create token … --duration=720h`. Read `ca_data` from the hub's cluster Secret or from the spoke kubeconfig instead (`kubectl config view --raw -o jsonpath='{.clusters[?(@.name=="k3d-'"$spoke"'")].cluster.certificate-authority-data}'`).
+2. After the new token is registered and the apps are still Synced, delete the legacy Secrets:
 
-- Promoting to prod means editing a Secret by hand, with no PR, no review and no history. That cuts against the guardrails doc this plan builds on.
-- Rerunning `register-spokes.sh` (for example after a spoke is recreated, or during token rotation per L4-10) **silently erases the annotation**. `{{metadata.annotations.blueprints-revision}}` then renders empty, and the prod app falls back to the default branch.
+   ```bash
+   for c in spoke-nonprod spoke-prod; do
+     kubectl --context k3d-$c -n kube-system delete secret argocd-manager-token
+   done
+   ```
+3. Do the same for the hub's `headlamp/headlamp-token` legacy Secret: issue a TokenRequest token in `setup-credentials.sh` and delete the Secret.
+4. Add to step 5b's "Done when": the legacy Secrets are gone (`kubectl get secret argocd-manager-token` → NotFound on both spokes); `argocd cluster list` shows both spokes `Successful`; all Applications are Synced/Healthy; Headlamp connects to all three clusters.
 
-Two cheap fixes, either is fine:
-
-- (a) Have `register-spokes.sh` write the annotation, with prod's value pointing at a moving **ref name** such as `release/prod`. Promotion becomes `git push origin <sha>:refs/heads/release/prod` (reviewable and in history), and the Secret never changes.
-- (b) Move the per-cluster revision into Git: a `clusters/<name>.yaml` that the AppSet reads through a matrix of the Cluster generator × a Git-files generator.
-
-Option (a) is about five lines and keeps the current design.
-
-Also: step L4-11.5 says "moving the git tag `v1.1.0`". Create a **new** tag. Never move an existing one. Moving release tags is exactly the L3-5 anti-pattern the plan lists as High.
-
-**N5. The rollback claim is unverified, and it describes the wrong mechanism.**
-"`git revert` … kro automatically restores the previous `GraphRevision` in under 5 seconds" doesn't hold:
-
-- A revert is a *new* commit. Argo CD only picks it up on its next poll (up to about 3 minutes, unless a webhook or manual refresh triggers it).
-- kro then creates a **new** `GraphRevision` (`r00006`). It does not restore `r00005`.
-- The "under 5 seconds" figure came from my child-drift test, a different mechanism.
-
-For **prod**, the gate gives a better rollback path: point prod back at the previous tag (or ref, per N4) without touching `main`. Restate the rollback this way:
-
-- **Prod:** repoint to the previous tag. Expect seconds after a refresh.
-- **Non-prod:** `git revert`. Expect up to one poll interval.
-- **Verify:** `kubectl get graphrevisions` shows a new revision, and the Deployment rolls.
-
-**N6. New finding (related to L4-10): spoke bearer tokens are stored in plaintext in an annotation.**
-`register-spokes.sh` creates the cluster Secrets with `kubectl apply -f -` using `stringData`. kubectl therefore records the **entire manifest, bearer token included**, in `metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"]`. Annotations are displayed in places where Secret data is normally hidden: `kubectl describe secret`, Headlamp's metadata panel, and `kubectl get -o jsonpath='{.metadata}'`. This review exposed the tokens the same way: an annotation query printed both `argocd-manager` tokens into the session transcript.
-
-**Fix:** use `kubectl create secret generic … --dry-run=client -o yaml | kubectl apply --server-side -f -`, or `kubectl apply --server-side` directly, which does not write `last-applied-configuration`. Then rotate both tokens: delete the `argocd-manager-token` Secrets on the spokes and rerun registration. This fits naturally into L4-10's `make rotate-spoke-tokens`, so the TokenRequest middle path is worth doing now rather than only documenting it. `addons/headlamp/setup-credentials.sh` uses the `--dry-run | apply` pattern too, so it has the same exposure for its kubeconfig Secret.
-
-**N7. Adding `PYTHONDONTWRITEBYTECODE` to the Dockerfile would overwrite the running prod image (L4-11.4).**
-`orders-processor` CI runs on every push to `main` and tags the result `v1.2.0` **and** `v1.1.0` (`ci.yaml` lines 52–53, unchanged). A Dockerfile commit therefore builds a new image under the tag all three environments currently run. That image then appears on any node that pulls it, with no Git change to the deploy values and no promotion. As v1 R10 found, the variable isn't needed (the app writes nothing to disk). Either **drop L4-11.4**, or make it explicitly depend on L3-5 (immutable tags) and release it as `v1.3.0` through `deploy/values-*.yaml`.
-
-### Minor
-
-- **N8. File count.** Step 3 says "all 7 markdown files", but the set is Makefile + README + 5 docs: 7 files, of which 6 are Markdown. The plan's own scope table says "7 files (including … Makefile)". Align the wording. `tenant-workloads/developer-tutorial.md` is still out of scope; note that it is covered by archiving the repo (L1-4) so it isn't forgotten.
-- **N9. Cross-repo relative link.** `../../platform-catalog/blueprints/queue-backed-service-rgd.yaml` resolves locally but returns 404 on GitHub, because it leaves the repo. Use `https://github.com/brunobml/platform-catalog/blob/main/blueprints/queue-backed-service-rgd.yaml`. This applies the plan's own L1-6 rule.
-- **N10. Naming.** The plan calls the cluster Secrets `k3d-spoke-nonprod` / `k3d-spoke-prod`. The objects are named `cluster-spoke-nonprod` / `cluster-spoke-prod`, with Argo CD cluster names `spoke-nonprod` / `spoke-prod`.
-- **N11. Race in the hard-refresh check.** Reading `.status.conditions` right after setting the `refresh=hard` annotation can read the old status. Poll until Argo CD removes the `argocd.argoproj.io/refresh` annotation, which is its signal that the refresh finished. Simpler still, use `argocd app get orders-dev --hard-refresh`, which blocks until the refresh is done.
-- **N12. Fragile SA-volume check.** `jsonpath … | grep -v "kube-api-access"` passes or fails by exit code on a single space-joined line, and it fails falsely when the pod has no volumes. Use `! kubectl … -o jsonpath='{.items[0].spec.volumes[*].name}' | grep -q kube-api-access`.
-- **N13. AppSet change applies through the root app.** `applicationsets/kro-blueprints.yaml` is synced by `root-control-plane` from `main`. Step 5's AppSet edit and step 5a's tag must therefore land in the right order: tag first, then AppSet. Otherwise N3's `ComparisonError` happens in the window between them.
+> **Do this first, even ahead of the plan.** B2 is the only item here that leaves a known-exposed credential live. Deleting the two legacy Secrets and re-registering is safe to do before anything else, and it supersedes my earlier "rotate when convenient" advice.
 
 ---
 
-## 3. Verified during this review
+## 3. Should fix
+
+**S1. Promoting prod with `kubectl annotate` sets up a silent prod rollback.**
+Under 5b, `register-spokes.sh` writes `prod: v1.0.0`. Step 7 then promotes by "updating the `cluster-spoke-prod` annotation to `v1.1.0`" without saying how. If that's done with `kubectl annotate`, then **the next time the script runs**, for example at the 30-day token rotation, it rewrites the annotation to `v1.0.0` and **prod silently rolls back** to the pre-hardening blueprint. Pick one source of truth:
+
+- (a) Read the revision from a Git-tracked file, e.g. `clusters/blueprint-revisions.env` (`spoke-prod=v1.1.0`). Promotion is then a commit to that file plus a rerun (or `kubectl annotate` from the same value). The script and the cluster can't diverge.
+- (b) Set prod's annotation to a ref that never changes, `release/prod`, and promote with `git push origin v1.1.0^{commit}:refs/heads/release/prod`. The Secret never changes, and the promotion is recorded in Git.
+
+Also name the exact commit for `v1.1.0`, the SHA verified on non-prod in step 6, rather than tagging whatever `main` points at in step 7.
+
+**S2. TokenRequest expiry turns into a silent outage in 30 days.**
+The plan sets `--duration=720h` but no longer includes the `make rotate-spoke-tokens` target from v2.0. There is no alerting (assessment L3-3). When the tokens expire, both spokes go `Unknown` in Argo CD and Headlamp loses them at the same moment. Either add the make target and record the expiry date in the cluster Secret (e.g. annotation `lab/token-expires: 2026-10-30`), or use a longer duration that you choose on purpose. The trade-off belongs in the L4-10 write-up either way.
+
+**S3. Inconsistent wording in L4-10.** The §2 table says "Defer TokenRequest migration", but §3 and step 5b *perform* it. Change the table to "Adopt TokenRequest (30-day) now; EKS Access Entries / Pod Identity is the documented end state."
+
+---
+
+## 4. Minor
+
+- **M1.** The `argocd` CLI is installed but **not logged in** (`Logged In: false`). Step 2's `argocd app get --hard-refresh` will fail and fall through to the `kubectl patch` path, which has the N11 race. Prefix it with `argocd login localhost:8080 --plaintext --grpc-web --username admin` (or use `--core`). Alternatively, poll until the `argocd.argoproj.io/refresh` annotation disappears before reading `.status.conditions`.
+- **M2.** Step 5b rotates the credentials Argo CD uses for **both** spokes at once. Do non-prod first, confirm `argocd cluster list` shows `Successful`, then do prod. The script already loops over the spokes, so this is just two invocations or a `SPOKES` override.
+- **M3.** The headline bullets in §1 still describe L4-1 as later work. With B2, the Headlamp token decoupling partly happens in 5b. Say so, so the L4-1 effort isn't double-counted.
+
+---
+
+## 5. Verified during this review
 
 | Check | Result |
 |---|---|
-| Plan's grep check (`! grep … ':!docs/assessments'`) on the current tree | **Passes falsely**: grep warns about the missing file `:!docs/assessments` and exits non-zero despite 8 matches |
-| `git grep -lE 'file:///\|/home/bleite' -- ':!docs/assessments'` | 8 files: Makefile, README, headlamp README, 3 docs, plus the plan and this review |
-| `git -C ../platform-catalog tag -l` | Empty. HEAD `a8825b2` is the revision both `kro-blueprints` apps run |
-| Cluster Secret annotations on hub | No `blueprints-revision` yet. `last-applied-configuration` contains the plaintext bearer token (N6) |
-| `orders-processor` CI triggers | `push: main` and `tags: v*`. Hard-coded `v1.2.0`/`v1.1.0` tags still present (N7) |
-| RGD snippet in plan §3 L4-11 | No `serviceAccountName` in the Deployment (N1) |
+| `git grep -nE 'file:///\|/home/bleit[e]' -- ':!docs/assessments' ':!docs/remediation'` | Lists 6 files, so the `!` check fails as it should until step 3 is done ✅ |
+| Client-side apply → server-side apply, on a throwaway Secret | Annotation **kept and updated with the new value** (B1) |
+| Fresh server-side create / remove annotation then server-side apply | No annotation ✅ (validates the B1 fix) |
+| `kube-system/argocd-manager-token` on both spokes | **Still present**, so the exposed tokens are still valid (B2) |
+| `argocd account get-user-info` | `Logged In: false` (M1) |
+| Throwaway test Secrets | Deleted. No lab resources were changed by this review |
 
 ---
 
-## 4. On sequencing (not blocking)
+## 6. Corrected execution order
 
-The plan keeps the order "lows first, then L4-1 → L3-1 → L3-5 → L2-2", which is a reasonable owner decision. Two of the findings above argue for pulling one High item forward:
-
-- **L3-5 (immutable CI tags) before step 6/L4-11.4,** because of N7. Otherwise the blueprint hardening and an image rebuild can collide on the same mutable tag.
-- **L4-1's token decoupling alongside N6,** since rotating `argocd-manager` tokens breaks Headlamp anyway: it reads them from the same Secrets. Doing both in one change window avoids breaking Headlamp twice.
-
----
-
-## 5. Suggested execution order (v2.0 + this review)
-
-| Step | Change | Done when |
-|---|---|---|
-| 1 | Back up and delete the CRD on both spokes; remove the stray containers | NotFound on both spokes; `docker ps -a` clean |
-| 2 | Delete `repo-ghcr-charts`; `argocd app get orders-dev --hard-refresh` | No conditions; Synced/Healthy |
-| 3 | Portability fixes across the 7 files | `! git grep -nE 'file:///\|/home/bleit[e]' -- ':!docs/assessments' ':!docs/remediation'` passes |
-| 4 | Tutorial sync | Matches the live cluster |
-| 5a | Tag `platform-catalog` `v1.0.0` at `a8825b2` and push | Tag visible on GitHub |
-| 5b | Write `blueprints-revision` from `register-spokes.sh` (prod → `release/prod` ref or `v1.0.0`); switch the AppSet `targetRevision` | Prod app revision is still `a8825b2`, no resources changed |
-| 5c | Switch `register-spokes.sh` to server-side apply; rotate `argocd-manager` tokens; regenerate Headlamp credentials | `last-applied-configuration` absent on cluster Secrets; all apps Synced; Headlamp connects to all 3 clusters |
-| 6 | RGD hardening, **including `serviceAccountName`** (N1); **skip the Dockerfile env var** (N7) | Non-prod pods Running, 0 restarts, SA ≠ `default`, no `kube-api-access` volume, PSS dry run clean, no PDB in dev |
-| 7 | Create a **new** tag `v1.1.0`; promote prod through Git (N4) | `orders-prod` rolled; PDB present; Synced/Healthy |
-| 8 | Document L4-10 trade-off and next step (the TokenRequest part is partly done in 5c) | Well-Architected guide updated |
+| Step | Change | Authorized | Done when |
+|---|---|:-:|---|
+| **0** | **Kill the exposed tokens:** delete `argocd-manager-token` on both spokes, rerun registration with TokenRequest (non-prod first), refresh Headlamp credentials (B2, M2) | ✅ (urgent) | Legacy Secrets NotFound; `argocd cluster list` both `Successful`; apps Synced/Healthy |
+| 1 | Back up + delete the CRD; remove the stray containers | ✅ | NotFound; `docker ps -a` clean |
+| 2 | Delete `repo-ghcr-charts`; log in to the CLI, then hard-refresh (M1) | ✅ | No conditions; Synced/Healthy |
+| 3 | Portability fixes | ✅ | The `git grep` check passes |
+| 4 | Tutorial sync | ✅ | Matches the live cluster |
+| 5a | Tag `v1.0.0` at `a8825b2`, push | ✅ | Tag on GitHub |
+| 5b | Annotations + strip `last-applied-configuration` + server-side apply (B1); single revision source (S1); expiry recorded (S2) | after fix | Verification #8 empty on both Secrets; prod revision unchanged |
+| 5c | AppSet `targetRevision` from annotation | after 5b | Prod still on `a8825b2`, no resource changes |
+| 6 | RGD hardening (non-prod) | after 5b | SA ≠ default, no `kube-api-access`, PSS dry run clean, no dev PDB |
+| 7 | Tag `v1.1.0` **at the SHA verified in step 6**, promote via the S1 mechanism | after 5b | `orders-prod` rolled; PDB present; Synced/Healthy |
+| 8 | Docs (L4-10 trade-off, S2 expiry, S3 wording) | ✅ | Well-Architected guide updated |
