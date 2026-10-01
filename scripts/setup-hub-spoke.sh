@@ -68,9 +68,17 @@ fi
 echo -e "\n${YELLOW}[4/7] Deploying Traefik Ingress Controller on ${HUB_CLUSTER}...${NC}"
 helm repo add traefik https://traefik.github.io/charts 2>/dev/null || true
 helm repo update traefik
-helm --kube-context "k3d-${HUB_CLUSTER}" upgrade --install traefik traefik/traefik \
-  --namespace traefik \
-  --create-namespace
+# Phase 3 B.3: bootstrap-only install, pinned to the version the addon-traefik Application
+# manages. The Argo CD UI/CLI ingress needs Traefik before the root app exists; after
+# `make bootstrap` Argo CD adopts these objects, so Helm's release record is removed and an
+# existing Traefik is never reinstalled.
+if ! kubectl --context "k3d-${HUB_CLUSTER}" -n traefik get deployment traefik >/dev/null 2>&1; then
+  helm --kube-context "k3d-${HUB_CLUSTER}" upgrade --install traefik traefik/traefik \
+    --version 41.6.1 \
+    --namespace traefik \
+    --create-namespace
+  kubectl --context "k3d-${HUB_CLUSTER}" -n traefik delete secret -l owner=helm,name=traefik
+fi
 kubectl --context "k3d-${HUB_CLUSTER}" wait --for=condition=ready --timeout=120s pod -l app.kubernetes.io/name=traefik -n traefik
 
 # 4b. Install Argo CD on Hub

@@ -23,6 +23,10 @@ spec:
     server: https://kubernetes.default.svc
     namespace: traefik
   syncPolicy:
+    # Enabled after the reviewed manual adoption sync (diff was tracking metadata only).
+    automated:
+      prune: false
+      selfHeal: true
     syncOptions:
       - ServerSideApply=true
     retry:
