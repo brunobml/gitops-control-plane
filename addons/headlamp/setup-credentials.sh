@@ -53,6 +53,22 @@ subjects:
 EOF
 done
 
+# 1b. Hub only (Phase 3 A.3 / PV2-3): read Argo CD objects so Headlamp can show them.
+#     Applications, ApplicationSets and AppProjects hold no credentials (repository and
+#     cluster credentials are Secrets, which the view role still excludes).
+cat <<EOF | kubectl --context "${HUB_CTX}" apply -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: headlamp-argocd-viewer
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications", "applicationsets", "appprojects"]
+    verbs: ["get", "list", "watch"]
+EOF
+
 # 2. Issue 720h (30d) TokenRequest tokens for dedicated viewer ServiceAccounts
 echo "Issuing TokenRequest tokens..."
 HUB_TOKEN=$(kubectl --context "${HUB_CTX}" -n headlamp-access create token headlamp-viewer --duration=720h)

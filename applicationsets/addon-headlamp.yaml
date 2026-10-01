@@ -50,6 +50,8 @@ spec:
           annotations:
             argocd.argoproj.io/ignore-default-links: "true"
             link.argocd.argoproj.io/external-link: "http://headlamp.localhost:8080"
+            # Phase 3 A.3: basic auth (Middleware headlamp/headlamp-auth)
+            traefik.ingress.kubernetes.io/router.middlewares: headlamp-headlamp-auth@kubernetescrd
           hosts:
             - host: headlamp.localhost
               paths:
