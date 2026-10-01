@@ -93,3 +93,24 @@
 | B.7 full rebuild acceptance | **Needs explicit owner approval** |
 | 0.3 / 0.4 GitHub branch protection, GHCR cleanup | Owner UI actions |
 | Credential rotation | Due before **2026-10-31 07:19 UTC** |
+
+---
+
+## 5. Addendum: D.5 / L2-5 input validation (ValidatingAdmissionPolicy)
+
+Delivered after this report's first version, on owner approval (reviewer PV3-8 concurred).
+
+| Item | Detail |
+|---|---|
+| Mechanism | `ValidatingAdmissionPolicy` + binding `queuebackedservice-contract` on `kro.run/queuebackedservices` (CREATE/UPDATE; status/finalizer subresources not matched). Lives in `platform-catalog/blueprints/` so it is versioned and promoted with the RGD. kro's CRD is untouched (avoids D-14). |
+| Rules | `name` DNS label (1–31), `environment` ∈ {dev,test,prod}, `replicas` 1–10, `messageRetentionPeriod` 60–1 209 600 s (SQS limits), `image` required, **namespace must end with `-<environment>`** (a dev namespace cannot create prod-named queues in the nonprod account). |
+| Rollout | `456df94` Warn+Audit on nonprod → `32029f6` Deny+Audit on nonprod → tag **`v1.3.2`** (v1.3.1 + the policy only) → prod (`14580a0`). |
+| Evidence (Warn) | Existing dev/test instances re-submitted as UPDATE: **0 warnings**. Argo CD syncs (as `argocd-tenant-deployer`) and kro updates: 0 warnings, 0 errors. Five invalid probes each produced their specific message. |
+| Evidence (Deny) | `prood`, `replicas: 50`, env/namespace mismatch → **`denied request: …`**; a valid new instance → admitted. Syncs of `orders-dev`, `orders-test`, `kro-blueprints-spoke-nonprod`, `orders-prod` succeed; RGD Active; instances ACTIVE. Prod: existing instance UPDATE admitted; `environment: dev` in `orders-prod` denied. |
+| CEL type checking | `status.typeChecking` empty (no type errors). |
+
+**L2-5 → Closed.**
+
+| ID | Type | Detail |
+|---|---|---|
+| **D-31** | Self-inflicted, recovered | To test the policy against real syncs I ran `argocd app sync --force` on `orders-dev`/`orders-test`. Argo CD rejected it for these apps (`--force cannot be used with --server-side`) and the operations sat in retry with backoff. While an operation is running, self-heal does not act, so a manual test edit (`replicas: 2`) stayed for ~2 min. Fixed with `argocd app terminate-op` + normal sync; self-heal then reverted a fresh edit in 3 s. No policy involvement. Lesson: don't use `--force` with these apps. |
