@@ -8,6 +8,30 @@
 
 ---
 
+## Review & Approval Sign-Off
+
+| Field | Details |
+|---|---|
+| **Current Status** | 🟡 **PENDING REVIEW & AUTHORIZATION** |
+| **Plan Version** | `v1.0` (commit [`18d61b1`](https://github.com/brunobml/gitops-control-plane/commit/18d61b1)) |
+| **Reviewed By** | Awaiting peer reviewer sign-off |
+| **Review Date** | Pending (2026-09-30) |
+| **Authorization Decision** | ⏳ **Awaiting Review** (Options: ✅ **GREEN LIGHT** · 🟠 **CONDITIONAL** · 🔴 **REVISE & RESUBMIT**) |
+
+### Review Decision & Authorization Banner
+
+> ### 🟡 PENDING AUTHORIZATION
+>
+> **Reviewer Instructions:** Record your review decision, feedback, and any non-blocking or blocking implementation conditions directly in this section so that review and approval remain co-located with the remediation plan without generating separate review files.
+
+### Implementation Conditions & Review Feedback (To be filled by Reviewer)
+
+| ID | Type | Condition / Observation | Status |
+|:---:|:---:|---|:---:|
+| — | — | *No conditions registered yet — awaiting reviewer feedback.* | ⏳ |
+
+---
+
 ## 1. Executive Summary & Scope
 
 With the **Low-Severity scope formally closed** and verified in Phase 1 (clean TokenRequest lifecycle, no permanent SA secrets, zero plaintext annotations, RGD hardening, blueprint promotion gates, and documentation consistency), this Phase 2 remediation plan directly attacks the core architectural, security, and supply-chain vulnerabilities identified in the assessment.
