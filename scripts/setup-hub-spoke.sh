@@ -95,11 +95,17 @@ helm repo update argo
 kubectl --context "k3d-${HUB_CLUSTER}" create namespace argocd --dry-run=client -o yaml \
   | kubectl --context "k3d-${HUB_CLUSTER}" apply -f -
 bash "${SCRIPT_DIR}/setup-argocd-accounts.sh"
-helm --kube-context "k3d-${HUB_CLUSTER}" upgrade --install argo-cd argo/argo-cd \
-  --version 10.9.4 \
-  --namespace argocd \
-  --create-namespace \
-  -f "${REPO_ROOT}/clusters/values-argocd-hub.yaml"
+# Phase 3 B.4: bootstrap-only install. After `make bootstrap`, the argo-cd Application
+# (applicationsets/argo-cd.yaml) manages Argo CD from Git, so Helm's release record is removed
+# and an existing Argo CD is never reinstalled here. Break-glass: run this helm command by hand.
+if ! kubectl --context "k3d-${HUB_CLUSTER}" -n argocd get deployment argo-cd-argocd-server >/dev/null 2>&1; then
+  helm --kube-context "k3d-${HUB_CLUSTER}" upgrade --install argo-cd argo/argo-cd \
+    --version 10.9.4 \
+    --namespace argocd \
+    --create-namespace \
+    -f "${REPO_ROOT}/clusters/values-argocd-hub.yaml"
+  kubectl --context "k3d-${HUB_CLUSTER}" -n argocd delete secret -l owner=helm,name=argo-cd
+fi
 kubectl --context "k3d-${HUB_CLUSTER}" wait --for=condition=ready --timeout=120s pod -l app.kubernetes.io/name=argocd-server -n argocd
 
 # Log the CLI in as platform-admin: register-spokes.sh verifies connectivity with `argocd cluster list`.

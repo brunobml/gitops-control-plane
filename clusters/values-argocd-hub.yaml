@@ -1,3 +1,7 @@
+# Argo CD Helm values for the hub.
+# Phase 3 B.4: Argo CD manages itself from this file via the argo-cd Application
+# (applicationsets/argo-cd.yaml, manual sync by design). To change Argo CD: commit here, then
+# sync the argo-cd app as platform-admin. Do not `helm upgrade` except as break-glass.
 global:
   domain: localhost:8080
 
