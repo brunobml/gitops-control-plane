@@ -1,0 +1,11 @@
+# Editor and OS swap/temp files
+.*.swp
+.*.swo
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Lab local secrets (if created in repo tree)
+*.password

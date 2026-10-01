@@ -1,4 +1,4 @@
-.PHONY: all setup push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints help
+.PHONY: all setup start stop push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints help
 
 ROOT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 REPOS_DIR ?= $(abspath $(ROOT_DIR)/..)
@@ -8,6 +8,8 @@ all: help
 help:
 	@echo "Multi-Cluster Hub-and-Spoke Lab Commands:"
 	@echo "  make setup               - Provision Moto, k3d clusters (hub, spoke-nonprod, spoke-prod), Traefik, Argo CD, Headlamp, Kro & ACK"
+	@echo "  make start               - Resume Moto and all k3d clusters after host reboot"
+	@echo "  make stop                - Gracefully stop Moto and k3d clusters (preserving state)"
 	@echo "  make build-app           - Build & push orders-processor container image to local registry (TAG=v1.0.0)"
 	@echo "  make push                - Push all repositories to GitHub (origin main)"
 	@echo "  make bootstrap           - Apply root-control-plane Argo CD application to Hub"
@@ -67,6 +69,12 @@ password:
 
 push:
 	@bash $(ROOT_DIR)/scripts/push-all.sh
+
+start:
+	@bash $(ROOT_DIR)/scripts/start-hub-spoke.sh
+
+stop:
+	@bash $(ROOT_DIR)/scripts/stop-hub-spoke.sh
 
 setup:
 	@bash $(ROOT_DIR)/scripts/setup-hub-spoke.sh

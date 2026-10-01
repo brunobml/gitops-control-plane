@@ -86,6 +86,7 @@ flowchart TD
 │   ├── aws-well-architected-production-guide.md # 6-Pillar AWS Well-Architected audit & production transition blueprint
 │   ├── lab-progression-and-next-steps.md # Advanced enterprise roadmap (KEDA, Rollouts, Kyverno, Chaos, Telemetry)
 │   ├── assessments/2026-09-30-lab-assessment.md # Comprehensive hub-spoke lab assessment & maturity audit
+│   ├── runbooks/host-reboot-and-cluster-lifecycle.md # Operational runbook for host reboots & lifecycle
 │   └── remediation/2026-09-30-lab-remediation-plan.md # Targeted remediation plan for low-severity findings
 ├── scripts/
 │   ├── setup-hub-spoke.sh            # Provisions Moto, k3d clusters, Traefik, Argo CD, Kro & ACK
@@ -151,6 +152,22 @@ Check resource statuses across all clusters and Moto SQS queues:
 ```bash
 make status
 ```
+
+---
+
+## 🔄 Host Reboot & Lab Lifecycle
+
+To pause or resume your local multi-cluster environment without losing state or re-provisioning:
+
+```bash
+# Gracefully stop clusters and Moto before host shutdown/reboot
+make stop
+
+# Resume clusters and Moto after host reboot
+make start
+```
+
+For troubleshooting hanging Docker daemons, spoke connection errors, or token rotation, see the [Host Reboot & Lab Lifecycle Runbook](docs/runbooks/host-reboot-and-cluster-lifecycle.md).
 
 ---
 
