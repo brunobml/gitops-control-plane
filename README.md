@@ -26,14 +26,14 @@ flowchart TD
     subgraph SpokeNonProd["Spoke Non-Production (k3d-spoke-nonprod)"]
         KroNP["Kro Controller"]
         AckNP["ACK SQS Controller"]
-        Dev["tenant-a-dev<br/>(1 replica, dev-queue)"]
-        Test["tenant-a-test<br/>(2 replicas, test-queue)"]
+        Dev["orders-dev<br/>(1 replica, dev-queue)"]
+        Test["orders-test<br/>(1 replica, test-queue)"]
     end
 
     subgraph SpokeProd["Spoke Production (k3d-spoke-prod)"]
         KroP["Kro Controller"]
         AckP["ACK SQS Controller"]
-        Prod["tenant-a-prod<br/>(5 replicas, prod-queue)"]
+        Prod["orders-prod<br/>(2 replicas, prod-queue)"]
     end
 
     subgraph Cloud["Central Mock Cloud (Docker)"]

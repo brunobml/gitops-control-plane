@@ -1,4 +1,4 @@
-.PHONY: all setup push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens help
+.PHONY: all setup push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints help
 
 ROOT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 REPOS_DIR ?= $(abspath $(ROOT_DIR)/..)
@@ -12,12 +12,13 @@ help:
 	@echo "  make push                - Push all repositories to GitHub (origin main)"
 	@echo "  make bootstrap           - Apply root-control-plane Argo CD application to Hub"
 	@echo "  make rotate-spoke-tokens - Rotate 30-day TokenRequest tokens for Argo CD spokes and Headlamp"
+	@echo "  make promote-blueprints  - Annotate spoke cluster secrets with revisions from clusters/blueprint-revisions.env"
 	@echo "  make password            - Print Argo CD web UI admin password"
 	@echo "  make open-argocd         - Open Argo CD Web UI (http://localhost:8080)"
 	@echo "  make open-headlamp       - Open Headlamp Multi-Cluster Dashboard (http://headlamp.localhost:8080)"
-	@echo "  make open-dev            - Port-forward Tenant-A DEV web dashboard to http://localhost:8001"
-	@echo "  make open-test           - Port-forward Tenant-A TEST web dashboard to http://localhost:8002"
-	@echo "  make open-prod           - Port-forward Tenant-A PROD web dashboard to http://localhost:8003"
+	@echo "  make open-dev            - Port-forward Orders DEV web dashboard to http://localhost:8001"
+	@echo "  make open-test           - Port-forward Orders TEST web dashboard to http://localhost:8002"
+	@echo "  make open-prod           - Port-forward Orders PROD web dashboard to http://localhost:8003"
 	@echo "  make test                - Run end-to-end smoke tests across Hub, Spokes, and Moto Cloud"
 	@echo "  make status              - Inspect cluster statuses, pods, and AWS SQS queues"
 	@echo "  make teardown            - Destroy all k3d clusters, Moto container, and network"
@@ -30,7 +31,11 @@ build-app:
 
 rotate-spoke-tokens:
 	@echo "🔄 Rotating spoke TokenRequest tokens (30 days)..."
-	@bash scripts/register-spokes.sh && bash addons/headlamp/setup-credentials.sh
+	@bash $(ROOT_DIR)/scripts/register-spokes.sh && bash $(ROOT_DIR)/addons/headlamp/setup-credentials.sh
+
+promote-blueprints:
+	@echo "🚀 Promoting blueprint revisions to spoke clusters..."
+	@bash $(ROOT_DIR)/scripts/promote-blueprints.sh
 
 open-argocd:
 	@echo "🌐 Opening Argo CD Web UI at http://localhost:8080..."
@@ -58,18 +63,18 @@ password:
 	@echo "  Password: admin123"
 
 push:
-	@bash scripts/push-all.sh
+	@bash $(ROOT_DIR)/scripts/push-all.sh
 
 setup:
-	@bash scripts/setup-hub-spoke.sh
+	@bash $(ROOT_DIR)/scripts/setup-hub-spoke.sh
 
 bootstrap:
-	@kubectl --context k3d-hub-cluster apply -f projects/ --validate=false
-	@kubectl --context k3d-hub-cluster apply -f bootstrap/root-app.yaml --validate=false
+	@kubectl --context k3d-hub-cluster apply -f $(ROOT_DIR)/projects/ --validate=false
+	@kubectl --context k3d-hub-cluster apply -f $(ROOT_DIR)/bootstrap/root-app.yaml --validate=false
 	@echo "✔ Projects & Root application deployed to Hub Argo CD"
 
 test:
-	@bash scripts/smoke-test-hub-spoke.sh
+	@bash $(ROOT_DIR)/scripts/smoke-test-hub-spoke.sh
 
 status:
 	@echo "=== HUB CLUSTER (Argo CD) ==="
@@ -85,4 +90,4 @@ status:
 	@AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs list-queues --output table 2>/dev/null || echo "No queues found."
 
 teardown:
-	@bash scripts/teardown-hub-spoke.sh
+	@bash $(ROOT_DIR)/scripts/teardown-hub-spoke.sh

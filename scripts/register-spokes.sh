@@ -108,8 +108,8 @@ EOF
   if [[ "$status" == "Successful" ]]; then
     echo "Argo CD cluster connectivity for ${spoke}: Successful"
   else
-    echo "Warning: Argo CD cluster list status is '${status}' (will proceed with fallback secret verification)"
-    kubectl --context "$HUB_CONTEXT" -n argocd get secret "cluster-${spoke}" -o jsonpath='{.metadata.name}: OK' && echo
+    echo "❌ Error: Argo CD cluster connectivity check failed for ${spoke} (status: '${status}'). Aborting." >&2
+    exit 1
   fi
 
   # 7. Clean up legacy token secret on spoke after connection is verified (B2, C1)

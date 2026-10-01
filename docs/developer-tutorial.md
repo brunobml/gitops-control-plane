@@ -29,7 +29,7 @@ flowchart TD
 
     subgraph ProdCluster["k3d-spoke-prod"]
         KroP["Kro Engine"]
-        WorkerP["Prod Worker Pods (5 replicas)"]
+        WorkerP["Prod Worker Pods (2 replicas)"]
     end
 
     subgraph CentralCloud["Central Mock AWS Cloud (moto-cloud:5000)"]
@@ -54,17 +54,13 @@ flowchart TD
 
 ## 📁 Repository Structure
 
-Your code lives in [`tenant-workloads`](https://github.com/brunobml/tenant-workloads):
+Workload configurations live in [`orders-processor`](https://github.com/brunobml/orders-processor):
 
 ```text
-tenants/
-└── tenant-a/
-    ├── dev/                # Deployed to spoke-nonprod (namespace: tenant-a-dev)
-    │   └── orders-service.yaml
-    ├── test/               # Deployed to spoke-nonprod (namespace: tenant-a-test)
-    │   └── orders-service.yaml
-    └── prod/               # Deployed to spoke-prod (namespace: tenant-a-prod)
-        └── orders-service.yaml
+deploy/
+├── values-dev.yaml      # Deployed to spoke-nonprod (namespace: orders-dev)
+├── values-test.yaml     # Deployed to spoke-nonprod (namespace: orders-test)
+└── values-prod.yaml     # Deployed to spoke-prod (namespace: orders-prod)
 ```
 
 The GitOps platform uses folder names and Helm values to make decisions:
