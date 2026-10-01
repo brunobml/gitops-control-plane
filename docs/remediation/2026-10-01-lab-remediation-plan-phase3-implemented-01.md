@@ -116,3 +116,14 @@ moto-cloud                   0.0.0.0:5000->5000            (rebound in D.2, as p
 * **Rotation due before 2026-10-31 04:05 UTC** (smoke stage 8 starts warning on 2026-10-24).
 * API ports remain on `0.0.0.0` until the B.7 rebuild; moto until D.2.
 * Next: Track B (B.1 → B.2 with R-2 as D-7 → B.3 → B.5/B.6).
+
+---
+
+## 7. Post-run Changes (2026-10-01, after owner feedback)
+
+| ID | Change | Reason | Commits |
+|---|---|---|---|
+| **P-1** | **Headlamp RBAC: added read-only `headlamp-cluster-viewer`** (nodes, persistentvolumes, storage classes, CSI, ingress/runtime/priority classes, node/pod metrics) on all 3 clusters | **Defect** reported by the owner: Headlamp could not show nodes. The built-in `view` role (adopted in Phase 2 MC-5 on the author's recommendation) excludes cluster-scoped objects; the author missed this. Secrets, writes and exec remain denied (re-verified with `can-i`). | `b95e543` |
+| **P-2** | **Headlamp basic auth removed** (owner decision). Detached the ingress annotation first (`ac6e304`), then removed the Middleware, the `addon-headlamp-auth` Application, `setup-auth.sh`, the htpasswd Secret and its password file. | The owner reported repeated credential prompts (Headlamp's background requests don't reuse basic-auth credentials reliably). The author advised that for a **single-user** lab the password adds high friction for little protection: after A.1 Headlamp is reachable only from `127.0.0.1`, and anyone on the machine already has a **cluster-admin** `~/.kube/config`. Production would use OIDC SSO (Phase 4), not basic auth. | `ac6e304`, this commit |
+
+**Revised status:** **L4-1 → Closed with accepted residual risk.** Headlamp is localhost-only, read-only (no Secrets, writes or exec), uses strict TLS and dedicated tokens, and has no hub admin. It has no login, and runs with `-dev` (relaxed CORS). The accepted residual risk is that a malicious web page open in the owner's browser could read (not change) cluster state through `localhost`. SSO is scheduled for Phase 4.

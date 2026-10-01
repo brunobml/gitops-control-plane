@@ -69,7 +69,7 @@ flowchart TD
    ```text
    http://headlamp.localhost:8080
    ```
-2. **Log in**: the browser prompts for a username and password (Traefik basic auth, Middleware `headlamp/headlamp-auth`). The username is `platform`; run `make password` to see where the password is stored (it is never in Git). After login, Headlamp shows all three clusters **read-only**: it can list resources and read pod logs, but cannot read Secrets, write, or exec into pods.
+2. **No login prompt**: Headlamp is bound to `127.0.0.1` only, so it is reachable from your machine alone. It shows all three clusters **read-only**: it can list resources (including nodes) and read pod logs, but cannot read Secrets, write, or exec into pods. *(A basic-auth login was tried in Phase 3 and removed by owner decision: for a single-user lab it added repeated prompts for little protection, since the local kubeconfig is already cluster-admin. Production would use OIDC SSO, planned for Phase 4.)*
 
 Alternatively, use the command line:
 ```bash
@@ -172,8 +172,6 @@ The script [`setup-credentials.sh`](setup-credentials.sh), run by `make rotate-s
 
 The Headlamp pod itself runs with no Kubernetes token mounted and has no cluster role.
 
-### 3. Login (basic auth)
-[`setup-auth.sh`](setup-auth.sh) creates the `headlamp/headlamp-basic-auth` htpasswd Secret, which holds only a bcrypt hash. The Traefik Middleware that references it is in Git under [`manifests/`](manifests/) and is deployed by the `addon-headlamp-auth` Application.
 
 ---
 
