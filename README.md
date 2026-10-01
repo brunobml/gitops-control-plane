@@ -84,7 +84,9 @@ flowchart TD
 │   ├── production-promotion-guardrails.md # Enterprise production promotion patterns & guardrails
 │   ├── argocd-visual-design-and-naming-standards.md # UI/UX design standards, labels, deep links & naming conventions
 │   ├── aws-well-architected-production-guide.md # 6-Pillar AWS Well-Architected audit & production transition blueprint
-│   └── lab-progression-and-next-steps.md # Advanced enterprise roadmap (KEDA, Rollouts, Kyverno, Chaos, Telemetry)
+│   ├── lab-progression-and-next-steps.md # Advanced enterprise roadmap (KEDA, Rollouts, Kyverno, Chaos, Telemetry)
+│   ├── assessments/2026-09-30-lab-assessment.md # Comprehensive hub-spoke lab assessment & maturity audit
+│   └── remediation/2026-09-30-lab-remediation-plan.md # Targeted remediation plan for low-severity findings
 ├── scripts/
 │   ├── setup-hub-spoke.sh            # Provisions Moto, k3d clusters, Traefik, Argo CD, Kro & ACK
 │   ├── register-spokes.sh            # Creates tokens and registers spokes in Hub Argo CD
@@ -167,3 +169,11 @@ To completely clean up all clusters, mock cloud containers, and networks:
 ```bash
 make teardown
 ```
+
+## AI-Assisted Lab Assessment
+
+This repository includes a carefully crafted prompt that lets an AI agent (with live access to the cluster and repositories) perform a structured, multi-layered assessment of the lab as a Master DevSecOps Architect.
+
+The agent evaluates architecture, GitOps maturity, security posture, production parity with a real EKS hub-spoke design, and how easy the lab is for new engineers to understand and extend.
+
+→ See [`docs/ai-agent-lab-assessment-prompt.md`](docs/ai-prompts/ai-agent-lab-assessment-prompt.md)
