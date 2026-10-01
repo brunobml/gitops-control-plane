@@ -1,0 +1,29 @@
+# Phase 3 B.1 (PV-4): AppProjects are reconciled from Git instead of `kubectl apply`.
+# prune is disabled (and each AppProject carries Prune=false) so removing a file can never
+# delete a project that Applications still reference; deletions are a deliberate manual step.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-projects
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: platform-control-plane
+spec:
+  project: control-plane
+  source:
+    repoURL: https://github.com/brunobml/gitops-control-plane.git
+    targetRevision: main
+    path: projects
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m

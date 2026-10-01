@@ -3,6 +3,9 @@ kind: AppProject
 metadata:
   name: default
   namespace: argocd
+  annotations:
+    # Phase 3 B.1: never prune an AppProject that apps may still reference.
+    argocd.argoproj.io/sync-options: Prune=false
 spec:
   description: "Default locked-down project (unused)"
   sourceRepos: []
