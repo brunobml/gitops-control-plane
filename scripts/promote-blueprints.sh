@@ -25,8 +25,13 @@ if [[ "$current_branch" != "main" ]]; then
   exit 1
 fi
 
-if ! git -C "$REPO_DIR" fetch -q origin main || ! git -C "$REPO_DIR" merge-base --is-ancestor HEAD origin/main; then
-  echo "❌ Error: Local commits not pushed to upstream origin/main. Push to Git first." >&2
+if ! git -C "$REPO_DIR" fetch -q origin main; then
+  echo "❌ Error: Failed to fetch origin/main." >&2
+  exit 1
+fi
+
+if [[ $(git -C "$REPO_DIR" rev-parse HEAD) != $(git -C "$REPO_DIR" rev-parse origin/main) ]]; then
+  echo "❌ Error: Local 'main' is not in sync with origin/main. Pull or push first." >&2
   exit 1
 fi
 
