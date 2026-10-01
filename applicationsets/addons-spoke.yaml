@@ -2,7 +2,8 @@
 # `helm upgrade --install` in setup-hub-spoke.sh.
 #
 # - A cluster opts in with the label addons-managed=true on its Argo CD cluster Secret
-#   (written by scripts/register-spokes.sh). Adoption was done one cluster at a time.
+#   (written by scripts/register-spokes.sh). Adoption was done one cluster at a time
+#   with manual syncs after reviewing the diff; automated sync was enabled afterwards.
 # - Controller values come from platform-catalog at the cluster's blueprints-revision
 #   (nonprod: main, prod: a release tag), so controller config goes through the same
 #   promotion gate as the blueprints.
@@ -63,6 +64,12 @@ spec:
         server: "{{server}}"
         namespace: "{{targetNamespace}}"
       syncPolicy:
+        # Enabled after both spokes were adopted with a reviewed, manual first sync.
+        # prune stays off: a chart upgrade that drops an object leaves it orphaned
+        # rather than deleting it (safe default for CRD-bearing controller charts).
+        automated:
+          prune: false
+          selfHeal: true
         syncOptions:
           - CreateNamespace=true
           - ServerSideApply=true

@@ -81,6 +81,8 @@ metadata:
   labels:
     argocd.argoproj.io/secret-type: cluster
     environment: ${env_tag}
+    # Phase 3 B.2: spoke controllers (kro, ACK) are deployed by the addons-spoke ApplicationSets.
+    addons-managed: "true"
   annotations:
     blueprints-revision: ${bp_rev}
     lab/token-expires: "${expires_at}"

@@ -107,20 +107,10 @@ bash "${SCRIPT_DIR}/register-spokes.sh"
 echo -e "\n${YELLOW}[5b/7] Configuring Headlamp Multi-Cluster Credentials on ${HUB_CLUSTER}...${NC}"
 bash "${REPO_ROOT}/addons/headlamp/setup-credentials.sh"
 
-# 6. Install Platform Controllers (Kro + ACK) on Spokes
-echo -e "\n${YELLOW}[6/7] Installing Kro & ACK on both spoke clusters...${NC}"
-for ctx in "k3d-${SPOKE_NONPROD}" "k3d-${SPOKE_PROD}"; do
-  kubectl --context "$ctx" apply -f "${REPOS_DIR}/platform-catalog/controllers/ack/credentials-secret.yaml"
-  helm --kube-context "$ctx" upgrade --install ack-sqs-controller oci://public.ecr.aws/aws-controllers-k8s/sqs-chart \
-    --version 1.7.1 \
-    --namespace ack-system \
-    --create-namespace \
-    -f "${REPOS_DIR}/platform-catalog/controllers/ack/values-sqs.yaml"
-  helm --kube-context "$ctx" upgrade --install kro oci://registry.k8s.io/kro/charts/kro \
-    --version 0.9.4 \
-    --namespace kro \
-    --create-namespace
-done
+# 6. Platform controllers (kro + ACK) are no longer installed here (Phase 3 B.2).
+#    register-spokes.sh labels each spoke addons-managed=true, and after `make bootstrap`
+#    the addons-spoke / addons-spoke-ack-credentials ApplicationSets deploy them from Git.
+echo -e "\n${YELLOW}[6/7] Spoke controllers (kro, ACK) will be deployed by Argo CD after 'make bootstrap'.${NC}"
 
 # The built-in admin account is disabled (Phase 3 A.2); remove any generated initial password.
 kubectl --context "k3d-${HUB_CLUSTER}" -n argocd delete secret argocd-initial-admin-secret 2>/dev/null || true
