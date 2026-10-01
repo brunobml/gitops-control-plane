@@ -39,3 +39,13 @@ spec:
   namespaceResourceWhitelist:
     - group: "*"
       kind: "*"
+  # Phase 3 C.2: identity Argo CD impersonates when syncing (application.sync.impersonation.enabled).
+  destinationServiceAccounts:
+    # Tenant apps address clusters by name; server "*" matches regardless. Destinations above
+    # still restrict which clusters/namespaces are allowed.
+    - server: "*"
+      namespace: "orders-*"
+      defaultServiceAccount: "kube-system:argocd-tenant-deployer"
+    - server: "*"
+      namespace: "tenant-*"
+      defaultServiceAccount: "kube-system:argocd-tenant-deployer"

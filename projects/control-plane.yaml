@@ -21,3 +21,8 @@ spec:
   namespaceResourceWhitelist:
     - group: "*"
       kind: "*"
+  # Phase 3 C.2: identity Argo CD impersonates when syncing (application.sync.impersonation.enabled).
+  destinationServiceAccounts:
+    - server: "https://kubernetes.default.svc"
+      namespace: "*"
+      defaultServiceAccount: "argocd:argocd-platform-deployer"

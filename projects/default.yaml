@@ -12,3 +12,9 @@ spec:
   destinations: []
   clusterResourceWhitelist: []
   namespaceResourceWhitelist: []
+  # Phase 3 C.2: identity Argo CD impersonates when syncing (application.sync.impersonation.enabled).
+  destinationServiceAccounts:
+    # Deliberately a non-existent identity: nothing may be deployed through the default project.
+    - server: "*"
+      namespace: "*"
+      defaultServiceAccount: "kube-system:argocd-default-project-denied"

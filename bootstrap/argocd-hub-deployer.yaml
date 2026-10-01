@@ -1,0 +1,21 @@
+# Phase 3 C.2: identity Argo CD impersonates when syncing project control-plane to the hub
+# itself (https://kubernetes.default.svc). Explicit cluster-admin: the control plane manages
+# Argo CD's own Applications, AppProjects, Traefik and Headlamp. Applied by `make bootstrap`.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argocd-platform-deployer
+  namespace: argocd
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-platform-deployer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: argocd-platform-deployer
+    namespace: argocd
