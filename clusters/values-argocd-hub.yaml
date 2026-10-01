@@ -31,12 +31,30 @@ configs:
       type: helm
       name: headlamp
       url: https://kubernetes-sigs.github.io/headlamp/
+  # No admin password in Git (Phase 3 A.2). The built-in admin account is disabled below;
+  # use the local accounts. Passwords live only in argocd-secret (see `make password`).
+  # Helm must not own argocd-secret: the chart renders it from values only, so every
+  # upgrade would drop the account passwords Argo CD writes at runtime. The live Secret
+  # carries helm.sh/resource-policy=keep so Helm leaves it in place.
   secret:
-    # Predefined lab admin credentials: admin / admin123
-    argocdServerAdminPassword: "$2a$10$AMG7vuA2rrnzxNB1bsA0KOHHHYEHa9sG31PHaAf3mkNHLoKzWMHWO"
-    argocdServerAdminPasswordMtime: "2026-09-29T16:00:00Z"
+    createSecret: false
+  rbac:
+    # Deny by default; access is granted only through the roles below (Phase 3 A.2).
+    policy.default: ""
+    policy.csv: |
+      g, platform-admin, role:admin
+      p, role:tenant-a, projects,     get,  tenant-workloads, allow
+      p, role:tenant-a, applications, get,  tenant-workloads/*, allow
+      p, role:tenant-a, applications, sync, tenant-workloads/orders-dev, allow
+      p, role:tenant-a, applications, sync, tenant-workloads/orders-test, allow
+      p, role:tenant-a, logs,         get,  tenant-workloads/*, allow
+      g, tenant-a, role:tenant-a
   cm:
     url: http://localhost:8080
+    # Local accounts (Phase 3 A.2). Passwords are set via the API and never stored in Git.
+    accounts.platform-admin: login
+    accounts.tenant-a: login
+    admin.enabled: "false"
     application.links: |
       - title: "Headlamp Cluster Explorer"
         url: "http://headlamp.localhost:8080"

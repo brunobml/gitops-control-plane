@@ -58,9 +58,12 @@ open-prod:
 	@kubectl --context k3d-spoke-prod -n orders-prod port-forward svc/orders-prod 8003:80
 
 password:
-	@echo "Argo CD Admin Credentials:"
-	@echo "  Username: admin"
-	@echo "  Password: admin123"
+	@echo "Argo CD accounts (the built-in 'admin' account is disabled):"
+	@echo "  platform-admin : full access"
+	@echo "  tenant-a       : view tenant apps; sync orders-dev / orders-test only"
+	@echo "Passwords are stored outside Git, readable only by you:"
+	@echo "  $${GITOPS_LAB_SECRET_DIR:-$$HOME/.config/gitops-lab}/argocd-<account>.password"
+	@echo "To (re)set them: bash $(ROOT_DIR)/scripts/setup-argocd-accounts.sh"
 
 push:
 	@bash $(ROOT_DIR)/scripts/push-all.sh

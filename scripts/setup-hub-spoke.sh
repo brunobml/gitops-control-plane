@@ -77,11 +77,23 @@ kubectl --context "k3d-${HUB_CLUSTER}" wait --for=condition=ready --timeout=120s
 echo -e "\n${YELLOW}[4b/7] Deploying Argo CD on ${HUB_CLUSTER}...${NC}"
 helm repo add argo https://argoproj.github.io/argo-helm 2>/dev/null || true
 helm repo update argo
+# argocd-secret is not managed by Helm (configs.secret.createSecret=false), so it must exist
+# before argocd-server starts. setup-argocd-accounts.sh creates it if missing and sets the
+# local-account passwords (Phase 3 A.2).
+kubectl --context "k3d-${HUB_CLUSTER}" create namespace argocd --dry-run=client -o yaml \
+  | kubectl --context "k3d-${HUB_CLUSTER}" apply -f -
+bash "${SCRIPT_DIR}/setup-argocd-accounts.sh"
 helm --kube-context "k3d-${HUB_CLUSTER}" upgrade --install argo-cd argo/argo-cd \
+  --version 10.9.4 \
   --namespace argocd \
   --create-namespace \
   -f "${REPO_ROOT}/clusters/values-argocd-hub.yaml"
 kubectl --context "k3d-${HUB_CLUSTER}" wait --for=condition=ready --timeout=120s pod -l app.kubernetes.io/name=argocd-server -n argocd
+
+# Log the CLI in as platform-admin: register-spokes.sh verifies connectivity with `argocd cluster list`.
+argocd login localhost:8080 --plaintext --grpc-web --skip-test-tls \
+  --username platform-admin \
+  --password "$(cat "${GITOPS_LAB_SECRET_DIR:-$HOME/.config/gitops-lab}/argocd-platform-admin.password")" </dev/null
 
 # 4c. Apply Enterprise AppProjects
 echo -e "\n${YELLOW}[4c/7] Creating Enterprise AppProjects on ${HUB_CLUSTER}...${NC}"
@@ -110,14 +122,13 @@ for ctx in "k3d-${SPOKE_NONPROD}" "k3d-${SPOKE_PROD}"; do
     --create-namespace
 done
 
-# Clean up temporary initial-admin-secret if present, using predefined lab credentials
+# The built-in admin account is disabled (Phase 3 A.2); remove any generated initial password.
 kubectl --context "k3d-${HUB_CLUSTER}" -n argocd delete secret argocd-initial-admin-secret 2>/dev/null || true
-ADMIN_PASS="admin123"
 
 echo -e "\n${GREEN}============================================================${NC}"
 echo -e "${GREEN}  Hub-and-Spoke Environment Ready!                         ${NC}"
 echo -e "${GREEN}============================================================${NC}"
-echo -e "  Hub Argo CD UI:     http://localhost:8080 (or http://argocd.localhost:8080, admin / ${ADMIN_PASS})"
+echo -e "  Hub Argo CD UI:     http://localhost:8080 (or http://argocd.localhost:8080; accounts: run 'make password')"
 echo -e "  Hub Headlamp UI:    http://headlamp.localhost:8080 (Single Pane of Glass Dashboard)"
 echo -e "  Central Moto Cloud: http://localhost:5000/moto-api/"
 echo -e "  Spoke Non-Prod:     k3d-spoke-nonprod (Traefik Ingress on port 8081)"

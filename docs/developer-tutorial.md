@@ -74,9 +74,9 @@ Environment mappings and deployment targets are explicitly declared in [`applica
 
 ### Step 1: Open Your Dashboards
 - **Hub Argo CD UI**: [http://localhost:8080](http://localhost:8080)
-  - Username: `admin`
-  - Password: `admin123`
-  - Here you will see all your tenant applications: `orders-dev`, `orders-test`, `orders-prod`.
+  - Username: `tenant-a` (developer access: view tenant apps, sync `orders-dev` / `orders-test`)
+  - Password: run `make password` to see where it is stored (it is never kept in Git)
+  - Here you will see all your tenant applications: `orders-dev`, `orders-test`, `orders-prod`. Production syncs only through a reviewed `valuesRevision` change, so `tenant-a` cannot sync `orders-prod`.
 - **Central Moto Cloud API**: [http://localhost:5000/moto-api/](http://localhost:5000/moto-api/)
 
 ---
