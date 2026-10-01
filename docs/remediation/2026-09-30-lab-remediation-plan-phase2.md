@@ -1,9 +1,10 @@
 # Lab Remediation Plan: Phase 2 — Critical & High Severity Findings
 ## Hub-and-Spoke GitOps Control Plane (2026-09-30)
 
-* **Plan Version:** 1.0 (Phase 2: Critical, High, and High-Impact Governance Remediation)
+* **Plan Version:** 1.1 (Revised Version Addressing Review Blockers P2-B1–P2-B6 & Validation Run #01 Observations PV-1–PV-5)
 * **Assessment Reference:** [`../assessments/2026-09-30-lab-assessment.md`](../assessments/2026-09-30-lab-assessment.md)
-* **Phase 1 Baseline:** [`2026-09-30-lab-remediation-plan-validation-03.md`](2026-09-30-lab-remediation-plan-validation-03.md) (All Low findings & review blockers closed)
+* **Phase 1 Baseline:** [`2026-09-30-lab-remediation-plan-validation-03.md`](2026-09-30-lab-remediation-plan-validation-03.md) (All Low findings closed)
+* **Phase 2 Validation Baseline:** [`2026-09-30-lab-remediation-plan-phase2-validation-01.md`](2026-09-30-lab-remediation-plan-phase2-validation-01.md)
 * **Target Repositories:** `gitops-control-plane`, `platform-catalog`, `orders-processor`
 
 ---
@@ -12,62 +13,68 @@
 
 | Field | Details |
 |---|---|
-| **Current Status** | 🟠 **CONDITIONAL: PARTIALLY AUTHORIZED** (Track 1 and Step 8 only; revise Tracks 2–4 and resubmit) |
-| **Plan Version** | `v1.0`. Plan body at commit [`18d61b1`](https://github.com/brunobml/gitops-control-plane/commit/18d61b1); reviewed at [`5939bc5`](https://github.com/brunobml/gitops-control-plane/commit/5939bc5), which only adds this header |
-| **Reviewed By** | Claude (Opus 5.5), AI peer reviewer for the assessment and the Phase 1 validations |
-| **Review Date** | 2026-09-30 |
-| **Authorization Decision** | 🟠 **CONDITIONAL** (Options: ✅ **GREEN LIGHT** · 🟠 **CONDITIONAL** · 🔴 **REVISE & RESUBMIT**) |
+| **Current Status** | 🟡 **SUBMITTED FOR RE-REVIEW (Plan v1.1)** |
+| **Plan Version** | `v1.1` (commit [`78129b9`](https://github.com/brunobml/gitops-control-plane/commit/78129b9)) |
+| **Reviewed By** | Claude (Opus 5.5), AI peer reviewer |
+| **Review Date** | 2026-09-30 (v1.0 review & Validation-01) · Resubmitted 2026-09-30 (v1.1) |
+| **Authorization Decision** | ⏳ **Awaiting Final Re-Review on Revised Scope** (Tracks 2, 3, 4 and Step 1 PV-1 remediation) |
 
 ### Review Decision & Authorization Banner
 
-> ### 🟠 CONDITIONAL: PARTIALLY AUTHORIZED
+> ### 🟡 PLAN v1.1 SUBMITTED FOR RE-REVIEW
 >
-> | Scope | Decision |
+> | Scope | Status in v1.1 |
 > |---|---|
-> | **Track 1** (Steps 1–5: CI tags, ACK resync, smoke tests, AppProjects, X-1) | ✅ **Authorized now**, subject to conditions C-1 to C-3 |
-> | **Step 8** (PSS `restricted` labels) | ✅ **Authorized**, subject to C-4 |
-> | **Track 2** (Steps 6–7: Headlamp / L4-1) | ⛔ **Revise.** Blockers P2-B1, P2-B2 and P2-B3 would leave Headlamp cluster-admin on the hub, leave TLS unverified, and hide ACK Queues |
-> | **Step 9** (NetworkPolicy) | ⛔ **Revise.** Blocker P2-B4: the policy selects no pods |
-> | **Step 10** (ACK CARM multi-account) | ⛔ **Defer.** Blocker P2-B5: it would break every worker (verified against moto) |
-> | **Track 4** (Step 11: prod workload gate) | ⛔ **Revise.** Blocker P2-B6: the template variable cannot resolve in a List generator |
->
-> All blockers were found by checking the plan's assumptions against the live clusters, not by reading alone (evidence below). Once v1.1 addresses them, only the revised steps need re-review.
->
-> **Scheduling note:** the TokenRequest tokens from Phase 1 expire on **2026-10-31 at about 01:00 UTC**. If Track 2 hasn't shipped by then, run `make rotate-spoke-tokens`.
+> | **Track 1 Quick Wins (Steps 2–5)** | ✅ **Closed & Validated** in Run #01 (ACK 300s resync, honest smoke tests, AppProjects, preflight branch pin) |
+> | **Step 1 (L3-5 Immutable CI Tags)** | ⚠️ **Remediation Action Defined (PV-1)**: Pin values to published CI digest, purge local node image cache, fix `v` tag prefix |
+> | **Step 8 (L4-3 PSS Restricted)** | ✅ **Closed & Validated** in Run #01 (`managedNamespaceMetadata` enforced) |
+> | **Track 2 (Headlamp / L4-1 Critical)** | 🔄 **Revised (P2-B1, P2-B2, P2-B3)**: Drop `headlamp-admin` ClusterRoleBinding, set `serviceAccount.automount: false`, remove `-insecure-ssl`, aggregate CRDs to built-in `view` |
+> | **Step 9 (Workload NetworkPolicy)** | 🔄 **Revised (P2-B4)**: Embeds in Kro RGD matching `app: ${schema.spec.name}-${schema.spec.environment}-worker`, narrows moto egress to `172.21.0.0/16` |
+> | **Step 10 (ACK CARM Multi-Account)** | ⏸ **Deferred to Phase 3 (P2-B5, F-1)**: Blocked on worker per-env credentials, CARM map, and queue migration runbook |
+> | **Track 4 (Production Promotion Gate)** | 🔄 **Revised (P2-B6, F-2)**: Adds `valuesRevision: 1.3.0` to List generator, keeps automated self-heal, gates on revision pin |
+> | **Deferred Findings (L4-2, L3-2, L2-1, L4-4)**| ⏸ **Explicitly Scheduled for Phase 3 (F-1)**: Architectural rationale documented in §1.1 |
 
-### Implementation Conditions & Review Feedback
+### Implementation Conditions, Review Blockers & Validation Feedback
 
-**Blocking: must be fixed in plan v1.1 before the affected step runs**
+#### 1. Review Blockers from Plan v1.0 (Resolved in Plan v1.1)
 
-| ID | Type | Condition / Observation | Status |
+| ID | Topic | Resolution in Plan v1.1 | Status |
 |:---:|:---:|---|:---:|
-| **P2-B1** | ⛔ Blocker (Step 6–7) | **Headlamp's own pod stays cluster-admin on the hub.** The Deployment runs as SA `headlamp` with `automountServiceAccountToken=true`, and ClusterRoleBinding `headlamp-admin` → `cluster-admin` still exists (created by `setup-credentials.sh`). Moving the *kubeconfig* to `headlamp-viewer` doesn't change the pod's mounted token. A compromised Headlamp still owns the hub, including every Argo CD cluster Secret. **Fix:** delete `ClusterRoleBinding/headlamp-admin`, remove it from `setup-credentials.sh`, and set `serviceAccount.automount: false` (or `automountServiceAccountToken: false`) in `addon-headlamp.yaml`. | ⏳ Open |
-| **P2-B2** | ⛔ Blocker (Step 7) | **The `-insecure-ssl` flag defeats the TLS verification Step 7 adds.** `applicationsets/addon-headlamp.yaml` passes `-insecure-ssl` (live args: `-kubeconfig=… -insecure-ssl -dev`), so Headlamp skips certificate checks whatever the kubeconfig says. **Fix:** remove `-insecure-ssl` from `extraArgs` in the same change. The CA-verified kubeconfig will work: all three API server certificates list `k3d-<cluster>-server-0` in their SANs (verified). | ⏳ Open |
-| **P2-B3** | ⛔ Blocker (Step 6) | **The `headlamp-viewer-role` grants the wrong API group for ACK and omits logs.** ACK Queues live in `sqs.services.k8s.aws`; `services.k8s.aws` holds only `fieldexports` and `iamroleselectors` (verified). Headlamp would get Forbidden on exactly the resources the plan's CRD-visibility concern is about. The hand-written list also omits `pods/log`, `batch`, `policy` (the PDB), `discovery.k8s.io` and `internal.kro.run`. **Fix:** do what the plan's own concern describes. Bind the built-in **`view`** ClusterRole (it includes `pods/log` and excludes Secrets) and add a small ClusterRole labelled `rbac.authorization.k8s.io/aggregate-to-view: "true"` granting `get/list/watch` on `kro.run`, `internal.kro.run`, `sqs.services.k8s.aws`, `services.k8s.aws` and `apiextensions.k8s.io/customresourcedefinitions`. | ⏳ Open |
-| **P2-B4** | ⛔ Blocker (Step 9) | **The NetworkPolicy selects no pods, so it would pass verification while enforcing nothing.** It uses `podSelector: app.kubernetes.io/name: orders`, but the worker pods carry only `app: orders-<env>-worker`, `environment`, and `pod-template-hash` (verified). The k3s policy controller **is** enforcing (kube-router chains present on both spokes), so a corrected selector would take effect immediately. **Fix:** (1) add the policy as a resource in the **RGD** (`app: ${schema.spec.name}-${schema.spec.environment}-worker`) so it ships through the existing blueprint gate (non-prod on `main`, prod on a new tag, rollback by re-pointing the tag) rather than as an untracked `kubectl apply`; (2) narrow the moto egress from `0.0.0.0/0` to the `k3d-cloud-net` subnet `172.21.0.0/16` (moto is `172.21.0.9`); (3) prove on non-prod that liveness and readiness probes still pass under kube-router *before* tagging for prod; (4) change verification #11 to show that a blocked destination fails **and** that a pod outside the policy is unaffected. | ⏳ Open |
-| **P2-B5** | ⛔ Blocker (Step 10) | **CARM as planned would break every worker.** Verified against the live moto: a queue created under an assumed role in a non-default account is **not visible** to default credentials, and the worker's raw call style (`Authorization: … Credential=mock/…`, `orders-processor/src/main.py:22`) returns `NonExistentQueue` against that account's URL. moto separates accounts by credential, not by URL path, so the plan's conclusion that "partitioning is transparent" does not hold. In addition: (a) the CARM map `ack-system/ack-role-account-map` (account → role ARN) does not exist and is not in the plan; (b) changing an existing namespace's owner account makes ACK create **new** queues in the new account and orphans the old ones (a migration, not a toggle); the rollback ("remove annotation, restart") triggers a second migration. **Fix:** move L4-4 to a later phase that first (1) gives the worker per-environment credentials (the local equivalent of IRSA or Pod Identity), which needs an app change shipped through the L3-5 immutable-tag pipeline; (2) adds the CARM map; (3) writes a migration runbook (recreate instances, then delete orphaned queues in `123456789012`). | ⏳ Open |
-| **P2-B6** | ⛔ Blocker (Step 11) | **`{{metadata.annotations.workload-revision}}` cannot resolve.** `tenant-workloads-prod.yaml` uses a **List** generator (verified); `metadata.annotations` exists only with the Cluster generator, so the expression renders empty or literally. Also, `orders-processor` has **no Git tags** (verified), so "pin to `v1.2.0`" has nothing to pin to. **Fix:** add an element field such as `valuesRevision: v1.3.0` to the List element (promotion then becomes a reviewed control-plane PR, consistent with `blueprint-revisions.env`). Create the first `orders-processor` release tag through the new L3-5 pipeline **before** switching. | ⏳ Open |
+| **P2-B1** | Headlamp pod hub privilege | In `addon-headlamp.yaml`, set `serviceAccount.automount: false`. In `setup-credentials.sh`, delete `ClusterRoleBinding/headlamp-admin`. The pod can no longer access the Hub API using cluster-admin. | ✅ Resolved in v1.1 Spec |
+| **P2-B2** | Headlamp TLS flag | Remove `-insecure-ssl` from `extraArgs` in `addon-headlamp.yaml`. All three API server certificates include `k3d-<cluster>-server-0` in their SANs, enabling strict CA TLS verification. | ✅ Resolved in v1.1 Spec |
+| **P2-B3** | Headlamp CRD RBAC & Logs | Bind built-in **`view`** ClusterRole (includes `pods/log`, excludes Secrets) and add an aggregated ClusterRole `headlamp-crd-viewer` labelled `rbac.authorization.k8s.io/aggregate-to-view: "true"` granting `get/list/watch` on `kro.run`, `internal.kro.run`, `sqs.services.k8s.aws`, `services.k8s.aws`, and `apiextensions.k8s.io/customresourcedefinitions`. | ✅ Resolved in v1.1 Spec |
+| **P2-B4** | NetworkPolicy pod selector & egress | Define NetworkPolicy inside the Kro RGD (`app: ${schema.spec.name}-${schema.spec.environment}-worker`) so it ships declaratively through the blueprint gate. Narrow Moto egress from `0.0.0.0/0` to `172.21.0.0/16` (Docker bridge network). Verify on non-prod before tagging prod. | ✅ Resolved in v1.1 Spec |
+| **P2-B5** | ACK CARM breaking workers | Formally deferred to Phase 3. Live Moto testing proved that queues in a non-default account return `NonExistentQueue` to workers using default credentials. CARM requires per-environment IAM credentials in the worker and a queue recreation migration. | ⏸ Deferred to Phase 3 |
+| **P2-B6** | Prod gate List generator variable | Add `valuesRevision: 1.3.0` directly to the `tenant-workloads-prod.yaml` List generator element and pin `targetRevision: '{{valuesRevision}}'`. | ✅ Resolved in v1.1 Spec |
 
-**Conditions for authorized steps (apply during execution; no re-review needed)**
+#### 2. Conditions from Plan v1.0 & Validation Run #01 Status
 
-| ID | Type | Condition / Observation | Status |
+| ID | Step | Condition / Finding | Status |
 |:---:|:---:|---|:---:|
-| **C-1** | Condition (Step 1) | `type=ref,event=branch` still publishes a **mutable** `main` tag. That's acceptable only if no `deploy/values-*.yaml` ever references it. The existing `v1.2.0` tag was overwritten historically, so cut a fresh release (e.g. `v1.3.0`) from the new pipeline and repoint all three values files to it (ideally by digest). This tag is also the prerequisite for P2-B6. Track 1 must run before Track 4. | ✅ Resolved in Run #01 |
-| **C-2** | Condition (Step 3) | Don't hard-code "7 applications". Assert that **every** Application is Synced/Healthy *and* that the expected set is present, so adding an app neither breaks the test nor hides a missing one. Count queues by name (3 queues + 3 DLQs), not by line count. | ✅ Resolved in Run #01 |
-| **C-3** | Condition (Step 2) | The key `reconcile.defaultResyncPeriod` is correct for chart `sqs-chart` 1.7.1 (verified). Put it in `platform-catalog/controllers/ack/values-sqs.yaml` only (drop the duplicate `--set`). For acceptance #6, allow up to 2× the period for jitter, and record the observed recreation time. | ✅ Resolved in Run #01 |
-| **C-4** | Condition (Step 8) | Namespaces are created by Argo CD (`CreateNamespace=true`), so `kubectl label` is untracked and is lost if a namespace is recreated. Declare the PSS labels in the tenant ApplicationSets with `syncPolicy.managedNamespaceMetadata.labels`. The workloads already pass the `restricted` dry run (Validation-03), so enforcement is safe. | ✅ Resolved in Run #01 |
+| **C-1** | Step 1 | Immutable CI tags in `orders-processor` | ⚠️ **Reopened by PV-1**: Pipeline was fixed, but release workloads reference `v1.3.0` (404 on GHCR) and run an unregistered local build. Resolved in v1.1 Step 1 by pinning by digest. |
+| **C-2** | Step 3 | Honest smoke tests checking expected set and exact queues | ✅ **Validated & Closed** in Run #01 (7 apps verified, 6 named queues verified, fails closed). |
+| **C-3** | Step 2 | Lower ACK resync to 300s in `values-sqs.yaml` | ✅ **Validated & Closed** in Run #01 (Acceptance #6 live DLQ deletion recreated in 15s with 0 restarts). |
+| **C-4** | Step 8 | Declarative PSS `restricted` via ApplicationSets | ✅ **Validated & Closed** in Run #01 (server dry run of non-compliant pod rejected). |
 
-**Non-blocking review feedback (address in v1.1)**
+#### 3. Validation Run #01 Observations (PV-1 to PV-5)
 
-| ID | Type | Condition / Observation | Status |
+| ID | Sev | Observation | Plan v1.1 Concrete Remediation Action |
+|:---:|:---:|---|---|
+| **PV-1** | **High** | Values files reference `v1.3.0` (missing on GHCR, where tag is `1.3.0`), and nodes run locally imported image from `acfb7ab` rather than release commit `8f5e0b6`. | (1) Repoint `deploy/values-*.yaml` to the exact published CI artifact by digest: `ghcr.io/brunobml/orders-processor:1.3.0@sha256:3fc6e216e13c22db612253d9a844d915899e490acd0815a72d92e5c1279bd70e`.<br>(2) Purge imported image from all 4 k3d nodes (`crictl rmi ghcr.io/brunobml/orders-processor:v1.3.0`).<br>(3) Verify kubelet pulls directly from GHCR and pods reflect commit `8f5e0b6`.<br>(4) Update `ci.yaml` to `pattern=v{{version}}` for future releases. |
+| **PV-2** | Low | Promotion preflight accepts local `main` that is behind `origin/main`. | Strengthen check in `scripts/promote-blueprints.sh` to enforce `[[ $(git rev-parse HEAD) == $(git rev-parse origin/main) ]]`. |
+| **PV-3** | Info | Path hygiene: `docs/remediation/` contains absolute `/home/bleite/` links. | Replaced with repo-relative and GitHub-style links in Plan v1.1 and future reports. |
+| **PV-4** | Info | `projects/*.yaml` not reconciled by Argo CD. | Documented as drift caveat; formally scheduled to be brought under `root-control-plane` in Phase 3 (L2-1). |
+| **PV-5** | Info | L4-7 acceptance criteria wording. | Clarified: "application controller refuses to sync unwhitelisted sources/destinations" (admission webhook is not used). |
+
+#### 4. Non-Blocking Review Items (F-1 to F-5)
+
+| ID | Area | Resolution in Plan v1.1 | Status |
 |:---:|:---:|---|:---:|
-| **F-1** | Scope | The title says "Critical & High", but two **High** findings are missing without a stated deferral: **L4-2** (Argo CD `admin`/`admin123`, bcrypt hash in a public repo, plain HTTP) and **L3-2** (moto state is ephemeral; with L3-1 this means "green against an empty cloud"). **L2-1** (High) appears only as a roadmap item with no steps or acceptance criteria. Either add them or list them under "Deferred to Phase 3" with a reason. | ⏳ Open |
-| **F-2** | Design | Step 11's always-on `deny` sync window (`* * * * *`, 24 h) also **blocks self-heal** on `orders-prod`, so drift would no longer be corrected. Once prod values are pinned to an immutable ref, automated sync is safe, because the pin is the gate. Recommend: pin plus keep `automated`/`selfHeal`, and use sync windows only for change freezes. | ⏳ Open |
-| **F-3** | Residual risk | L4-1 also covers *no authentication* and `0.0.0.0:8080` exposure. After Track 2, Headlamp is read-only but still unauthenticated, with `-dev` (relaxed CORS). Mark L4-1 as **Mitigated** (not Closed) after Track 2 and record the residual risk, or add a step (bind the k3d load balancer to `127.0.0.1`, or put OIDC in front). | ⏳ Open |
-| **F-4** | Rollback | The Headlamp rollback ("rerun with previous credentials") would restore cluster-admin, which brings back the Critical finding. Make the rollback `kubectl -n headlamp scale deploy/headlamp --replicas=0` while fixing forward. | ⏳ Open |
-| **F-5** | Hygiene | The plan reintroduces absolute `/home/bleite/repos/...` target paths (Steps 1–2). The L1-6 check excludes `docs/remediation/`, so it won't catch them. Use repo-relative names (`orders-processor/.github/workflows/ci.yaml`). | ⏳ Open |
-
-**Verified during this review** (read-only, except one temporary moto queue in a fake account, created and deleted): worker pod labels; k3s NetworkPolicy enforcement (kube-router iptables chains); moto cross-account visibility with the worker's credential style; ACK chart 1.7.1 `reconcile.*` keys; ACK API groups; CARM map absence; API server certificate SANs on all 3 clusters; Headlamp Deployment SA, automount and args; `headlamp-admin` binding; no Application uses the `default` project (so locking it down is safe); `orders-processor` has no tags; `tenant-workloads-prod` generator type; built-in `view` includes `pods/log`.
+| **F-1** | Scope | Added explicit "Deferred Findings to Phase 3" section covering L4-2, L3-2, L2-1, and L4-4. | ✅ Resolved in v1.1 |
+| **F-2** | Gating | Eliminated 24/7 deny syncWindow (which blocks self-heal drift correction); rely on immutable `valuesRevision` pin as the gate. | ✅ Resolved in v1.1 |
+| **F-3** | Residual Risk | Marked L4-1 as **Mitigated** (least-privilege read-only RBAC); recorded residual risk of unauthenticated 8080 exposure for Phase 3. | ✅ Resolved in v1.1 |
+| **F-4** | Rollback | Updated Headlamp rollback runbook to `kubectl -n headlamp scale deploy/headlamp --replicas=0` while fixing forward. | ✅ Resolved in v1.1 |
+| **F-5** | Hygiene | Cleaned up absolute target paths in plan text to repo-relative paths (`orders-processor/...`, `platform-catalog/...`). | ✅ Resolved in v1.1 |
 
 ---
 
@@ -75,23 +82,26 @@
 
 With the **Low-Severity scope formally closed** and verified in Phase 1 (clean TokenRequest lifecycle, no permanent SA secrets, zero plaintext annotations, RGD hardening, blueprint promotion gates, and documentation consistency), this Phase 2 remediation plan directly attacks the core architectural, security, and supply-chain vulnerabilities identified in the assessment.
 
-### Phase 2 Scope & Objectives:
-1. **Critical Cluster Gateway Hardening (L4-1):** Eliminate Headlamp's shared `argocd-manager` cluster-admin tokens. Create dedicated, read-only ServiceAccounts on all three clusters with aggregated CRD viewer permissions and TLS CA verification.
+### 1.1 Phase 2 Scope & Objectives:
+1. **Critical Cluster Gateway Hardening (L4-1):** Eliminate Headlamp's shared `argocd-manager` cluster-admin tokens and disable hub pod automount. Create dedicated, read-only ServiceAccounts on all three clusters with aggregated CRD viewer permissions and strict CA TLS verification.
 2. **Immediate Supply Chain & Drift Quick Wins (L3-5, L3-1, L3-4, L4-7, L1-4, X-1):**
-   - Fix mutable CI release tagging in `orders-processor` to guarantee artifact immutability.
-   - Reduce ACK SQS controller resync from 10 hours to 300 seconds (5 minutes) to eliminate cloud drift invisibility.
-   - Make the smoke test suite honest by verifying Argo CD application health and cloud resource existence with strict error handling.
-   - Lock down the `default` AppProject and archive/remove stale `tenant-workloads` references.
-   - Pin the promotion preflight check in `scripts/promote-blueprints.sh` to `origin/main` (X-1).
-3. **Spoke Network & Cloud Isolation (L4-3, L4-4):**
-   - Enforce Pod Security Standards `restricted` via namespace admission labels across `orders-*` namespaces on both spokes.
-   - Apply default-deny `NetworkPolicy` to workload pods with explicit rules for DNS, Moto, and Traefik ingress.
-   - Implement AWS multi-account isolation via ACK CARM, partitioning non-prod (`111111111111`) and prod (`222222222222`) cloud resources.
+   - **Step 1 (L3-5 / PV-1):** Pin workload manifests to the exact published GHCR image digest (`1.3.0@sha256:3fc6e216...`), purge locally imported images on all nodes to force kubelet pulls, and fix `ci.yaml` pattern to `pattern=v{{version}}`.
+   - **Step 2 (L3-1):** ACK SQS resync period set to 300s (✅ validated live with 15s automatic DLQ recreation).
+   - **Step 3 (L3-4):** Honest smoke test suite asserting all 7 Argo CD applications and 6 named SQS queues (✅ validated live, fails closed).
+   - **Step 4 (L4-7, L1-4):** Lock down `default` AppProject and clean up dead repo references (✅ validated live).
+   - **Step 5 (X-1 / PV-2):** Pin promotion preflight strictly to `origin/main` and ensure local HEAD is not behind (PV-2).
+3. **Spoke Workload Security Baseline (L4-3):**
+   - **Step 8:** Enforce Pod Security Standards `restricted` via ApplicationSet `managedNamespaceMetadata` across `orders-*` namespaces (✅ validated live; non-compliant pods rejected).
+   - **Step 9:** Deploy default-deny `NetworkPolicy` through the Kro RGD (`app: ${schema.spec.name}-${schema.spec.environment}-worker`) with explicit rules for DNS, Traefik ingress, and Moto network (`172.21.0.0/16`).
 4. **Tenant Workload Production Promotion Gate (L2-2):**
-   - Pin `orders-prod` to immutable release tags/branches instead of tracking `main`.
-   - Implement sync windows or manual sync controls in the tenant ApplicationSet.
-5. **Platform GitOps Addons Roadmap (L2-1, L3-8):**
-   - Architectural transition plan to move kro, ACK SQS, and Traefik into declarative GitOps ApplicationSets.
+   - **Step 11:** Pin `orders-prod` to `valuesRevision: 1.3.0` via List generator element in `tenant-workloads-prod.yaml`, retaining automated self-heal while gating production promotion on explicit Git control-plane PRs.
+
+### 1.2 Explicit Deferrals to Phase 3 (F-1, P2-B5)
+To maintain rigorous engineering boundaries and avoid breaking running services, the following findings are explicitly scheduled for Phase 3:
+* **L4-4 (ACK CARM Multi-Account Cloud Isolation):** Deferred per **P2-B5**. Live Moto testing confirmed workers using default credentials fail with `NonExistentQueue` when accessing queues in secondary accounts. Implementing CARM requires (1) giving the worker per-environment credentials (IRSA or Pod Identity equivalent), (2) creating the `ack-system/ack-role-account-map`, and (3) executing a planned queue recreation migration runbook.
+* **L4-2 (Argo CD Credentials & Plain HTTP Exposure):** Deferred to Phase 3. Requires setting up external secret management / IRSA, TLS termination certificates, and OIDC authentication.
+* **L3-2 (Central Moto Cloud Ephemeral State Persistence):** Deferred to Phase 3. Requires configuring persistent volume storage or automated cloud state restore scripts for Moto.
+* **L2-1 / L3-8 (GitOps-Managed Platform Addons):** Deferred to Phase 3. Migrating Kro, ACK SQS, and Traefik from imperative install scripts into GitOps ApplicationSets with sync-wave ordering. Also folds in declarative management of `projects/` (PV-4).
 
 ---
 
@@ -99,17 +109,17 @@ With the **Low-Severity scope formally closed** and verified in Phase 1 (clean T
 
 | Finding | Sev | Action Summary | Agreement | Technical Concerns & Implementation Nuances |
 | :--- | :---: | :--- | :---: | :--- |
-| **L4-1** | **Critical** | Overhaul Headlamp credentials: dedicated read-only SA per cluster, drop shared `argocd-manager` tokens, enable CA TLS verification. | **Agree** | **Concern (CRD Visibility):** Standard `view` ClusterRole does not grant access to Custom Resources (`kro.run/*`, `services.k8s.aws/*`). We must create an aggregated ClusterRole `headlamp-viewer` that binds `view` plus read access to Kro and ACK resources, otherwise Headlamp dashboard will spin on custom workloads.<br>**Concern (Hub Port & Origin):** Running on `0.0.0.0:8080` without authentication remains an exposure on shared networks; binding to `127.0.0.1` or requiring local port-forwarding protects the gateway. |
-| **L3-5** | **High** | Fix mutable CI release tags in `orders-processor/.github/workflows/ci.yaml`. Tag only on SemVer tags (`v*`) and commit SHA; eliminate hardcoded `v1.1.0`/`v1.2.0`/`latest` overwrite. | **Agree** | **Concern (Release Flow):** Overwriting `v1.1.0` and `v1.2.0` on every push to `main` destroys supply-chain reproducibility. Tagging must trigger on `tags: ['v*']` for SemVer releases and SHA for branch builds. We must ensure local dev build scripts (`build-and-push.sh`) also respect explicit tags. |
-| **L3-1** | **High** | Lower ACK resync period from 36,000s (10h) to 300s (5 min) in `values-sqs.yaml` (`reconcile.defaultResyncPeriod`). | **Agree** | **Concern (API Throttling vs Drift):** In local Moto this has zero cost. In production AWS, 300s is a reasonable balance between AWS API rate limits and drift detection. We must verify controller restarts pick up the new value and execute the DLQ drift test. |
-| **L4-3** | **High** | Enforce Pod Security Standards `restricted` via namespace labels on `orders-*`; deploy default-deny `NetworkPolicy` on spokes. | **Agree** | **Concern (Kubelet & Ingress Probes):** In Phase 1 we proved the workload pods already comply with `restricted` PSS. However, `NetworkPolicy` can accidentally drop Traefik ingress or kubelet health probes (`/healthz`). Policies must explicitly allow ingress from the Traefik pod/namespace and egress to DNS (port 53) and Moto (port 5000). |
-| **L4-4** | **High** | Multi-account isolation in Moto via ACK CARM (`--enable-carm=true`). Non-prod -> `111111111111`, Prod -> `222222222222`. | **Agree** | **Concern (Hardcoded Worker Assumptions):** Ensure the application worker does not have hardcoded account `123456789012` in its URL parsing. Kro's RGD dynamically passes `QUEUE_URL` and `QUEUE_ARN` from ACK status, so partitioning is transparent if the ConfigMap reflection is intact. |
-| **L2-2** | **High** | Implement production promotion gate for tenant workloads (`orders-prod`). | **Agree** | **Concern (Dual-Source ApplicationSet):** `orders-prod` uses Helm chart `queue-backed-service` with values from `orders-processor.git`. Pinning the git source to a release tag (e.g., `v1.2.0`) or dedicated branch (`release/prod`) enforces auditable GitOps promotion. Add `syncWindows` to prevent unauthorized automated syncs. |
-| **L3-4** | Medium | Upgrade smoke test suite (`smoke-test-hub-spoke.sh`) to assert Argo CD health and Moto cloud queues; fix `grep -c` bug. | **Agree** | **Nuance:** Test must check that all 7 Argo CD applications are `Synced` and `Healthy`, verify both queues and DLQs in Moto via AWS CLI, and return non-zero exit codes on any failure. |
-| **L4-7** | Medium | Lock down the `default` AppProject (`sourceRepos: []`, `destinations: []`, `clusterResourceWhitelist: []`). | **Agree** | Prevents rogue applications from bypassing tenant guardrails by omitting `project:`. |
-| **L1-4** | Medium | Clean up `tenant-workloads` repository references in `projects/tenant-workloads.yaml`. | **Agree** | Removes dead repository from AppProject whitelist to avoid operator confusion. |
-| **X-1** | Info | Pin promotion preflight in `scripts/promote-blueprints.sh` to require `origin/main`. | **Agree** | Resolves carry-forward observation from Validation #03. |
-| **L2-1 / L3-8** | **High** | GitOps-managed platform layer (Addons ApplicationSets for kro, ACK, Traefik). | **Agree** | Structure as the strategic foundation of the platform. |
+| **L4-1** | **Critical** | Overhaul Headlamp credentials: dedicated read-only SA per cluster, drop shared `argocd-manager` tokens, disable pod automount, drop `-insecure-ssl`, enable CA TLS verification. | **Agree (Mitigated)** | **Resolved Blockers (P2-B1, P2-B2, P2-B3):**<br>• Pod token automount disabled in `addon-headlamp.yaml`; `ClusterRoleBinding/headlamp-admin` deleted.<br>• `-insecure-ssl` dropped from extraArgs.<br>• Aggregated ClusterRole `headlamp-crd-viewer` binds to built-in `view` ClusterRole (providing `pods/log`) with CRD read permissions for `kro.run`, `internal.kro.run`, `sqs.services.k8s.aws`, `services.k8s.aws`, and CRDs.<br>• **Residual Risk (F-3):** Headlamp remains exposed on `0.0.0.0:8080` without authentication (dev mode). Mark L4-1 as **Mitigated** (not Closed); host binding/OIDC scheduled for Phase 3. |
+| **L3-5** | **High** | Fix mutable CI release tags and resolve artifact provenance gap (PV-1). Pin values files by digest to the published CI artifact; purge unregistered local node images; update `ci.yaml` pattern to `v{{version}}`. | **Agree** | **Resolved Defect (PV-1):** The CI pipeline was updated in Run #01, but values referenced `v1.3.0` (404 on GHCR), and nodes ran an imported local build from commit `acfb7ab`. Repointing values to `ghcr.io/brunobml/orders-processor:1.3.0@sha256:3fc6e216...` and purging node caches ensures true supply-chain provenance. |
+| **L3-1** | **High** | Lower ACK resync period from 36,000s (10h) to 300s (5 min) in `values-sqs.yaml` (`reconcile.defaultResyncPeriod`). | **Closed** | ✅ Validated in Run #01. Live DLQ deletion was detected and recreated within 15 seconds with zero controller restarts. |
+| **L4-3** | **High** | Enforce Pod Security Standards `restricted` via ApplicationSets; deploy default-deny `NetworkPolicy` via Kro RGD on spokes. | **Agree** | **Resolved Blocker (P2-B4):** Workload PSS labels are closed and enforced. The NetworkPolicy will be embedded directly in the Kro RGD (`app: ${schema.spec.name}-${schema.spec.environment}-worker`), narrowing Moto egress to `172.21.0.0/16:5000` and Traefik ingress to port 8080. Verified on nonprod before promoting to prod. |
+| **L4-4** | **High** | Multi-account isolation in Moto via ACK CARM. | **Deferred** | **Deferred to Phase 3 (P2-B5):** Worker call style cannot read queues in non-default accounts without IAM roles. Requires app credential modernization, CARM map, and queue migration runbook. |
+| **L2-2** | **High** | Implement production promotion gate for tenant workloads (`orders-prod`). | **Agree** | **Resolved Blocker (P2-B6, F-2):** Add `valuesRevision: 1.3.0` to the ApplicationSet List generator in `tenant-workloads-prod.yaml`. Decouple prod from `main`. Keep `automated: {selfHeal: true}` so drift is corrected, using the pinned revision as the promotion gate. |
+| **L3-4** | Medium | Upgrade smoke test suite (`smoke-test-hub-spoke.sh`) to assert Argo CD health and Moto cloud queues; fix `grep -c` bug. | **Closed** | ✅ Validated in Run #01. Checks all 7 apps, 3 active CRs, and 6 named queues. Proven to fail closed on missing queues. |
+| **L4-7** | Medium | Lock down the `default` AppProject (`sourceRepos: []`, `destinations: []`, `clusterResourceWhitelist: []`). | **Closed** | ✅ Validated in Run #01. `projects/default.yaml` applied; controller rejects unwhitelisted syncs. |
+| **L1-4** | Medium | Clean up `tenant-workloads` repository references in `projects/tenant-workloads.yaml`. | **Closed** | ✅ Validated in Run #01. Dead repo reference eliminated from AppProject. |
+| **X-1** | Info | Pin promotion preflight in `scripts/promote-blueprints.sh` to require `origin/main` (PV-2). | **Closed** | ✅ Validated in Run #01. Reinforced with PV-2 exact revision equality check. |
+| **L2-1 / L3-8** | **High** | GitOps-managed platform layer (Addons ApplicationSets for kro, ACK, Traefik). | **Deferred** | Formally scheduled for Phase 3. |
 
 ---
 
@@ -117,89 +127,85 @@ With the **Low-Severity scope formally closed** and verified in Phase 1 (clean T
 
 ```mermaid
 flowchart TD
-    subgraph Track1["Track 1: Quick Wins & Supply Chain"]
-        T1_1["L3-5: Immutable CI Tagging"]
-        T1_2["L3-1: ACK Resync (300s)"]
-        T1_3["L3-4: Honest Smoke Tests"]
-        T1_4["L4-7 & L1-4: AppProject Hardening"]
-        T1_5["X-1: Promotion Preflight to origin/main"]
+    subgraph Track1["Track 1: Quick Wins & Provenance Hardening"]
+        T1_1["Step 1 (L3-5 / PV-1): Digest Pin & Node Cache Purge"]
+        T1_2["Step 2 (L3-1): ACK Resync 300s - CLOSED"]
+        T1_3["Step 3 (L3-4): Honest Smoke Tests - CLOSED"]
+        T1_4["Step 4 (L4-7 / L1-4): AppProjects Hardening - CLOSED"]
+        T1_5["Step 5 (X-1 / PV-2): Preflight Pin to origin/main"]
     end
 
     subgraph Track2["Track 2: Headlamp Gateway Overhaul (L4-1)"]
-        T2_1["Create headlamp-viewer SA & Aggregated ClusterRole"]
-        T2_2["Issue Isolated 30-day Tokens for Headlamp"]
-        T2_3["Assemble TLS-Verified Kubeconfig with Spoke CAs"]
+        T2_1["Set automount: false on SA headlamp & drop headlamp-admin binding (P2-B1)"]
+        T2_2["Create headlamp-viewer SA & Aggregated CRD ClusterRole (P2-B3)"]
+        T2_3["Assemble TLS-Verified Kubeconfig with Spoke CAs & drop -insecure-ssl (P2-B2)"]
         T2_4["Deploy Scoped Secret & Restart Headlamp"]
     end
 
-    subgraph Track3["Track 3: Spoke Workload & Cloud Security"]
-        T3_1["L4-3: Enforce PSS Restricted Labels"]
-        T3_2["L4-3: Deploy Workload NetworkPolicies"]
-        T3_3["L4-4: Configure ACK CARM Multi-Account"]
+    subgraph Track3["Track 3: Spoke Workload Security Baseline (L4-3)"]
+        T3_1["Step 8 (L4-3): Enforce PSS Restricted - CLOSED"]
+        T3_2["Step 9 (L4-3): Embed NetworkPolicy in Kro RGD (P2-B4)"]
+        T3_3["Step 9: Validate on Nonprod (Egress to 172.21.0.0/16 & DNS)"]
     end
 
     subgraph Track4["Track 4: Production Promotion Gate (L2-2)"]
-        T4_1["Pin orders-prod targetRevision to Release Ref"]
-        T4_2["Configure SyncWindow & Manual Gating"]
+        T4_1["Add valuesRevision: 1.3.0 to List Generator in tenant-workloads-prod (P2-B6)"]
+        T4_2["Pin targetRevision to valuesRevision & retain self-heal (F-2)"]
     end
 
-    Track1 --> Track2 --> Track3 --> Track4
+    subgraph Phase3["Phase 3 Roadmap (Deferred Scope)"]
+        P3_1["L4-4: ACK CARM Multi-Account with Worker IAM"]
+        P3_2["L2-1: GitOps Platform Addons & projects/ Management (PV-4)"]
+        P3_3["L4-2: Argo CD Authentication & TLS Exposure"]
+        P3_4["L3-2: Central Moto Ephemeral State Persistence"]
+    end
+
+    Track1 --> Track2 --> Track3 --> Track4 --> Phase3
 ```
 
 ---
 
 ## 4. Detailed Technical Action Plan
 
-### Track 1: Immediate Supply Chain & Drift Quick Wins
+### Track 1: Immediate Supply Chain & Provenance Hardening
 
-#### Step 1: Immutable CI Tagging in `orders-processor` (L3-5)
-* **Target File:** `/home/bleite/repos/orders-processor/.github/workflows/ci.yaml`
-* **Changes:**
-  - Remove hardcoded `type=raw,value=v1.2.0`, `type=raw,value=v1.1.0`, and `type=raw,value=latest` on branch pushes.
-  - Configure `docker/metadata-action` to generate:
-    - SemVer tags on release tags (`type=semver,pattern={{version}}`).
-    - Commit SHA tag (`type=sha,format=short,prefix=sha-`) for traceability.
-    - Branch tag (`type=ref,event=branch`) only on `main`.
-  - Derive `APP_VERSION` from `github.ref_name` rather than hardcoding.
-
-#### Step 2: Lower ACK SQS Resync Period (L3-1)
-* **Target File:** `/home/bleite/repos/platform-catalog/controllers/ack/values-sqs.yaml`
-* **Changes:**
-  - Add `reconcile: {defaultResyncPeriod: 300}`.
-  - Update `setup-hub-spoke.sh` (and live deployments on both spokes) to apply `--set reconcile.defaultResyncPeriod=300`.
-  - Restart ACK deployment on `k3d-spoke-nonprod` and `k3d-spoke-prod`.
-  - Verify container env var: `RECONCILE_DEFAULT_RESYNC_SECONDS="300"`.
-
-#### Step 3: Honest Smoke Test Suite (L3-4)
-* **Target File:** `scripts/smoke-test-hub-spoke.sh`
-* **Changes:**
-  - Assert that all 7 Argo CD applications in namespace `argocd` on `k3d-hub-cluster` have `.status.sync.status == "Synced"` and `.status.health.status == "Healthy"`.
-  - Assert that each `QueueBackedService` instance on both spokes is in state `ACTIVE`.
-  - Use AWS CLI against Moto (`http://localhost:5000`) to assert that all 6 queues (`orders-{dev,test,prod}-queue` and DLQs) exist.
-  - Fix the `grep -c` bash bug and add explicit `exit 1` on any failure.
-
-#### Step 4: Lock Down `default` AppProject & Deprecate `tenant-workloads` (L4-7, L1-4)
+#### Step 1: Published Artifact Digest Pinning & CI Tag Hygiene (L3-5 / PV-1)
 * **Target Files:**
-  - `projects/tenant-workloads.yaml`: Remove `https://github.com/brunobml/tenant-workloads.git` from `sourceRepos`.
-  - `projects/default.yaml` (new file applied to Hub):
-    ```yaml
-    apiVersion: argoproj.io/v1alpha1
-    kind: AppProject
-    metadata:
-      name: default
-      namespace: argocd
-    spec:
-      description: "Default locked-down project (unused)"
-      sourceRepos: []
-      destinations: []
-      clusterResourceWhitelist: []
-      namespaceResourceWhitelist: []
-    ```
+  - `orders-processor/deploy/values-dev.yaml`
+  - `orders-processor/deploy/values-test.yaml`
+  - `orders-processor/deploy/values-prod.yaml`
+  - `orders-processor/.github/workflows/ci.yaml`
+* **Changes & Execution:**
+  1. **Pin Workload Values by Digest:** Update all three values files to pin directly to the immutable published CI release artifact by digest:
+     ```yaml
+     image: ghcr.io/brunobml/orders-processor:1.3.0@sha256:3fc6e216e13c22db612253d9a844d915899e490acd0815a72d92e5c1279bd70e
+     ```
+  2. **Purge Unregistered Node Image Caches:** Remove the untracked locally built image (`acfb7ab`) from all k3d nodes across both spokes:
+     ```bash
+     for node in k3d-spoke-nonprod-server-0 k3d-spoke-nonprod-agent-0 k3d-spoke-prod-server-0 k3d-spoke-prod-agent-0; do
+       docker exec "$node" crictl rmi ghcr.io/brunobml/orders-processor:v1.3.0 2>/dev/null || true
+     done
+     ```
+  3. **Verify Pure Kubelet Registry Pull:** Restart the deployments across `orders-dev`, `orders-test`, and `orders-prod`. Confirm that pods pull directly from GHCR, report the exact image digest `sha256:3fc6e216...`, and display `Git Commit: 8f5e0b6` in the HTTP response.
+  4. **Future Release Tag Matching:** In `orders-processor/.github/workflows/ci.yaml`, update the metadata tag rule to `type=semver,pattern=v{{version}}` so future releases preserve the leading `v` matching Git tags.
+  5. **Operational Rule of Engagement:** Never use `k3d image import` with public registry prefixes (`ghcr.io/`) for releases; reserve image imports strictly for isolated local debugging with distinct tags (`:local-dev`).
 
-#### Step 5: Pin Blueprint Promotion Preflight to `origin/main` (X-1)
+#### Step 2: Lower ACK SQS Resync Period (L3-1) — ✅ CLOSED & VALIDATED
+* **Status:** Implemented in Run #01 (`platform-catalog@c0f8779`). Upgraded `ack-sqs-controller` Helm release on both spokes with `reconcile: {defaultResyncPeriod: 300}`.
+* **Validation Outcome:** Validated live in Run #01 (Acceptance #6). Deleting `orders-dev-dlq` in Moto resulted in automatic recreation by ACK within 15 seconds with 0 controller restarts.
+
+#### Step 3: Honest Multi-Cluster Smoke Test Suite (L3-4) — ✅ CLOSED & VALIDATED
+* **Status:** Implemented in Run #01 (`scripts/smoke-test-hub-spoke.sh`).
+* **Validation Outcome:** Validated live in Run #01. Asserts all 7 Argo CD applications (`Synced`/`Healthy`), verifies all 3 `QueueBackedService` CRs are `ACTIVE`, and verifies all 6 SQS queues and DLQs by exact name in Moto. Proven to fail closed on missing queues.
+
+#### Step 4: Lock Down `default` AppProject & Deprecate `tenant-workloads` (L4-7, L1-4) — ✅ CLOSED & VALIDATED
+* **Status:** Implemented in Run #01 (`projects/default.yaml` and `projects/tenant-workloads.yaml`).
+* **Validation Outcome:** Validated live in Run #01. `tenant-workloads.git` removed; `default` AppProject locked down with empty sources and destinations.
+
+#### Step 5: Pin Blueprint Promotion Preflight to `origin/main` (X-1 / PV-2)
 * **Target File:** `scripts/promote-blueprints.sh`
-* **Changes:**
-  - Add branch check:
+* **Changes (PV-2 Refinement):**
+  - In addition to checking that the current branch is `main` and fetching `origin main`, ensure local `main` is strictly identical to `origin/main` so outdated local branches cannot promote stale revisions:
     ```bash
     current_branch=$(git -C "$REPO_DIR" branch --show-current)
     if [[ "$current_branch" != "main" ]]; then
@@ -207,190 +213,220 @@ flowchart TD
       exit 1
     fi
     git -C "$REPO_DIR" fetch -q origin main
-    if ! git -C "$REPO_DIR" merge-base --is-ancestor HEAD origin/main; then
-      echo "❌ Error: Local HEAD is not merged and pushed to origin/main." >&2
+    if [[ $(git -C "$REPO_DIR" rev-parse HEAD) != $(git -C "$REPO_DIR" rev-parse origin/main) ]]; then
+      echo "❌ Error: Local 'main' is not in sync with origin/main. Pull or push first." >&2
       exit 1
     fi
     ```
 
 ---
 
-### Track 2: Headlamp Credential & Least-Privilege Overhaul (L4-1)
+### Track 2: Headlamp Credential & Least-Privilege Overhaul (L4-1 Mitigated)
 
-#### Step 6: Create Dedicated Read-Only ServiceAccounts on All Clusters
-* **Spoke Clusters (`k3d-spoke-nonprod`, `k3d-spoke-prod`) & Hub (`k3d-hub-cluster`):**
-  - Create namespace `headlamp-access` (or use `kube-system`).
-  - Create ServiceAccount: `headlamp-viewer`.
-  - Create ClusterRole `headlamp-viewer-role`:
-    ```yaml
-    apiVersion: rbac.authorization.k8s.io/v1
-    kind: ClusterRole
-    metadata:
-      name: headlamp-viewer-role
-    rules:
-      - apiGroups: [""]
-        resources: ["namespaces", "pods", "services", "configmaps", "persistentvolumeclaims", "events", "nodes"]
-        verbs: ["get", "list", "watch"]
-      - apiGroups: ["apps"]
-        resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]
-        verbs: ["get", "list", "watch"]
-      - apiGroups: ["networking.k8s.io"]
-        resources: ["ingresses", "networkpolicies"]
-        verbs: ["get", "list", "watch"]
-      - apiGroups: ["kro.run"]
-        resources: ["*"]
-        verbs: ["get", "list", "watch"]
-      - apiGroups: ["services.k8s.aws"]
-        resources: ["*"]
-        verbs: ["get", "list", "watch"]
-      - apiGroups: ["apiextensions.k8s.io"]
-        resources: ["customresourcedefinitions"]
-        verbs: ["get", "list", "watch"]
-    ```
-  - Bind `headlamp-viewer` ServiceAccount to `headlamp-viewer-role` via ClusterRoleBinding `headlamp-viewer-binding`.
+#### Step 6: Create Dedicated Read-Only ServiceAccounts & Aggregated CRD Viewer Role (P2-B3)
+* **Clusters:** `k3d-hub-cluster`, `k3d-spoke-nonprod`, and `k3d-spoke-prod`.
+* **Actions:**
+  1. Create namespace `headlamp-access` (or use `kube-system`).
+  2. Create ServiceAccount: `headlamp-viewer` in namespace `headlamp-access`.
+  3. Deploy aggregated ClusterRole `headlamp-crd-viewer` on all three clusters:
+     ```yaml
+     apiVersion: rbac.authorization.k8s.io/v1
+     kind: ClusterRole
+     metadata:
+       name: headlamp-crd-viewer
+       labels:
+         rbac.authorization.k8s.io/aggregate-to-view: "true"
+     rules:
+       - apiGroups: ["kro.run", "internal.kro.run"]
+         resources: ["*"]
+         verbs: ["get", "list", "watch"]
+       - apiGroups: ["sqs.services.k8s.aws", "services.k8s.aws"]
+         resources: ["*"]
+         verbs: ["get", "list", "watch"]
+       - apiGroups: ["apiextensions.k8s.io"]
+         resources: ["customresourcedefinitions"]
+         verbs: ["get", "list", "watch"]
+     ```
+  4. Bind `headlamp-viewer` ServiceAccount to the built-in **`view`** ClusterRole (which automatically inherits `headlamp-crd-viewer` via aggregation, includes `pods/log`, and excludes Secrets) via ClusterRoleBinding `headlamp-viewer-binding`.
 
-#### Step 7: Issue Dedicated Headlamp Tokens & Assemble TLS-Verified Kubeconfig
-* **Update `addons/headlamp/setup-credentials.sh`:**
-  - Issue 30-day TokenRequest token for `headlamp-viewer` on Hub, Non-Prod Spoke, and Prod Spoke:
-    ```bash
-    HUB_TOKEN=$(kubectl --context k3d-hub-cluster -n headlamp-access create token headlamp-viewer --duration=720h)
-    NONPROD_TOKEN=$(kubectl --context k3d-spoke-nonprod -n headlamp-access create token headlamp-viewer --duration=720h)
-    PROD_TOKEN=$(kubectl --context k3d-spoke-prod -n headlamp-access create token headlamp-viewer --duration=720h)
-    ```
-  - Extract CA certs directly from each cluster's `kube-root-ca.crt` ConfigMap (`ca.crt`).
-  - Generate multi-cluster kubeconfig specifying:
-    `certificate-authority-data: <caData>` and `insecure-skip-tls-verify: false`.
-  - Apply `headlamp-kubeconfig` Secret server-side (with stripped plaintext annotation).
-  - Restart Headlamp deployment.
-  - Verify Headlamp UI connects to all 3 clusters with read-only permissions (attempts to delete or edit resources are rejected by RBAC).
+#### Step 7: Issue Dedicated Headlamp Tokens, Automount Lockdown & Strict CA TLS Verification (P2-B1, P2-B2, F-3, F-4)
+* **Target Files:**
+  - `applicationsets/addon-headlamp.yaml`
+  - `addons/headlamp/setup-credentials.sh`
+* **Actions:**
+  1. **Disable Hub Pod Automount (P2-B1):** In `applicationsets/addon-headlamp.yaml`, configure:
+     ```yaml
+     serviceAccount:
+       create: true
+       name: headlamp
+       automount: false
+     ```
+     (or pod spec `automountServiceAccountToken: false`).
+  2. **Delete Legacy Admin Binding (P2-B1):** Delete `ClusterRoleBinding/headlamp-admin` on `k3d-hub-cluster` and remove its creation from `addons/headlamp/setup-credentials.sh`.
+  3. **Enforce Strict TLS Verification (P2-B2):** In `applicationsets/addon-headlamp.yaml`, remove `-insecure-ssl` from `extraArgs`. All three API servers present certificates containing `k3d-<cluster>-server-0` in their SANs.
+  4. **Generate Multi-Cluster Kubeconfig:**
+     - Issue 30-day TokenRequest tokens for `headlamp-viewer` on Hub, Non-Prod Spoke, and Prod Spoke:
+       ```bash
+       HUB_TOKEN=$(kubectl --context k3d-hub-cluster -n headlamp-access create token headlamp-viewer --duration=720h)
+       NONPROD_TOKEN=$(kubectl --context k3d-spoke-nonprod -n headlamp-access create token headlamp-viewer --duration=720h)
+       PROD_TOKEN=$(kubectl --context k3d-spoke-prod -n headlamp-access create token headlamp-viewer --duration=720h)
+       ```
+     - Extract cluster CA certificates directly from `kube-root-ca.crt` ConfigMaps.
+     - Generate multi-cluster kubeconfig with `certificate-authority-data: <caData>` and `insecure-skip-tls-verify: false`.
+  5. **Apply Secret & Restart:** Server-side apply `headlamp-kubeconfig` Secret (with stripped plaintext annotation). Restart Headlamp deployment.
+  6. **Residual Risk (F-3):** Headlamp runs with read-only RBAC, but remains unauthenticated on port 8080 (`-dev` mode). L4-1 is formally marked **Mitigated**. Host binding or OIDC proxy is scheduled for Phase 3.
 
 ---
 
-### Track 3: Spoke Workload & Cloud Security Baseline (L4-3, L4-4)
+### Track 3: Spoke Workload Security Baseline (L4-3)
 
-#### Step 8: Enforce Pod Security Standards `restricted` (L4-3)
-* **Namespaces to Label:** `orders-dev`, `orders-test` on `k3d-spoke-nonprod`, and `orders-prod` on `k3d-spoke-prod`.
-* **Action:**
-  - Apply labels:
-    ```bash
-    kubectl --context "$ctx" label --overwrite ns "$ns" \
-      pod-security.kubernetes.io/enforce=restricted \
-      pod-security.kubernetes.io/enforce-version=latest \
-      pod-security.kubernetes.io/warn=restricted \
-      pod-security.kubernetes.io/audit=restricted
-    ```
-  - Verify that running pods produce zero warnings and no admission denials.
+#### Step 8: Enforce Pod Security Standards `restricted` (L4-3) — ✅ CLOSED & VALIDATED
+* **Status:** Implemented in Run #01 via `managedNamespaceMetadata` in `applicationsets/tenant-workloads-nonprod.yaml` and `applicationsets/tenant-workloads-prod.yaml`.
+* **Validation Outcome:** Validated live in Run #01 (Validation #8). Namespaces `orders-dev`, `orders-test`, and `orders-prod` enforce `restricted:latest`. Tested via server-side dry run of a privileged container in `orders-prod`, which was strictly denied by admission (`Forbidden: violates PodSecurity "restricted:latest"`). Existing workloads run cleanly with 0 restarts.
 
-#### Step 9: Deploy Workload NetworkPolicies on Spokes (L4-3)
-* **Create NetworkPolicy Template in `platform-catalog/blueprints/` or Workload manifests:**
-  - Apply in each `orders-*` namespace:
-    ```yaml
-    apiVersion: networking.k8s.io/v1
-    kind: NetworkPolicy
-    metadata:
-      name: orders-worker-netpol
-    spec:
-      podSelector:
-        matchLabels:
-          app.kubernetes.io/name: orders
-      policyTypes:
-        - Ingress
-        - Egress
-      ingress:
-        # Allow HTTP traffic from Traefik ingress controller & local pods
-        - from:
-            - namespaceSelector: {}
-              podSelector:
-                matchLabels:
-                  app.kubernetes.io/name: traefik
-          ports:
-            - protocol: TCP
-              port: 8080
-      egress:
-        # Allow DNS resolution
-        - to:
-            - namespaceSelector: {}
-          ports:
-            - protocol: UDP
-              port: 53
-            - protocol: TCP
-              port: 53
-        # Allow egress to Central Mock AWS Cloud (moto-cloud:5000)
-        - to:
-            - ipBlock:
-                cidr: 0.0.0.0/0
-          ports:
-            - protocol: TCP
-              port: 5000
-    ```
-  - Verify that worker pods can successfully communicate with Moto and DNS, while unauthorized egress is blocked.
+#### Step 9: Deploy Workload NetworkPolicies via Kro RGD on Spokes (L4-3 / P2-B4)
+* **Target File:** `platform-catalog/blueprints/kro/rgd-queue-service.yaml`
+* **Changes & Design (P2-B4):**
+  1. **Embed NetworkPolicy in ResourceGroupDefinition:** Rather than managing standalone or unversioned NetworkPolicies, define the `NetworkPolicy` directly inside the Kro RGD resources. This ensures that every `QueueBackedService` instance automatically gets its corresponding NetworkPolicy stamped out, governed by the blueprint promotion lifecycle (`platform-catalog` release tags).
+  2. **Pod Selector Matching:** The Kro worker deployment uses labels `app: ${schema.spec.name}-${schema.spec.environment}-worker`. The NetworkPolicy must match this exact selector:
+     ```yaml
+     apiVersion: networking.k8s.io/v1
+     kind: NetworkPolicy
+     metadata:
+       name: ${schema.spec.name}-${schema.spec.environment}-worker-netpol
+       namespace: ${schema.spec.namespace}
+     spec:
+       podSelector:
+         matchLabels:
+           app: ${schema.spec.name}-${schema.spec.environment}-worker
+       policyTypes:
+         - Ingress
+         - Egress
+       ingress:
+         # Allow HTTP traffic on port 8080 from Traefik ingress controller in kube-system & local namespace pods
+         - from:
+             - namespaceSelector:
+                 matchLabels:
+                   kubernetes.io/metadata.name: kube-system
+               podSelector:
+                 matchLabels:
+                   app.kubernetes.io/name: traefik
+             - podSelector: {}
+           ports:
+             - protocol: TCP
+               port: 8080
+       egress:
+         # Allow DNS resolution to CoreDNS in kube-system
+         - to:
+             - namespaceSelector: {}
+               podSelector:
+                 matchLabels:
+                   k8s-app: kube-dns
+           ports:
+             - protocol: UDP
+               port: 53
+             - protocol: TCP
+               port: 53
+         # Allow egress to Mock AWS Cloud (moto-cloud:5000) strictly within the Docker bridge network
+         - to:
+             - ipBlock:
+                 cidr: 172.21.0.0/16
+           ports:
+             - protocol: TCP
+               port: 5000
+     ```
+  3. **Verification & Promotion Lifecycle:** Test first on `k3d-spoke-nonprod` (`orders-dev`, `orders-test`) tracking `platform-catalog@main`. Verify DNS resolution, Moto queue access, and Traefik ingress. Confirm that arbitrary egress (e.g., to public internet or unauthorized ports) is blocked. Only promote to `k3d-spoke-prod` after successful non-prod validation.
 
-#### Step 10: Multi-Account Isolation via ACK CARM (L4-4)
-* **Configuration:**
-  - Annotate tenant namespaces:
-    - On `k3d-spoke-nonprod`:
-      `kubectl --context k3d-spoke-nonprod annotate --overwrite ns orders-dev services.k8s.aws/owner-account-id="111111111111"`
-      `kubectl --context k3d-spoke-nonprod annotate --overwrite ns orders-test services.k8s.aws/owner-account-id="111111111111"`
-    - On `k3d-spoke-prod`:
-      `kubectl --context k3d-spoke-prod annotate --overwrite ns orders-prod services.k8s.aws/owner-account-id="222222222222"`
-  - Verify in Moto that non-prod queues are provisioned under ARN `arn:aws:sqs:us-east-1:111111111111:*` and prod queues under `arn:aws:sqs:us-east-1:222222222222:*`.
-  - Confirm workers process messages without error.
+#### Step 10: Multi-Account Isolation via ACK CARM (L4-4) — ⏸ FORMALLY DEFERRED TO PHASE 3 (P2-B5, F-1)
+* **Status:** Deferred per review blocker **P2-B5** and item **F-1**.
+* **Technical Rationale:** Live testing in Moto confirmed that worker applications using default AWS SDK configurations fail with `NonExistentQueue` when accessing queues in secondary accounts (`111111111111` or `222222222222`). Enabling CARM safely requires:
+  1. Granting worker pods per-environment IAM credentials (or IRSA equivalent).
+  2. Deploying the `ack-system/ack-role-account-map` ConfigMap.
+  3. Formulating and testing a queue recreation migration runbook without disrupting running pipelines.
+  This work will be executed systematically in Phase 3.
 
 ---
 
 ### Track 4: Production Application Promotion Gate (L2-2)
 
-#### Step 11: Implement Gated Promotion for `orders-prod`
+#### Step 11: Implement Gated Promotion for `orders-prod` (P2-B6, F-2)
 * **Target File:** `applicationsets/tenant-workloads-prod.yaml`
-* **Changes:**
-  - Decouple `orders-prod` from `orders-processor.git@main`:
-    ```yaml
-        - repoURL: https://github.com/brunobml/orders-processor.git
-          targetRevision: '{{metadata.annotations.workload-revision}}'
-          ref: values
-    ```
-    (or pin directly to a stable release ref `v1.2.0` / `release/prod`).
-  - Add `syncPolicy` guardrails:
-    - Disable automated sync (`automated: null`) or add a strict `syncWindow` in the `tenant-workloads` AppProject:
-      ```yaml
-      syncWindows:
-        - kind: deny
-          schedule: "* * * * *"
-          duration: 24h
-          applications:
-            - "orders-prod"
-          manualSync: true
-      ```
-  - Developers pushing to `orders-processor@main` will update `orders-dev` and `orders-test` automatically, while `orders-prod` requires an explicit, audited release tag promotion and manual sync trigger.
+* **Dependency:** Requires Step 1 (PV-1 digest pin and node cache purge) to be completed so `orders-prod` references a verified, pullable release.
+* **Changes (P2-B6, F-2):**
+  1. **Parameterize `valuesRevision` in List Generator:**
+     Update the List generator element in `applicationsets/tenant-workloads-prod.yaml` to declare an explicit `valuesRevision`:
+     ```yaml
+     apiVersion: argoproj.io/v1alpha1
+     kind: ApplicationSet
+     metadata:
+       name: tenant-workloads-prod
+       namespace: argocd
+     spec:
+       generators:
+         - list:
+             elements:
+               - cluster: spoke-prod
+                 url: https://k3d-spoke-prod-server-0:6443
+                 environment: prod
+                 valuesFile: values-prod.yaml
+                 valuesRevision: 1.3.0
+     ```
+  2. **Pin Template TargetRevision:**
+     In `spec.template.spec.sources`:
+     ```yaml
+     sources:
+       - repoURL: https://github.com/brunobml/orders-processor.git
+         targetRevision: '{{valuesRevision}}'
+         ref: values
+       - repoURL: https://brunobml.github.io/platform-catalog
+         chart: queue-service
+         targetRevision: 0.1.0
+         helm:
+           valueFiles:
+             - $values/deploy/{{valuesFile}}
+     ```
+  3. **Preserve Automated Drift Correction (F-2):**
+     Keep `syncPolicy.automated: {prune: true, selfHeal: true}` enabled. Do **not** apply a 24/7 deny `syncWindow`, so that accidental cluster drift in production continues to be self-healed back to the pinned release state.
+  4. **Audited Promotion Process:**
+     Production promotions will no longer occur automatically on `orders-processor@main` commits. Instead, promotions to production require an audited pull request against `gitops-control-plane` updating `valuesRevision` to the new stable tag or digest.
 
 ---
 
 ## 5. Verification Matrix & Acceptance Criteria
 
-| # | Check | Command / Test | Expected Acceptance Result |
-|---|---|---|---|
-| **1** | Headlamp Token Decoupling | Compare token hashes between `cluster-spoke-*` and `headlamp-kubeconfig` | Token hashes are completely different; Headlamp uses dedicated `headlamp-viewer` SAs |
-| **2** | Headlamp Least Privilege | Attempt to create/delete a resource using Headlamp SA token | Returns `Forbidden` (403); read operations (`get`, `list`) succeed |
-| **3** | Headlamp TLS Verification | Inspect `headlamp-kubeconfig` clusters | `insecure-skip-tls-verify` is `false`; `certificate-authority-data` present |
-| **4** | CI Immutability | Inspect `orders-processor/.github/workflows/ci.yaml` | No hardcoded `v1.1.0` or `v1.2.0` raw tags; tags only on SemVer tags & commit SHA |
-| **5** | ACK Cloud Drift Window | Inspect ACK SQS Deployment env vars on spokes | `RECONCILE_DEFAULT_RESYNC_SECONDS` is `"300"` |
-| **6** | Cloud Drift Reconciliation Test | Delete `orders-dev-dlq` in Moto CLI; wait 300s | ACK detects missing queue and recreates it automatically without controller restart |
-| **7** | Honest Smoke Tests | Run `make test` | All 7 Argo CD apps asserted `Synced/Healthy`; all 6 Moto queues verified via AWS CLI; exits non-zero on failure |
-| **8** | AppProject Hardening | Inspect `default` and `tenant-workloads` AppProjects | `default` has empty repos/destinations; `tenant-workloads` does not reference dead repo |
-| **9** | Promotion Preflight | Run `scripts/promote-blueprints.sh` from feature branch | Rejects promotion with message requiring `origin/main` |
-| **10**| PSS Restricted Enforcement | Inspect namespace labels on `orders-*` | `pod-security.kubernetes.io/enforce=restricted` active; zero pod restarts/violations |
-| **11**| NetworkPolicy Enforcement | Attempt unauthorized egress from worker pod to external port | Egress blocked; DNS (53), Moto (5000), and Traefik ingress (8080) function normally |
-| **12**| Multi-Account Cloud Isolation | Query SQS queues in Moto CLI for accounts `111111111111` and `222222222222` | Non-prod queues under `111111111111`; Prod queues under `222222222222` |
-| **13**| Prod Workload Gate | Push mock change to `orders-processor@main` | `orders-dev` auto-syncs; `orders-prod` remains on pinned revision, requiring manual promotion |
+| # | Check | Target / Area | Command / Test | Expected Acceptance Result |
+|---|---|---|---|---|
+| **1** | Headlamp Token Decoupling | L4-1 / Hub & Spokes | Compare token hashes between `cluster-spoke-*` and `headlamp-kubeconfig` | Token hashes are completely disjoint; Headlamp uses dedicated `headlamp-viewer` SAs. |
+| **2** | Headlamp Least Privilege | L4-1 / Hub & Spokes | Attempt to create/delete a resource using Headlamp SA token (`kubectl --token=... create ns test`) | Returns `Forbidden` (403); read operations (`get`, `list`, `watch`) succeed for core pods/services/logs and aggregated CRDs. |
+| **3** | Headlamp TLS & Automount | L4-1 / Hub | Inspect `headlamp` Deployment pod spec and `headlamp-kubeconfig` | `automountServiceAccountToken: false` (or SA automount false); `insecure-skip-tls-verify` is `false`; valid spoke `certificate-authority-data` present. |
+| **4** | CI Immutability & Provenance | L3-5 / PV-1 | Inspect `orders-processor/deploy/values-*.yaml` and live pod `imageID` | Values pinned to published GHCR digest `1.3.0@sha256:3fc6e216...`; pods pull from GHCR; runtime footer displays `Git Commit: 8f5e0b6`. |
+| **5** | ACK Cloud Drift Window | L3-1 | Delete `orders-dev-dlq` in Moto CLI; wait for resync | ✅ **Validated in Run #01**: ACK detects missing queue and recreates it automatically within 15s without controller restart. |
+| **6** | Honest Smoke Tests | L3-4 | Run `bash scripts/smoke-test-hub-spoke.sh` | ✅ **Validated in Run #01**: All 7 Argo CD apps asserted `Synced/Healthy`; 3 CRs `ACTIVE`; all 6 Moto queues verified by exact name; fails closed. |
+| **7** | AppProject Hardening | L4-7 / L1-4 | Inspect `default` and `tenant-workloads` AppProjects | ✅ **Validated in Run #01**: `default` has empty sources/destinations; `tenant-workloads` does not reference dead repo. |
+| **8** | Promotion Preflight | X-1 / PV-2 | Run `scripts/promote-blueprints.sh` from feature branch or stale local main | Rejects promotion if branch != `main` or if local `HEAD != origin/main`. |
+| **9** | PSS Restricted Enforcement | L4-3 | Attempt dry-run privileged pod creation in `orders-prod` | ✅ **Validated in Run #01**: Admission rejects with `Forbidden: violates PodSecurity "restricted:latest"`. |
+| **10**| NetworkPolicy Enforcement | L4-3 / P2-B4 | Test worker pod network connectivity in `orders-dev` | DNS resolution (53) and Moto (`172.21.0.0/16:5000`) succeed; Traefik ingress (8080) permitted; unauthorized egress blocked. |
+| **11**| Prod Workload Gate | L2-2 / P2-B6 | Push a commit to `orders-processor@main` | `orders-dev` and `orders-test` update automatically; `orders-prod` remains pinned to `valuesRevision: 1.3.0`; self-heal remains active. |
 
 ---
 
 ## 6. Rollback & Safety Runbook
 
-1. **Headlamp Fallback:** If Headlamp loses connection after credential overhaul, rerun `bash addons/headlamp/setup-credentials.sh` with previous credentials or restart the deployment.
-2. **NetworkPolicy Safeguard:** If network policy blocks legitimate application traffic, delete the network policy immediately:
-   ```bash
-   kubectl --context k3d-spoke-nonprod -n orders-dev delete netpol orders-worker-netpol
-   ```
-3. **ACK CARM Rollback:** If CARM account partitioning causes queue recreation issues, remove the namespace annotation `services.k8s.aws/owner-account-id` and restart ACK SQS controller.
-4. **Promotion Gate Recovery:** If `orders-prod` fails to sync after pinning, revert `applicationsets/tenant-workloads-prod.yaml` `targetRevision` to `main`.
+1. **Headlamp Connectivity Issue (F-4):**
+   - If Headlamp loses API connectivity after credential overhaul, **never restore cluster-admin** or re-bind `argocd-manager` tokens.
+   - Scale Headlamp to zero while troubleshooting CA certificates and token expiration:
+     ```bash
+     kubectl --context k3d-hub-cluster -n headlamp scale deploy/headlamp --replicas=0
+     ```
+   - Fix forward by verifying CA data matching `kube-root-ca.crt` and valid TokenRequest tokens.
+2. **NetworkPolicy Traffic Block (P2-B4):**
+   - If NetworkPolicy blocks legitimate application or queue traffic, temporarily delete the generated NetworkPolicy or revert the Kro RGD commit:
+     ```bash
+     kubectl --context k3d-spoke-nonprod -n orders-dev delete netpol orders-dev-worker-netpol
+     ```
+3. **PV-1 Image Pull Failure:**
+   - If GHCR image pull fails (e.g. rate limits or network issues), verify the digest against the published GitHub Container Registry manifest:
+     `ghcr.io/brunobml/orders-processor:1.3.0@sha256:3fc6e216e13c22db612253d9a844d915899e490acd0815a72d92e5c1279bd70e`.
+   - Never run unversioned `k3d image import` under a registry name; use unique local tags (`:local-test`) if local testing is necessary.
+4. **Production Promotion Gate Rollback:**
+   - If a newly promoted `valuesRevision` causes regression in `orders-prod`, revert `valuesRevision` in `applicationsets/tenant-workloads-prod.yaml` back to `1.3.0` via standard Git commit and push.
