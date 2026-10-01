@@ -105,23 +105,31 @@ echo -e "${GREEN}✔ All QueueBackedService instances are ACTIVE${NC}"
 
 # 6. SQS Queues in Central Mock AWS Cloud (L3-4, C-2)
 echo -e "\n${YELLOW}[6/8] Asserting AWS Cloud SQS Queues & DLQs...${NC}"
-QUEUES_OUTPUT=$(AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs list-queues --output json 2>/dev/null || echo "{}")
+# Phase 3 D.3 (CARM): each workload namespace may live in its own cloud account
+# (namespace annotation services.k8s.aws/owner-account-id; default 123456789012).
+# List queues *in that account* by assuming a role there in moto.
+list_queues_in_account() {
+  local account="$1" creds
+  creds=$(AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 \
+    sts assume-role --role-arn "arn:aws:iam::${account}:role/smoke-test" --role-session-name smoke-test \
+    --query Credentials --output json 2>/dev/null) || { echo "{}"; return; }
+  AWS_ACCESS_KEY_ID=$(jq -r .AccessKeyId <<<"$creds") AWS_SECRET_ACCESS_KEY=$(jq -r .SecretAccessKey <<<"$creds") \
+    AWS_SESSION_TOKEN=$(jq -r .SessionToken <<<"$creds") \
+    aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs list-queues --output json 2>/dev/null || echo "{}"
+}
 
-EXPECTED_QUEUES=(
-  "orders-dev-queue"
-  "orders-dev-dlq"
-  "orders-test-queue"
-  "orders-test-dlq"
-  "orders-prod-queue"
-  "orders-prod-dlq"
-)
-
-for qname in "${EXPECTED_QUEUES[@]}"; do
-  if ! echo "$QUEUES_OUTPUT" | grep -q "/${qname}\""; then
-    echo -e "${RED}✘ Missing expected SQS queue in Moto Cloud: ${qname}${NC}"
-    exit 1
-  fi
-  echo -e "  Queue: ${GREEN}${qname}${NC} present"
+for pair in "k3d-spoke-nonprod:orders-dev" "k3d-spoke-nonprod:orders-test" "k3d-spoke-prod:orders-prod"; do
+  ctx="${pair%%:*}"; ns="${pair##*:}"
+  account=$(kubectl --context "$ctx" get namespace "$ns" -o jsonpath='{.metadata.annotations.services\.k8s\.aws/owner-account-id}' 2>/dev/null)
+  account="${account:-123456789012}"
+  QUEUES_OUTPUT=$(list_queues_in_account "$account")
+  for qname in "${ns}-queue" "${ns}-dlq"; do
+    if ! echo "$QUEUES_OUTPUT" | grep -q "/${account}/${qname}\""; then
+      echo -e "${RED}✘ Missing expected SQS queue ${qname} in account ${account} (namespace ${ns})${NC}"
+      exit 1
+    fi
+    echo -e "  Queue: ${GREEN}${qname}${NC} present in account ${account}"
+  done
 done
 echo -e "${GREEN}✔ All 6 expected SQS queues (3 queues + 3 DLQs) verified in Moto Cloud${NC}"
 
