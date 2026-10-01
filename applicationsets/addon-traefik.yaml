@@ -1,0 +1,33 @@
+# Phase 3 B.3: hub Traefik managed from Git (chart pinned to the deployed 41.6.1, default
+# values, same release name, so Argo CD adopts the existing objects in place).
+# setup-hub-spoke.sh still installs this exact version once at bootstrap, because the Argo CD
+# UI/CLI ingress depends on it before the root app exists; Argo CD takes ownership after
+# `make bootstrap`.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: addon-traefik
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/part-of: platform-control-plane
+spec:
+  project: control-plane
+  source:
+    repoURL: https://traefik.github.io/charts
+    chart: traefik
+    targetRevision: 41.6.1
+    helm:
+      releaseName: traefik
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: traefik
+  syncPolicy:
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
