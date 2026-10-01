@@ -66,6 +66,9 @@ configs:
     accounts.platform-admin: login
     accounts.tenant-a: login
     admin.enabled: "false"
+    # Phase 3 C.2: every sync runs as the destinationServiceAccounts identity of its AppProject
+    # (see scripts/audit-impersonation.sh; rollback: scripts/rollback-argocd-impersonation.sh).
+    application.sync.impersonation.enabled: "true"
     application.links: |
       - title: "Headlamp Cluster Explorer"
         url: "http://headlamp.localhost:8080"
