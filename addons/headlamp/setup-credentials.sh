@@ -126,3 +126,12 @@ kubectl --context "${HUB_CTX}" -n headlamp create secret generic headlamp-kubeco
 
 rm -f "${TMP_KUBECONFIG}"
 echo "✔ Successfully generated and applied 'headlamp-kubeconfig' secret to namespace 'headlamp' via server-side apply."
+
+# 7. Restart Headlamp so it loads the new kubeconfig. The Secret is mounted with
+#    subPath, and subPath mounts are never refreshed in a running pod, so without
+#    this the pod keeps the previous (expiring) tokens.
+if kubectl --context "${HUB_CTX}" -n headlamp get deployment headlamp >/dev/null 2>&1; then
+  kubectl --context "${HUB_CTX}" -n headlamp rollout restart deployment headlamp
+  kubectl --context "${HUB_CTX}" -n headlamp rollout status deployment headlamp --timeout=120s
+  echo "✔ Headlamp restarted with the refreshed kubeconfig."
+fi

@@ -12,7 +12,7 @@ echo -e "${BLUE}  Multi-Cluster Hub-and-Spoke Smoke Test                   ${NC}
 echo -e "${BLUE}============================================================${NC}"
 
 # 1. Central Moto Cloud
-echo -e "\n${YELLOW}[1/7] Checking Central Mock AWS Cloud (moto-cloud)...${NC}"
+echo -e "\n${YELLOW}[1/8] Checking Central Mock AWS Cloud (moto-cloud)...${NC}"
 if curl -s -f http://localhost:5000/moto-api/ > /dev/null; then
   echo -e "${GREEN}✔ moto-cloud is responding at http://localhost:5000${NC}"
 else
@@ -21,7 +21,7 @@ else
 fi
 
 # 2. Hub Cluster & Argo CD Core Pods
-echo -e "\n${YELLOW}[2/7] Checking Hub Cluster & Argo CD...${NC}"
+echo -e "\n${YELLOW}[2/8] Checking Hub Cluster & Argo CD...${NC}"
 kubectl --context k3d-hub-cluster get nodes > /dev/null
 echo -e "${GREEN}✔ Hub cluster API is reachable${NC}"
 
@@ -43,7 +43,7 @@ else
 fi
 
 # 3. Argo CD Applications Health & Sync State (L3-4, C-2)
-echo -e "\n${YELLOW}[3/7] Asserting Argo CD Application Sync and Health...${NC}"
+echo -e "\n${YELLOW}[3/8] Asserting Argo CD Application Sync and Health...${NC}"
 EXPECTED_APPS=("addon-headlamp" "kro-blueprints-spoke-nonprod" "kro-blueprints-spoke-prod" "orders-dev" "orders-test" "orders-prod" "root-control-plane")
 APP_DATA=$(kubectl --context k3d-hub-cluster -n argocd get applications -o jsonpath='{range .items[*]}{.metadata.name}:{.status.sync.status}:{.status.health.status}{"\n"}{end}')
 
@@ -77,7 +77,7 @@ done <<< "$APP_DATA"
 echo -e "${GREEN}✔ All Argo CD applications are Synced and Healthy${NC}"
 
 # 4. Spoke Controllers (Kro + ACK)
-echo -e "\n${YELLOW}[4/7] Checking Spoke Controllers (Kro + ACK)...${NC}"
+echo -e "\n${YELLOW}[4/8] Checking Spoke Controllers (Kro + ACK)...${NC}"
 for ctx in "k3d-spoke-nonprod" "k3d-spoke-prod"; do
   kubectl --context "$ctx" get nodes > /dev/null
   echo -e "${GREEN}✔ ${ctx} API is reachable${NC}"
@@ -90,7 +90,7 @@ for ctx in "k3d-spoke-nonprod" "k3d-spoke-prod"; do
 done
 
 # 5. Kro Custom Resources State
-echo -e "\n${YELLOW}[5/7] Asserting QueueBackedService Resource Status...${NC}"
+echo -e "\n${YELLOW}[5/8] Asserting QueueBackedService Resource Status...${NC}"
 for spoke_ns in "k3d-spoke-nonprod:orders-dev" "k3d-spoke-nonprod:orders-test" "k3d-spoke-prod:orders-prod"; do
   ctx="${spoke_ns%%:*}"
   ns="${spoke_ns##*:}"
@@ -104,7 +104,7 @@ done
 echo -e "${GREEN}✔ All QueueBackedService instances are ACTIVE${NC}"
 
 # 6. SQS Queues in Central Mock AWS Cloud (L3-4, C-2)
-echo -e "\n${YELLOW}[6/7] Asserting AWS Cloud SQS Queues & DLQs...${NC}"
+echo -e "\n${YELLOW}[6/8] Asserting AWS Cloud SQS Queues & DLQs...${NC}"
 QUEUES_OUTPUT=$(AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs list-queues --output json 2>/dev/null || echo "{}")
 
 EXPECTED_QUEUES=(
@@ -126,7 +126,7 @@ done
 echo -e "${GREEN}✔ All 6 expected SQS queues (3 queues + 3 DLQs) verified in Moto Cloud${NC}"
 
 # 7. GitOps Workload Pods (L3-4, C-2)
-echo -e "\n${YELLOW}[7/7] Asserting Workload Pods...${NC}"
+echo -e "\n${YELLOW}[7/8] Asserting Workload Pods...${NC}"
 DEV_PODS=$(kubectl --context k3d-spoke-nonprod -n orders-dev get pods --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l | tr -d ' ')
 TEST_PODS=$(kubectl --context k3d-spoke-nonprod -n orders-test get pods --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l | tr -d ' ')
 PROD_PODS=$(kubectl --context k3d-spoke-prod -n orders-prod get pods --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l | tr -d ' ')
@@ -140,6 +140,76 @@ if [[ "$DEV_PODS" -lt 1 || "$TEST_PODS" -lt 1 || "$PROD_PODS" -lt 2 ]]; then
   exit 1
 fi
 echo -e "${GREEN}✔ All orders workloads running across non-prod and prod spokes!${NC}"
+
+# 8. Credential expiry (Phase 3 Step 0.2). Reads the JWT exp claim only; tokens are never printed.
+#    Checks the Argo CD cluster Secrets, the Headlamp kubeconfig Secret, and the kubeconfig actually
+#    mounted in the running Headlamp pod (a subPath mount does not refresh, so this catches a missed restart).
+#    WARN when fewer than TOKEN_WARN_DAYS remain; FAIL when expired.
+#    SMOKE_NOW_EPOCH overrides "now" (for negative testing only).
+echo -e "\n${YELLOW}[8/8] Asserting Credential Expiry...${NC}"
+TOKEN_WARN_DAYS="${TOKEN_WARN_DAYS:-7}"
+NOW_EPOCH="${SMOKE_NOW_EPOCH:-$(date +%s)}"
+
+jwt_exp_from_cluster_secret() {
+  kubectl --context k3d-hub-cluster -n argocd get secret "$1" -o jsonpath='{.data.config}' \
+    | base64 -d | jq -r '.bearerToken' \
+    | python3 -c 'import sys,json,base64; p=sys.stdin.read().strip().split(".")[1]; p+="="*(-len(p)%4); print(json.loads(base64.urlsafe_b64decode(p))["exp"])'
+}
+
+kubeconfig_exps() {
+  # stdin: kubeconfig YAML; stdout: "<user> <exp>" per user
+  python3 -c 'import sys,yaml,json,base64
+k=yaml.safe_load(sys.stdin)
+for u in k["users"]:
+    p=u["user"]["token"].split(".")[1]; p+="="*(-len(p)%4)
+    print(u["name"], json.loads(base64.urlsafe_b64decode(p))["exp"])'
+}
+
+EXPIRY_ROWS=""
+for s in cluster-spoke-nonprod cluster-spoke-prod; do
+  EXPIRY_ROWS+="argocd/${s} $(jwt_exp_from_cluster_secret "$s")"$'\n'
+done
+while read -r user exp; do
+  EXPIRY_ROWS+="headlamp-secret/${user} ${exp}"$'\n'
+done < <(kubectl --context k3d-hub-cluster -n headlamp get secret headlamp-kubeconfig -o jsonpath='{.data.config}' | base64 -d | kubeconfig_exps)
+HEADLAMP_POD=$(kubectl --context k3d-hub-cluster -n headlamp get pods -l app.kubernetes.io/name=headlamp \
+  --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+if [[ -n "$HEADLAMP_POD" ]]; then
+  while read -r user exp; do
+    EXPIRY_ROWS+="headlamp-pod/${user} ${exp}"$'\n'
+  done < <(kubectl --context k3d-hub-cluster -n headlamp exec "$HEADLAMP_POD" -- cat /home/headlamp/.kube/config | kubeconfig_exps)
+else
+  echo -e "${RED}✘ No running Headlamp pod found to inspect its mounted kubeconfig${NC}"
+  exit 1
+fi
+
+EXPIRY_FAILED=0
+EXPIRY_WARNED=0
+while read -r name exp; do
+  [[ -z "$name" ]] && continue
+  remaining=$(( exp - NOW_EPOCH ))
+  days=$(( remaining / 86400 ))
+  expires_at=$(date -u -d "@${exp}" +%FT%TZ)
+  if (( remaining <= 0 )); then
+    echo -e "  ${RED}✘ ${name}: EXPIRED (${expires_at})${NC}"
+    EXPIRY_FAILED=1
+  elif (( days < TOKEN_WARN_DAYS )); then
+    echo -e "  ${YELLOW}⚠ ${name}: ${days}d left (${expires_at}); run 'make rotate-spoke-tokens'${NC}"
+    EXPIRY_WARNED=1
+  else
+    echo -e "  ${name}: ${days}d left (${expires_at})"
+  fi
+done <<< "$EXPIRY_ROWS"
+
+if (( EXPIRY_FAILED )); then
+  echo -e "${RED}✘ One or more credentials have expired. Run 'make rotate-spoke-tokens'.${NC}"
+  exit 1
+fi
+if (( EXPIRY_WARNED )); then
+  echo -e "${YELLOW}⚠ Credentials expire within ${TOKEN_WARN_DAYS} days. Rotate soon.${NC}"
+else
+  echo -e "${GREEN}✔ All cluster and Headlamp credentials valid for at least ${TOKEN_WARN_DAYS} days${NC}"
+fi
 
 echo -e "\n${GREEN}============================================================${NC}"
 echo -e "${GREEN}  All Core Smoke Tests Passed!                             ${NC}"
