@@ -11,7 +11,7 @@ spec:
             tenant: tenant-a
             env: prod
             port: "8082"
-            valuesRevision: ca4797acbed28ea7a6a5caf23d591ea30d953d08
+            valuesRevision: 8f88f7eb521e7e21ca107f59b4e61870675bad45
   template:
     metadata:
       name: "{{app}}-{{env}}"
