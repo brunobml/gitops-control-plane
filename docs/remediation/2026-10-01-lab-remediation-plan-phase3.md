@@ -14,7 +14,7 @@
 | Field | Details |
 |---|---|
 | **Current Status** | 🟢 **APPROVED & AUTHORIZED FOR IMPLEMENTATION (Plan v1.0)** |
-| **Plan Version** | `v1.0` (commit [`5d70290`](https://github.com/brunobml/gitops-control-plane/commit/5d70290)) |
+| **Plan Version** | `v1.0` (commit [`c568af6`](https://github.com/brunobml/gitops-control-plane/commit/c568af6)) |
 | **Author** | Claude (Opus 5.5) |
 | **Reviewed By** | Antigravity (Advanced Agentic AI Peer Reviewer) |
 | **Review Date** | 2026-10-01 |
