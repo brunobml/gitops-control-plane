@@ -69,7 +69,7 @@ flowchart TD
    ```text
    http://headlamp.localhost:8080
    ```
-2. **Zero Login Prompt**: Headlamp is pre-configured with the `headlamp-kubeconfig` secret mounted into the container. You are automatically logged in with full administrative visibility across all three clusters.
+2. **Log in**: the browser prompts for a username and password (Traefik basic auth, Middleware `headlamp/headlamp-auth`). The username is `platform`; run `make password` to see where the password is stored (it is never in Git). After login, Headlamp shows all three clusters **read-only**: it can list resources and read pod logs, but cannot read Secrets, write, or exec into pods.
 
 Alternatively, use the command line:
 ```bash
@@ -165,12 +165,15 @@ spec:
 ```
 
 ### 2. Multi-Cluster Credentials Secret
-The script [`setup-credentials.sh`](setup-credentials.sh) extracts:
-1. Hub service account token for `headlamp` (bound to `cluster-admin`).
-2. Spoke Non-Prod token from Argo CD cluster secret (`cluster-spoke-nonprod`).
-3. Spoke Prod token from Argo CD cluster secret (`cluster-spoke-prod`).
+The script [`setup-credentials.sh`](setup-credentials.sh), run by `make rotate-spoke-tokens`:
+1. Creates a dedicated `headlamp-access/headlamp-viewer` ServiceAccount on each of the three clusters, bound to the built-in **`view`** role. Aggregated roles add read access to kro and ACK resources, plus Argo CD objects on the hub. Secrets stay hidden.
+2. Issues a 30-day TokenRequest token per cluster. These tokens are separate from Argo CD's credentials.
+3. Builds a kubeconfig that verifies each API server against its cluster CA (`insecure-skip-tls-verify: false`), stores it in the `headlamp-kubeconfig` Secret, and restarts Headlamp so the pod picks it up (the Secret is mounted with `subPath`, which never refreshes in a running pod).
 
-It packages them into a multi-context kubeconfig and stores it in the `headlamp-kubeconfig` secret inside the `headlamp` namespace.
+The Headlamp pod itself runs with no Kubernetes token mounted and has no cluster role.
+
+### 3. Login (basic auth)
+[`setup-auth.sh`](setup-auth.sh) creates the `headlamp/headlamp-basic-auth` htpasswd Secret, which holds only a bcrypt hash. The Traefik Middleware that references it is in Git under [`manifests/`](manifests/) and is deployed by the `addon-headlamp-auth` Application.
 
 ---
 

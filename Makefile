@@ -64,6 +64,11 @@ password:
 	@echo "Passwords are stored outside Git, readable only by you:"
 	@echo "  $${GITOPS_LAB_SECRET_DIR:-$$HOME/.config/gitops-lab}/argocd-<account>.password"
 	@echo "To (re)set them: bash $(ROOT_DIR)/scripts/setup-argocd-accounts.sh"
+	@echo ""
+	@echo "Headlamp (http://headlamp.localhost:8080) basic auth:"
+	@echo "  username: platform"
+	@echo "  password: $${GITOPS_LAB_SECRET_DIR:-$$HOME/.config/gitops-lab}/headlamp-basic-auth.password"
+	@echo "To (re)set it: bash $(ROOT_DIR)/addons/headlamp/setup-auth.sh"
 
 push:
 	@bash $(ROOT_DIR)/scripts/push-all.sh

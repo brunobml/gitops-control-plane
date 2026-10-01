@@ -106,6 +106,7 @@ bash "${SCRIPT_DIR}/register-spokes.sh"
 # 5b. Configure Headlamp Multi-Cluster Credentials
 echo -e "\n${YELLOW}[5b/7] Configuring Headlamp Multi-Cluster Credentials on ${HUB_CLUSTER}...${NC}"
 bash "${REPO_ROOT}/addons/headlamp/setup-credentials.sh"
+bash "${REPO_ROOT}/addons/headlamp/setup-auth.sh"
 
 # 6. Install Platform Controllers (Kro + ACK) on Spokes
 echo -e "\n${YELLOW}[6/7] Installing Kro & ACK on both spoke clusters...${NC}"
