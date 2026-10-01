@@ -1,162 +1,178 @@
 # Remediation Plan Review — 2026-09-30
 
-**Reviewed:** [`2026-09-30-lab-remediation-plan.md`](2026-09-30-lab-remediation-plan.md) (commit `577f4d7`)
-**Against:** [`../assessments/2026-09-30-lab-assessment.md`](../assessments/2026-09-30-lab-assessment.md), the live clusters, and the five lab repositories
+| | |
+|---|---|
+| **Reviewed** | [`2026-09-30-lab-remediation-plan.md`](2026-09-30-lab-remediation-plan.md) **v2.0** (commit `b2883ab`) |
+| **Previous review** | v1.0 of the plan (commit `577f4d7`), review committed in `cb60a30` |
+| **Against** | [`../assessments/2026-09-30-lab-assessment.md`](../assessments/2026-09-30-lab-assessment.md), the live clusters, and the five lab repositories |
 
-**Verdict: approve with changes.** The plan covers the right items, sorts them sensibly by risk, and its pushback on L4-10 and on HPA is largely sound. Before execution, it needs these fixes:
+**Verdict: approve with three blocking fixes.**
 
-- Two internal contradictions (the PDB spec and the Makefile `REPOS_DIR`).
-- One concern that has the risk backwards (deleting the CRD before updating the docs).
-- Path coverage that misses 6 of the 9 files containing `/home/bleite`, including the plan itself.
-- A blueprint change that reaches prod and non-prod at the same moment, with no staged rollout or rollback.
+v2.0 is a substantial improvement. Of the 14 v1 review points, 11 are fully resolved, 2 are partially resolved, and 1 was deliberately not adopted. The plan is now internally consistent about the PDB, `REPOS_DIR`, CRD ordering and secret cleanup. It also has a staged rollout and a "done when" column for every step.
 
----
+Checking v2.0 against the live environment found three new problems that would make execution fail or give a false result:
 
-## 1. Claims verified against the live environment
+- **N1:** the RGD hardening never assigns the new ServiceAccount to the pods.
+- **N2:** the portability check always passes, even when paths remain.
+- **N3:** the prod pin points at a tag that doesn't exist.
 
-| Plan claim | Check performed | Result |
-|---|---|---|
-| L1-2: zero `MessageProcessor` instances remain | `kubectl get messageprocessors.kro.run -A` on both spokes | ✅ Confirmed: none on either spoke. No `GraphRevision` objects reference it either (only `queuebackedservice-r0000{1..5}`). |
-| L2-7: the declarative secret may be missing OCI keys or credentials | Compared the keys and non-secret values of both secrets | ✅ **They are identical**: `type=helm`, `enableOCI=true`, `url=ghcr.io/brunobml/charts`, and **neither holds credentials**. `argocd-repo-ghcr-charts` is owned by Helm (`argo-cd` release). `repo-ghcr-charts` has no owner. |
-| L2-7: a private registry might need auth | Anonymous token plus manifest `GET` for `charts/queue-backed-service:1.0.0` | ✅ **The chart is public** (HTTP 200 anonymously). Deleting the manual secret cannot break auth. |
-| L4-11: Python needs `PYTHONDONTWRITEBYTECODE` to survive a read-only root FS | Read `orders-processor/src/main.py` | ⚠️ **Not needed.** The app is a single script that imports only the standard library and never writes to disk. CPython does not cache the entry script, and if it can't write a `.pyc` it skips it silently instead of raising. The variable does no harm, but the stated reason is wrong. |
-| L4-11: a conditional PDB is possible | Checked the kro 0.9.4 RGD CRD schema | ✅ `includeWhen`, `readyWhen`, `externalRef` and `forEach` are all supported. |
-| L1-6: the hard-coded paths are in the Makefile, the README and "several doc links" | `grep -rc /home/bleite` across all 5 repos | ⚠️ **Under-scoped.** See R3. |
+These need fixing before steps 3, 5 and 6 run. The other new items are improvements, not blockers.
 
 ---
 
-## 2. Findings on the plan
+## 1. Status of v1 review points
 
-### Must fix before execution
+| v1 point | Topic | Status in v2.0 | Notes |
+|---|---|:-:|---|
+| R1 | PDB `minAvailable` vs `maxUnavailable` contradiction | ✅ Resolved | `includeWhen: ${schema.spec.replicas > 1}` + `minAvailable: 1`. |
+| R2 | Blueprint change reaches prod at the same moment as non-prod | ⚠️ Partial | The gate is designed, but see N3 (missing tag), N4 (prod promoted by an untracked `kubectl` edit, not Git) and N5 (rollback claim). |
+| R3 | Path cleanup under-scoped | ⚠️ Partial | All files listed, but the verification command is broken (N2) and the file count is wrong (N8). |
+| R4 | `REPOS_DIR` defined two ways / `CURDIR` | ✅ Resolved | Uses the `lastword $(MAKEFILE_LIST)` form. |
+| R5 | CRD-before-docs concern inverted | ✅ Resolved | "Loud failure is safer" is now stated correctly, with the right error text. |
+| R6 | "Zero-risk" label, no backups, cache-blind verification | ✅ Resolved | Renamed "Low-risk", `/tmp` backups added, hard-refresh made an explicit step. |
+| R7 | L2-7 resolvable now; unsupported rate-limit claim | ✅ Resolved | Records the verified facts and adds the ESO/Sealed Secrets note. |
+| R8 | L4-10 overstated cost; TokenRequest middle path | ✅ Resolved | Framed as "defer, document the next step". See also N6. |
+| R9 | Don't refactor the setup script | ✅ Resolved | |
+| R10 | Wrong SA verification field; no PSS check; env var placement | ✅ Resolved | PSS dry run added and SA check rewritten. The Dockerfile placement creates a new risk: see N7. |
+| R11 | Scope framing vs Critical/High | ✅ Resolved | A sequencing section was added. The plan keeps lows-first, which is a legitimate choice (see §4). |
+| R12 | README repo count | ✅ Resolved | |
+| R13 | Owner / done-definition | ✅ Resolved | "Done When" column added. No owner or date, which is acceptable for a solo lab. |
+| R14 | Residual credential exposure of stray containers | ✅ Resolved | |
 
-**R1. The PDB specification contradicts itself (L4-11 vs Phase 3.4).**
-The L4-11 YAML uses `minAvailable: 1` with no condition. Two paragraphs later the plan explains why that blocks `kubectl drain` on single-replica dev, and Phase 3.4 then says `maxUnavailable: 1`. Choose one and put it in the YAML. Recommended:
+---
+
+## 2. New findings in v2.0
+
+### Blocking
+
+**N1. The new ServiceAccount is created but never assigned to the pods (L4-11, step 6).**
+The RGD snippet adds a `ServiceAccount` resource, but nothing in the Deployment template references it. Without `serviceAccountName`, the pods keep using the namespace `default` SA with its token auto-mounted. Verification #6 would then print `default` and show a `kube-api-access-*` volume. Add it to the pod spec:
 
 ```yaml
-- id: pdb
-  includeWhen:
-    - ${schema.spec.replicas > 1}
-  template:
-    apiVersion: policy/v1
-    kind: PodDisruptionBudget
-    metadata:
-      name: ${schema.spec.name}-${schema.spec.environment}
-    spec:
-      minAvailable: 1
-      selector:
-        matchLabels:
-          app: ${schema.spec.name}-${schema.spec.environment}-worker
+    - id: serviceaccount
+      template:
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: ${schema.spec.name}-${schema.spec.environment}
+        automountServiceAccountToken: false
+    # …
+    - id: deployment
+      template:
+        spec:
+          template:
+            spec:
+              serviceAccountName: ${serviceaccount.metadata.name}   # also makes kro order SA → Deployment
+              automountServiceAccountToken: false                    # belt and braces at pod level
 ```
 
-With `includeWhen`, dev and test (1 replica) get no PDB, and prod (2 replicas) can lose at most one pod. Using `maxUnavailable: 1` without a condition is valid but protects nothing when there is 1 replica. It also allows a full outage of a 1-replica service, which defeats the purpose.
+Referencing `${serviceaccount.metadata.name}` instead of repeating the name string also adds the edge to kro's dependency graph, so the SA always exists before the pods are scheduled.
 
-**R2. Blueprint changes reach prod at the same moment as non-prod, and the plan has no staged rollout or rollback.**
-Phase 3 edits `queue-backed-service-rgd.yaml`. `kro-blueprints` tracks `platform-catalog@main` for **both** spokes (assessment L3-6). Adding a ServiceAccount, seccomp and a read-only root FS changes the pod template, so all three Deployments, prod included, roll within one Argo CD poll. The verification step ("Pod status `Running`, zero restarts") runs only on `orders-dev`, after prod has already rolled. Add a gate:
+**N2. The portability check always passes, whether paths remain or not (step 3, verification #4).**
+`':!docs/assessments'` is **git pathspec** syntax. Plain `grep` treats it as a filename that doesn't exist, prints a warning, and exits with status 2 even when it found matches. The leading `!` turns that error into success. I ran the exact command against the current tree, which still has 8 matching files, and it **passed**. Two further problems:
 
-- Minimal: add a `blueprints-revision` annotation to each cluster Secret (`nonprod: main`, `prod: <tag>`), use `targetRevision: '{{metadata.annotations.blueprints-revision}}'` in `kro-blueprints`, and promote by moving the tag after dev and test pass. This is about 10 lines and is also the first step of assessment Recommendation 10.
-- Rollback: write down `git revert` on `platform-catalog` as the rollback path, and check that kro rolls back to the previous `GraphRevision`.
+- The plan and this review both *quote* the pattern, so a correct grep will always match them.
+- `docs/remediation/` therefore needs excluding (or the pattern needs to avoid matching itself).
 
-**R3. Path cleanup (L1-6) misses most of the occurrences, including the plan's own.**
-`grep -rc /home/bleite` finds them in 9 files:
+A replacement that works:
 
-| File | Count | In plan? |
-|---|---:|:-:|
-| `docs/remediation/2026-09-30-lab-remediation-plan.md` | 9 | ❌ (the L4-10 link and others) |
-| `docs/lab-progression-and-next-steps.md` | 6 | ❌ |
-| `README.md` | 4 | ✅ |
-| `addons/headlamp/README.md` | 2 | ⚠️ ("markdown links", unnamed) |
-| `docs/developer-tutorial.md` | 2 | ⚠️ |
-| `tenant-workloads/developer-tutorial.md` | 2 | ❌ (archive the repo instead, per L1-4) |
-| `docs/production-promotion-guardrails.md` | 1 | ❌ |
-| `Makefile` | 1 | ✅ |
-| `docs/assessments/…-lab-assessment.md` | 2 | n/a (these are quoted as evidence, so leave them) |
-
-Replace the Phase 2.4 verification ("Links resolve in GitHub UI") with a check a script can run: `! grep -rn 'file:///\|/home/bleite' --include=*.md --include=Makefile --include=*.sh . ':!docs/assessments'`.
-
-**R4. The Makefile `REPOS_DIR` is defined two different ways.**
-The action plan says `$(abspath $(CURDIR)/..)`. The concerns section says `$(shell dirname $(CURDIR))`. Both rely on `CURDIR`, which is the directory `make` was *invoked from*, so they break under `make -f ../gitops-control-plane/Makefile`. Use the Makefile's own location:
-
-```makefile
-ROOT_DIR  := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
-REPOS_DIR ?= $(abspath $(ROOT_DIR)/..)
+```bash
+! git grep -nE 'file:///|/home/bleit[e]' -- ':!docs/assessments' ':!docs/remediation'
 ```
 
-`scripts/setup-hub-spoke.sh` already does the equivalent with `BASH_SOURCE`, so this keeps the two consistent.
+`git grep` understands the pathspecs. The `[e]` character class matches `/home/bleite` in real files but not in the literal text of the command itself. Excluding `docs/remediation` is still the simpler option.
+
+**N3. The prod pin `v1.0.0` doesn't exist, and pinning to the wrong commit would roll prod *backwards* (step 5).**
+`platform-catalog` has **no tags** (`git tag -l` is empty, HEAD = `a8825b2`). If step 5 runs as written, Argo CD cannot resolve `v1.0.0` and `kro-blueprints-spoke-prod` goes into `ComparisonError`. If someone creates `v1.0.0` on an older commit, prod's RGD reverts to that blueprint (for example, before the DLQ or probes hardening). Make tag creation step 5a, pin it to the commit prod runs today, and verify the revision didn't change:
+
+```bash
+git -C ../platform-catalog tag -a v1.0.0 a8825b2 -m "Blueprint baseline currently running on spoke-prod"
+git -C ../platform-catalog push origin v1.0.0
+# Done when: kro-blueprints-spoke-prod .status.sync.revision == a8825b2… and the app stays Synced (no-op)
+```
 
 ### Should fix
 
-**R5. The L1-2 docs-coupling concern has the risk backwards.**
-The plan warns that deleting the CRD before updating the tutorial makes `MessageProcessor` manifests fail. Today the opposite is the dangerous case. With the CRD present and no RGD, `kubectl apply` of a `MessageProcessor` **succeeds and then nothing happens**, because nothing reconciles it. A loud failure is better than a silent no-op, so deleting the CRD first is the safer order. Keep Phase 1 before Phase 2 as written, and drop the concern, or restate it as "update the tutorial in the same PR window". The error text the plan quotes is also wrong: `kubectl apply` reports `no matches for kind "MessageProcessor" in version "kro.run/v1alpha1"`.
+**N4. Prod promotion is an untracked `kubectl` edit, not a Git change (steps 5 and 7).**
+The `blueprints-revision` annotation lives on the cluster Secrets. Those Secrets are created by `register-spokes.sh` and are not in Git. Consequences:
 
-**R6. "Zero-Risk" is the wrong label for Phase 1, and it has no backups.**
-Step 1.3 deletes a CRD on the **prod** spoke. §1 shows it is safe, but the label invites skipping checks. Rename it "Low-risk cleanup" and add a one-line backup before each delete:
+- Promoting to prod means editing a Secret by hand, with no PR, no review and no history. That cuts against the guardrails doc this plan builds on.
+- Rerunning `register-spokes.sh` (for example after a spoke is recreated, or during token rotation per L4-10) **silently erases the annotation**. `{{metadata.annotations.blueprints-revision}}` then renders empty, and the prod app falls back to the default branch.
 
-```bash
-kubectl --context k3d-spoke-prod get crd messageprocessors.kro.run -o yaml > /tmp/mp-crd-prod.yaml
-```
+Two cheap fixes, either is fine:
 
-The verification for step 1.4 (`get applications` → Synced) cannot detect a broken repo secret, because the repo-server serves rendered manifests from cache. Make the hard refresh a step in the table, not just prose: `argocd app get orders-dev --hard-refresh`, then check `.status.conditions` is empty.
+- (a) Have `register-spokes.sh` write the annotation, with prod's value pointing at a moving **ref name** such as `release/prod`. Promotion becomes `git push origin <sha>:refs/heads/release/prod` (reviewable and in history), and the Secret never changes.
+- (b) Move the per-cluster revision into Git: a `clusters/<name>.yaml` that the AppSet reads through a matrix of the Cluster generator × a Git-files generator.
 
-**R7. The L2-7 nuance can be resolved now, and one claim in it is unsupported.**
-§1 shows both secrets are identical and credential-free, and that the chart is public, so step 1 of the L2-7 action plan is already answered. Remove the "Argo CD logs rate-limit warnings if anonymous" claim: nothing in this environment shows it, and anonymous pulls from GHCR are normal. One forward-looking note belongs in the plan: if the chart ever goes private, credentials must go through a secret store (ESO or Sealed Secrets), **not** the Helm values file, which is in a public repo.
+Option (a) is about five lines and keeps the current design.
 
-**R8. L4-10 overstates what replacement would cost, and a cheap middle path exists.**
-The plan says replacing static tokens needs Vault or cert-manager, or changes to Argo CD. It doesn't. The TokenRequest API is available on k3s, so time-bound tokens are a change to `register-spokes.sh`:
+Also: step L4-11.5 says "moving the git tag `v1.1.0`". Create a **new** tag. Never move an existing one. Moving release tags is exactly the L3-5 anti-pattern the plan lists as High.
 
-```bash
-token=$(kubectl --context "$context" -n kube-system create token argocd-manager --duration=720h)
-# …write the cluster Secret as today; delete the legacy argocd-manager-token Secret
-```
+**N5. The rollback claim is unverified, and it describes the wrong mechanism.**
+"`git revert` … kro automatically restores the previous `GraphRevision` in under 5 seconds" doesn't hold:
 
-Rotate them with a `make rotate-spoke-tokens` target that reruns the registration. This is a small task. It also forces the change the assessment flagged as Critical in L4-1: Headlamp can no longer borrow Argo CD's tokens and must get its own (ideally `view`-only) ServiceAccount on each spoke. Accepting the long-lived tokens as a documented lab trade-off is still a defensible decision. Reword "strongly advise against" to "defer". Record the TokenRequest option in the Well-Architected guide as the next step, with the EKS Access Entries and Pod Identity end state.
+- A revert is a *new* commit. Argo CD only picks it up on its next poll (up to about 3 minutes, unless a webhook or manual refresh triggers it).
+- kro then creates a **new** `GraphRevision` (`r00006`). It does not restore `r00005`.
+- The "under 5 seconds" figure came from my child-drift test, a different mechanism.
 
-**R9. L3-8: don't invest in the script.**
-Parameterizing `setup-hub-spoke.sh` with `ACK_SERVICES=("sqs")` is work you will throw away once Recommendation 9 lands. As sketched, it also doesn't work: each ACK controller has its own chart version and values file, so it needs at least `declare -A ACK_VERSIONS=([sqs]=1.7.1)` and a per-service values path. The "chicken-and-egg" concern is also weaker than stated:
+For **prod**, the gate gives a better rollback path: point prod back at the previous tag (or ref, per N4) without touching `main`. Restate the rollback this way:
 
-- ACK and kro charts ship their CRDs, and Argo CD applies CRDs before the custom resources within a sync.
-- The only real ordering dependency is the `ack-aws-creds` Secret. Put it in the same Application with `sync-wave: "-1"`.
-- Ordering **across** Applications (blueprints before tenant apps) does need waves on the child Applications. That only works if the hub has a health check for `argoproj.io/Application` (removed by default since Argo CD 1.8). Add it to `resource.customizations` when you get there.
+- **Prod:** repoint to the previous tag. Expect seconds after a refresh.
+- **Non-prod:** `git revert`. Expect up to one poll interval.
+- **Verify:** `kubectl get graphrevisions` shows a new revision, and the Deployment rolls.
 
-Recommendation: skip the script refactor and keep L3-8 attached to L2-1 / Recommendation 9.
+**N6. New finding (related to L4-10): spoke bearer tokens are stored in plaintext in an annotation.**
+`register-spokes.sh` creates the cluster Secrets with `kubectl apply -f -` using `stringData`. kubectl therefore records the **entire manifest, bearer token included**, in `metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"]`. Annotations are displayed in places where Secret data is normally hidden: `kubectl describe secret`, Headlamp's metadata panel, and `kubectl get -o jsonpath='{.metadata}'`. This review exposed the tokens the same way: an annotation query printed both `argocd-manager` tokens into the session transcript.
 
-**R10. The L4-11 verification checks the wrong field and skips the actual standard.**
-- Check #4 reads `pod.spec.automountServiceAccountToken`. If the RGD sets this on the **ServiceAccount**, as the plan proposes, the pod field stays empty and the check reads as a false negative. Instead, check `.spec.serviceAccountName` and that no `kube-api-access-*` volume is mounted.
-- Nothing proves `restricted` PSS compliance, which is the point of 3.2. Add a server-side dry run, which prints a warning for every violating pod without enforcing anything:
+**Fix:** use `kubectl create secret generic … --dry-run=client -o yaml | kubectl apply --server-side -f -`, or `kubectl apply --server-side` directly, which does not write `last-applied-configuration`. Then rotate both tokens: delete the `argocd-manager-token` Secrets on the spokes and rerun registration. This fits naturally into L4-10's `make rotate-spoke-tokens`, so the TokenRequest middle path is worth doing now rather than only documenting it. `addons/headlamp/setup-credentials.sh` uses the `--dry-run | apply` pattern too, so it has the same exposure for its kubeconfig Secret.
 
-  ```bash
-  kubectl --context k3d-spoke-nonprod label --dry-run=server --overwrite ns orders-dev \
-    pod-security.kubernetes.io/enforce=restricted
-  ```
-
-  No warnings means compliant. This is also the entry criterion for assessment Recommendation 13.
-- Put `PYTHONDONTWRITEBYTECODE` (if you keep it) in the `orders-processor` **Dockerfile** (`ENV`). The plan currently puts it in "the deployment spec", which is the platform RGD, and that would push an app-runtime detail into the platform contract for every future non-Python tenant.
+**N7. Adding `PYTHONDONTWRITEBYTECODE` to the Dockerfile would overwrite the running prod image (L4-11.4).**
+`orders-processor` CI runs on every push to `main` and tags the result `v1.2.0` **and** `v1.1.0` (`ci.yaml` lines 52–53, unchanged). A Dockerfile commit therefore builds a new image under the tag all three environments currently run. That image then appears on any node that pulls it, with no Git change to the deploy values and no promotion. As v1 R10 found, the variable isn't needed (the app writes nothing to disk). Either **drop L4-11.4**, or make it explicitly depend on L3-5 (immutable tags) and release it as `v1.3.0` through `deploy/values-*.yaml`.
 
 ### Minor
 
-- **R11. Scope framing.** The plan covers only the 7 Low findings and doesn't mention the order relative to the open Critical and High items (L4-1 Headlamp, L3-1 ACK resync, L3-5 mutable tags, L2-2 prod gate). Add one line stating that the Highs follow, and in what order. Two of the assessment's quick wins (#1 CI tags, #6 ACK resync) take under an hour each and close High findings. They give more value per hour than most of this plan.
-- **R12.** The README lines touched in Phase 2.2 still list 3 repositories (assessment L1-5). Fix that in the same edit.
-- **R13.** No owner, target date or done-definition per phase. Even for a solo lab, a "done when" column turns the tables into a checklist you can tick.
-- **R14.** The L1-3 note that the containers are "decoupled from `k3d-cloud-net`" is correct (they are on the default `bridge`). The host kubeconfig they mounted (`/tmp/headlamp-test/kubeconfig`) no longer exists, so the plan can say the residual credential exposure is already gone.
+- **N8. File count.** Step 3 says "all 7 markdown files", but the set is Makefile + README + 5 docs: 7 files, of which 6 are Markdown. The plan's own scope table says "7 files (including … Makefile)". Align the wording. `tenant-workloads/developer-tutorial.md` is still out of scope; note that it is covered by archiving the repo (L1-4) so it isn't forgotten.
+- **N9. Cross-repo relative link.** `../../platform-catalog/blueprints/queue-backed-service-rgd.yaml` resolves locally but returns 404 on GitHub, because it leaves the repo. Use `https://github.com/brunobml/platform-catalog/blob/main/blueprints/queue-backed-service-rgd.yaml`. This applies the plan's own L1-6 rule.
+- **N10. Naming.** The plan calls the cluster Secrets `k3d-spoke-nonprod` / `k3d-spoke-prod`. The objects are named `cluster-spoke-nonprod` / `cluster-spoke-prod`, with Argo CD cluster names `spoke-nonprod` / `spoke-prod`.
+- **N11. Race in the hard-refresh check.** Reading `.status.conditions` right after setting the `refresh=hard` annotation can read the old status. Poll until Argo CD removes the `argocd.argoproj.io/refresh` annotation, which is its signal that the refresh finished. Simpler still, use `argocd app get orders-dev --hard-refresh`, which blocks until the refresh is done.
+- **N12. Fragile SA-volume check.** `jsonpath … | grep -v "kube-api-access"` passes or fails by exit code on a single space-joined line, and it fails falsely when the pod has no volumes. Use `! kubectl … -o jsonpath='{.items[0].spec.volumes[*].name}' | grep -q kube-api-access`.
+- **N13. AppSet change applies through the root app.** `applicationsets/kro-blueprints.yaml` is synced by `root-control-plane` from `main`. Step 5's AppSet edit and step 5a's tag must therefore land in the right order: tag first, then AppSet. Otherwise N3's `ComparisonError` happens in the window between them.
 
 ---
 
-## 3. Points where the plan is right and the assessment should yield
+## 3. Verified during this review
 
-- **HPA:** agreed. A CPU-based HPA is the wrong tool for an SQS worker. The assessment listed "no HPA" without that qualification. KEDA on `ApproximateNumberOfMessagesVisible` is the right pattern, and it works against moto.
-- **L4-10 as a documented trade-off:** with the R8 middle path recorded, accepting it is reasonable for a local lab.
-- **Verifying before deleting** (zero instances, secret contents) is the right habit, and §1 shows both checks pass.
+| Check | Result |
+|---|---|
+| Plan's grep check (`! grep … ':!docs/assessments'`) on the current tree | **Passes falsely**: grep warns about the missing file `:!docs/assessments` and exits non-zero despite 8 matches |
+| `git grep -lE 'file:///\|/home/bleite' -- ':!docs/assessments'` | 8 files: Makefile, README, headlamp README, 3 docs, plus the plan and this review |
+| `git -C ../platform-catalog tag -l` | Empty. HEAD `a8825b2` is the revision both `kro-blueprints` apps run |
+| Cluster Secret annotations on hub | No `blueprints-revision` yet. `last-applied-configuration` contains the plaintext bearer token (N6) |
+| `orders-processor` CI triggers | `push: main` and `tags: v*`. Hard-coded `v1.2.0`/`v1.1.0` tags still present (N7) |
+| RGD snippet in plan §3 L4-11 | No `serviceAccountName` in the Deployment (N1) |
 
 ---
 
-## 4. Suggested revised execution order
+## 4. On sequencing (not blocking)
+
+The plan keeps the order "lows first, then L4-1 → L3-1 → L3-5 → L2-2", which is a reasonable owner decision. Two of the findings above argue for pulling one High item forward:
+
+- **L3-5 (immutable CI tags) before step 6/L4-11.4,** because of N7. Otherwise the blueprint hardening and an image rebuild can collide on the same mutable tag.
+- **L4-1's token decoupling alongside N6,** since rotating `argocd-manager` tokens breaks Headlamp anyway: it reads them from the same Secrets. Doing both in one change window avoids breaking Headlamp twice.
+
+---
+
+## 5. Suggested execution order (v2.0 + this review)
 
 | Step | Change | Done when |
 |---|---|---|
-| 1 | Back up, then delete the `messageprocessors` CRD on both spokes; `docker rm -f` the 3 stray containers | `get crd` → NotFound; `docker ps -a` clean |
-| 2 | Delete `repo-ghcr-charts`; hard-refresh the 3 tenant apps | No `ComparisonError` conditions; still Synced/Healthy |
-| 3 | Fix the Makefile (`ROOT_DIR`/`REPOS_DIR`), README (paths and repo count), and all 7 files with `/home/bleite` (R3) | The path grep in R3 returns nothing |
-| 4 | Update `docs/developer-tutorial.md` (`QueueBackedService`, `orders-*` names, 2 prod replicas) | A new reader can follow it end to end |
-| 5 | Add the per-cluster `blueprints-revision` gate (R2) and tag the current `platform-catalog` HEAD for prod | Prod's `kro-blueprints` app shows the tag as its revision |
-| 6 | Change the RGD: ServiceAccount (automount off), seccomp, read-only root FS + `/tmp` emptyDir, conditional PDB | On non-prod: pods Running, 0 restarts; PSS dry run (R10) shows no warnings |
-| 7 | Promote the blueprint to prod by moving the tag | `orders-prod` rolled out; PDB present; Synced/Healthy |
-| 8 | Document L4-10 as a trade-off, including the TokenRequest next step (R8) | The Security section of the Well-Architected guide is updated |
+| 1 | Back up and delete the CRD on both spokes; remove the stray containers | NotFound on both spokes; `docker ps -a` clean |
+| 2 | Delete `repo-ghcr-charts`; `argocd app get orders-dev --hard-refresh` | No conditions; Synced/Healthy |
+| 3 | Portability fixes across the 7 files | `! git grep -nE 'file:///\|/home/bleit[e]' -- ':!docs/assessments' ':!docs/remediation'` passes |
+| 4 | Tutorial sync | Matches the live cluster |
+| 5a | Tag `platform-catalog` `v1.0.0` at `a8825b2` and push | Tag visible on GitHub |
+| 5b | Write `blueprints-revision` from `register-spokes.sh` (prod → `release/prod` ref or `v1.0.0`); switch the AppSet `targetRevision` | Prod app revision is still `a8825b2`, no resources changed |
+| 5c | Switch `register-spokes.sh` to server-side apply; rotate `argocd-manager` tokens; regenerate Headlamp credentials | `last-applied-configuration` absent on cluster Secrets; all apps Synced; Headlamp connects to all 3 clusters |
+| 6 | RGD hardening, **including `serviceAccountName`** (N1); **skip the Dockerfile env var** (N7) | Non-prod pods Running, 0 restarts, SA ≠ `default`, no `kube-api-access` volume, PSS dry run clean, no PDB in dev |
+| 7 | Create a **new** tag `v1.1.0`; promote prod through Git (N4) | `orders-prod` rolled; PDB present; Synced/Healthy |
+| 8 | Document L4-10 trade-off and next step (the TokenRequest part is partly done in 5c) | Well-Architected guide updated |
