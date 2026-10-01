@@ -113,39 +113,31 @@ Access Web Dashboards on Port 8080:
 * **Headlamp UI (Runtime State)**: [http://headlamp.localhost:8080](http://headlamp.localhost:8080) (Single Pane of Glass across Hub, Non-Prod, and Prod clusters)
 
 ### 2. Push Repositories to GitHub
-Make sure your 3 GitHub repositories are created under `https://github.com/brunobml`:
+Make sure your 5 GitHub repositories are created under `https://github.com/brunobml`:
 - `gitops-control-plane`
 - `platform-catalog`
 - `tenant-workloads`
+- `orders-processor`
+- `helm-charts`
 
-Push each local repository to GitHub:
+Push all repositories to GitHub using the helper script or push from each repository:
 
 ```bash
-# Push gitops-control-plane
-cd /home/bleite/repos/gitops-control-plane
-git push -u origin main
-
-# Push platform-catalog
-cd /home/bleite/repos/platform-catalog
-git push -u origin main
-
-# Push tenant-workloads
-cd /home/bleite/repos/tenant-workloads
-git push -u origin main
+# Push all local lab repositories
+make push
 ```
 
 ### 3. Bootstrap the Control Plane
 Deploy the root application onto the Hub cluster:
 
 ```bash
-cd /home/bleite/repos/gitops-control-plane
 make bootstrap
 ```
 
 Argo CD will automatically discover the ApplicationSets and synchronize:
 1. `kro-blueprints` to `spoke-nonprod` and `spoke-prod`.
-2. `tenant-a-dev` and `tenant-a-test` workloads to `spoke-nonprod`.
-3. `tenant-a-prod` workloads to `spoke-prod`.
+2. `orders-dev` and `orders-test` workloads to `spoke-nonprod`.
+3. `orders-prod` workloads to `spoke-prod`.
 
 ### 4. Verify & Test
 Run the end-to-end smoke test suite:

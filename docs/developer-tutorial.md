@@ -67,10 +67,10 @@ tenants/
         └── orders-service.yaml
 ```
 
-The GitOps platform uses folder names to make decisions:
-- `tenants/<tenant-name>/dev` $\rightarrow$ automatically routes to **`spoke-nonprod`** in namespace `<tenant-name>-dev`.
-- `tenants/<tenant-name>/test` $\rightarrow$ automatically routes to **`spoke-nonprod`** in namespace `<tenant-name>-test`.
-- `tenants/<tenant-name>/prod` $\rightarrow$ automatically routes to **`spoke-prod`** in namespace `<tenant-name>-prod`.
+The GitOps platform uses folder names and Helm values to make decisions:
+- `deploy/values-dev.yaml` $\rightarrow$ automatically routes to **`spoke-nonprod`** in namespace `orders-dev`.
+- `deploy/values-test.yaml` $\rightarrow$ automatically routes to **`spoke-nonprod`** in namespace `orders-test`.
+- `deploy/values-prod.yaml` $\rightarrow$ automatically routes to **`spoke-prod`** in namespace `orders-prod`.
 
 ---
 
@@ -80,32 +80,35 @@ The GitOps platform uses folder names to make decisions:
 - **Hub Argo CD UI**: [http://localhost:8080](http://localhost:8080)
   - Username: `admin`
   - Password: `admin123`
-  - Here you will see all your tenant applications: `tenant-a-dev`, `tenant-a-test`, `tenant-a-prod`.
+  - Here you will see all your tenant applications: `orders-dev`, `orders-test`, `orders-prod`.
 - **Central Moto Cloud API**: [http://localhost:5000/moto-api/](http://localhost:5000/moto-api/)
 
 ---
 
 ### Step 2: Understand the Service Manifest
 
-Look at [`tenants/tenant-a/dev/orders-service.yaml`](file:///home/bleite/repos/tenant-workloads/tenants/tenant-a/dev/orders-service.yaml):
+Look at `deploy/values-dev.yaml` in the `orders-processor` repository (or the rendered `QueueBackedService` CR):
 
 ```yaml
 apiVersion: kro.run/v1alpha1
-kind: MessageProcessor
+kind: QueueBackedService
 metadata:
   name: orders
+  namespace: orders-dev
 spec:
   name: orders
   environment: dev
   replicas: 1
   messageRetentionPeriod: "86400"
+  image: ghcr.io/brunobml/orders-processor:v1.2.0
 ```
 
 Notice how minimal this is! You only specify:
-- `kind: MessageProcessor`: The high-level blueprint from the platform catalog.
+- `kind: QueueBackedService`: The high-level blueprint from the platform catalog.
 - `environment: dev`: Targets your environment naming.
 - `replicas: 1`: Number of worker pods.
 - `messageRetentionPeriod: "86400"`: SQS queue retention (in seconds).
+- `image`: The container image for the service worker.
 
 Under the hood, **Kro** automatically generates:
 1. A Kubernetes `Deployment` (`orders-dev-worker`).
@@ -119,21 +122,21 @@ Under the hood, **Kro** automatically generates:
 #### Check the Non-Prod Cluster (Dev & Test):
 ```bash
 # View pods in dev namespace
-kubectl --context k3d-spoke-nonprod -n tenant-a-dev get pods
+kubectl --context k3d-spoke-nonprod -n orders-dev get pods
 
 # View pods in test namespace
-kubectl --context k3d-spoke-nonprod -n tenant-a-test get pods
+kubectl --context k3d-spoke-nonprod -n orders-test get pods
 ```
 
 #### Check the Prod Cluster:
 ```bash
-# View pods in prod namespace (notice 5 replicas!)
-kubectl --context k3d-spoke-prod -n tenant-a-prod get pods
+# View pods in prod namespace (notice 2 replicas in production!)
+kubectl --context k3d-spoke-prod -n orders-prod get pods
 ```
 
 #### Check Pod Logs (Real-Time SQS Message Processing):
 ```bash
-kubectl --context k3d-spoke-nonprod -n tenant-a-dev logs -l app=orders-dev-worker --tail=10
+kubectl --context k3d-spoke-nonprod -n orders-dev logs -l app=orders-dev-worker --tail=10
 ```
 Output:
 ```text
@@ -147,7 +150,7 @@ Output:
 
 ### Step 3b: Access the Interactive Microservice Web Dashboard
 
-Every `MessageProcessor` automatically includes an internal Kubernetes `Service` and web interface!
+Every `QueueBackedService` automatically includes an internal Kubernetes `Service` and web interface!
 
 To view your microservice in your web browser:
 
@@ -156,7 +159,7 @@ To view your microservice in your web browser:
 make open-dev
 
 # Or directly with kubectl:
-kubectl --context k3d-spoke-nonprod -n tenant-a-dev port-forward svc/orders-dev 8001:80
+kubectl --context k3d-spoke-nonprod -n orders-dev port-forward svc/orders-dev 8001:80
 ```
 
 Open your browser at **http://localhost:8001**:
@@ -189,24 +192,23 @@ aws --endpoint-url=http://localhost:5000 sqs send-message \
 
 ### Step 5: Modifying or Scaling Your Service (GitOps)
 
-Want to scale `tenant-a-dev` from 1 replica to 3 replicas?
+Want to scale `orders-dev` from 1 replica to 3 replicas?
 
-1. Edit [`tenants/tenant-a/dev/orders-service.yaml`](file:///home/bleite/repos/tenant-workloads/tenants/tenant-a/dev/orders-service.yaml):
+1. Edit `deploy/values-dev.yaml` in the `orders-processor` repository:
    ```yaml
-   spec:
-     replicas: 3
+   replicas: 3
    ```
 
 2. Commit and push:
    ```bash
-   git add tenants/tenant-a/dev/orders-service.yaml
-   git commit -m "scale tenant-a dev workers to 3"
+   git add deploy/values-dev.yaml
+   git commit -m "scale orders dev workers to 3"
    git push origin main
    ```
 
 3. Argo CD detects the commit on GitHub and automatically scales the deployment in `spoke-nonprod`:
    ```bash
-   kubectl --context k3d-spoke-nonprod -n tenant-a-dev get pods
+   kubectl --context k3d-spoke-nonprod -n orders-dev get pods
    ```
 
 ---
@@ -215,10 +217,10 @@ Want to scale `tenant-a-dev` from 1 replica to 3 replicas?
 
 | Task | Command |
 | :--- | :--- |
-| **View Dev Pods** | `kubectl --context k3d-spoke-nonprod -n tenant-a-dev get pods` |
-| **View Test Pods** | `kubectl --context k3d-spoke-nonprod -n tenant-a-test get pods` |
-| **View Prod Pods** | `kubectl --context k3d-spoke-prod -n tenant-a-prod get pods` |
-| **View Worker Logs** | `kubectl --context k3d-spoke-nonprod -n tenant-a-dev logs -l app=orders-dev-worker -f` |
+| **View Dev Pods** | `kubectl --context k3d-spoke-nonprod -n orders-dev get pods` |
+| **View Test Pods** | `kubectl --context k3d-spoke-nonprod -n orders-test get pods` |
+| **View Prod Pods** | `kubectl --context k3d-spoke-prod -n orders-prod get pods` |
+| **View Worker Logs** | `kubectl --context k3d-spoke-nonprod -n orders-dev logs -l app=orders-dev-worker -f` |
 | **List AWS Queues** | `AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs list-queues` |
 | **Send Test Message** | `AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs send-message --queue-url <URL> --message-body '{"test": true}'` |
 | **Argo CD UI** | [http://localhost:8080](http://localhost:8080) |

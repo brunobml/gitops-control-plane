@@ -93,9 +93,9 @@ sequenceDiagram
 
 ### Implementation Blueprint
 1. **Deploy KEDA Add-on**:
-   Add `addon-keda.yaml` into [`applicationsets/`](file:///home/bleite/repos/gitops-control-plane/applicationsets) targeting `spoke-nonprod` and `spoke-prod`.
+   Add `addon-keda.yaml` into [`applicationsets/`](../applicationsets) targeting `spoke-nonprod` and `spoke-prod`.
 2. **Extend the Kro Platform Blueprint**:
-   Update the `QueueBackedService` `ResourceGraphDefinition` in [`platform-catalog`](file:///home/bleite/repos/platform-catalog) to include an optional `autoscaling` block:
+   Update the `QueueBackedService` `ResourceGraphDefinition` in [`platform-catalog`](https://github.com/brunobml/platform-catalog) to include an optional `autoscaling` block:
    ```yaml
    spec:
      autoscaling:
@@ -304,7 +304,7 @@ gantt
 ---
 
 ## 📚 Related Documentation
-* [AWS Well-Architected Production Guide](file:///home/bleite/repos/gitops-control-plane/docs/aws-well-architected-production-guide.md)
-* [Argo CD Visual Design Standards](file:///home/bleite/repos/gitops-control-plane/docs/argocd-visual-design-and-naming-standards.md)
-* [Headlamp Dashboard Architecture & Troubleshooting](file:///home/bleite/repos/gitops-control-plane/addons/headlamp/README.md)
-* [Developer Onboarding Tutorial](file:///home/bleite/repos/gitops-control-plane/docs/developer-tutorial.md)
+* [AWS Well-Architected Production Guide](aws-well-architected-production-guide.md)
+* [Argo CD Visual Design Standards](argocd-visual-design-and-naming-standards.md)
+* [Headlamp Dashboard Architecture & Troubleshooting](../addons/headlamp/README.md)
+* [Developer Onboarding Tutorial](developer-tutorial.md)

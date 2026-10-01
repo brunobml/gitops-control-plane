@@ -111,7 +111,7 @@ Headlamp provides a unified **Events** tab highlighting:
 Headlamp is deployed declaratively using the GitOps control plane:
 
 ### 1. Argo CD Application Manifest
-[`applicationsets/addon-headlamp.yaml`](file:///home/bleite/repos/gitops-control-plane/applicationsets/addon-headlamp.yaml) defines the Headlamp Helm release sourced directly from the official Kubernetes-SIGs repository:
+[`applicationsets/addon-headlamp.yaml`](../../applicationsets/addon-headlamp.yaml) defines the Headlamp Helm release sourced directly from the official Kubernetes-SIGs repository:
 ```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -165,7 +165,7 @@ spec:
 ```
 
 ### 2. Multi-Cluster Credentials Secret
-The script [`addons/headlamp/setup-credentials.sh`](file:///home/bleite/repos/gitops-control-plane/addons/headlamp/setup-credentials.sh) extracts:
+The script [`setup-credentials.sh`](setup-credentials.sh) extracts:
 1. Hub service account token for `headlamp` (bound to `cluster-admin`).
 2. Spoke Non-Prod token from Argo CD cluster secret (`cluster-spoke-nonprod`).
 3. Spoke Prod token from Argo CD cluster secret (`cluster-spoke-prod`).
