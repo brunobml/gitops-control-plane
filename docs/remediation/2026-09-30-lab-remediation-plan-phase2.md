@@ -14,7 +14,7 @@
 | Field | Details |
 |---|---|
 | **Current Status** | 🟡 **SUBMITTED FOR RE-REVIEW (Plan v1.1)** |
-| **Plan Version** | `v1.1` (commit [`78129b9`](https://github.com/brunobml/gitops-control-plane/commit/78129b9)) |
+| **Plan Version** | `v1.1` (commit [`2cfbeaf`](https://github.com/brunobml/gitops-control-plane/commit/2cfbeaf)) |
 | **Reviewed By** | Claude (Opus 5.5), AI peer reviewer |
 | **Review Date** | 2026-09-30 (v1.0 review & Validation-01) · Resubmitted 2026-09-30 (v1.1) |
 | **Authorization Decision** | ⏳ **Awaiting Final Re-Review on Revised Scope** (Tracks 2, 3, 4 and Step 1 PV-1 remediation) |
