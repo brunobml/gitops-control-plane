@@ -11,6 +11,7 @@ spec:
             tenant: tenant-a
             env: prod
             port: "8082"
+            valuesRevision: ca4797acbed28ea7a6a5caf23d591ea30d953d08
   template:
     metadata:
       name: "{{app}}-{{env}}"
@@ -52,7 +53,7 @@ spec:
             valueFiles:
               - $values/deploy/values-{{env}}.yaml
         - repoURL: https://github.com/brunobml/orders-processor.git
-          targetRevision: main
+          targetRevision: '{{valuesRevision}}'
           ref: values
       destination:
         name: spoke-prod
