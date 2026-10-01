@@ -20,7 +20,7 @@ spec:
       project: platform-catalog
       source:
         repoURL: https://github.com/brunobml/platform-catalog.git
-        targetRevision: main
+        targetRevision: '{{metadata.annotations.blueprints-revision}}'
         path: blueprints
       destination:
         server: "{{server}}"
