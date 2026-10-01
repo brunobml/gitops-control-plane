@@ -69,6 +69,8 @@ configs:
     # Phase 3 C.2: every sync runs as the destinationServiceAccounts identity of its AppProject
     # (see scripts/audit-impersonation.sh; rollback: scripts/rollback-argocd-impersonation.sh).
     application.sync.impersonation.enabled: "true"
+    # Phase 3 B.4 acceptance: applied by Argo CD to itself from Git (no helm upgrade).
+    ui.bannercontent: "GitOps hub-and-spoke lab: Argo CD manages itself from Git (Phase 3 B.4)"
     application.links: |
       - title: "Headlamp Cluster Explorer"
         url: "http://headlamp.localhost:8080"
