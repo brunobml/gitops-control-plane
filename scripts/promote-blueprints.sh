@@ -18,9 +18,15 @@ if ! git -C "$REPO_DIR" diff --quiet HEAD -- "${REVISIONS_FILE}"; then
   exit 1
 fi
 
-# Preflight: ensure local commits are pushed to upstream (W-4)
-if ! git -C "$REPO_DIR" merge-base --is-ancestor HEAD @{u} 2>/dev/null; then
-  echo "❌ Error: Local commits not pushed to upstream branch. Push to Git first." >&2
+# Preflight: ensure promotion is run from main branch and pushed to origin/main (W-4, X-1)
+current_branch=$(git -C "$REPO_DIR" branch --show-current)
+if [[ "$current_branch" != "main" ]]; then
+  echo "❌ Error: Promotion must be run from 'main' branch (current: '${current_branch}')." >&2
+  exit 1
+fi
+
+if ! git -C "$REPO_DIR" fetch -q origin main || ! git -C "$REPO_DIR" merge-base --is-ancestor HEAD origin/main; then
+  echo "❌ Error: Local commits not pushed to upstream origin/main. Push to Git first." >&2
   exit 1
 fi
 

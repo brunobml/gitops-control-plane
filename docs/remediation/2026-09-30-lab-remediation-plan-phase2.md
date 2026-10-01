@@ -12,23 +12,62 @@
 
 | Field | Details |
 |---|---|
-| **Current Status** | 🟡 **PENDING REVIEW & AUTHORIZATION** |
-| **Plan Version** | `v1.0` (commit [`18d61b1`](https://github.com/brunobml/gitops-control-plane/commit/18d61b1)) |
-| **Reviewed By** | Awaiting peer reviewer sign-off |
-| **Review Date** | Pending (2026-09-30) |
-| **Authorization Decision** | ⏳ **Awaiting Review** (Options: ✅ **GREEN LIGHT** · 🟠 **CONDITIONAL** · 🔴 **REVISE & RESUBMIT**) |
+| **Current Status** | 🟠 **CONDITIONAL: PARTIALLY AUTHORIZED** (Track 1 and Step 8 only; revise Tracks 2–4 and resubmit) |
+| **Plan Version** | `v1.0`. Plan body at commit [`18d61b1`](https://github.com/brunobml/gitops-control-plane/commit/18d61b1); reviewed at [`5939bc5`](https://github.com/brunobml/gitops-control-plane/commit/5939bc5), which only adds this header |
+| **Reviewed By** | Claude (Opus 5.5), AI peer reviewer for the assessment and the Phase 1 validations |
+| **Review Date** | 2026-09-30 |
+| **Authorization Decision** | 🟠 **CONDITIONAL** (Options: ✅ **GREEN LIGHT** · 🟠 **CONDITIONAL** · 🔴 **REVISE & RESUBMIT**) |
 
 ### Review Decision & Authorization Banner
 
-> ### 🟡 PENDING AUTHORIZATION
+> ### 🟠 CONDITIONAL: PARTIALLY AUTHORIZED
 >
-> **Reviewer Instructions:** Record your review decision, feedback, and any non-blocking or blocking implementation conditions directly in this section so that review and approval remain co-located with the remediation plan without generating separate review files.
+> | Scope | Decision |
+> |---|---|
+> | **Track 1** (Steps 1–5: CI tags, ACK resync, smoke tests, AppProjects, X-1) | ✅ **Authorized now**, subject to conditions C-1 to C-3 |
+> | **Step 8** (PSS `restricted` labels) | ✅ **Authorized**, subject to C-4 |
+> | **Track 2** (Steps 6–7: Headlamp / L4-1) | ⛔ **Revise.** Blockers P2-B1, P2-B2 and P2-B3 would leave Headlamp cluster-admin on the hub, leave TLS unverified, and hide ACK Queues |
+> | **Step 9** (NetworkPolicy) | ⛔ **Revise.** Blocker P2-B4: the policy selects no pods |
+> | **Step 10** (ACK CARM multi-account) | ⛔ **Defer.** Blocker P2-B5: it would break every worker (verified against moto) |
+> | **Track 4** (Step 11: prod workload gate) | ⛔ **Revise.** Blocker P2-B6: the template variable cannot resolve in a List generator |
+>
+> All blockers were found by checking the plan's assumptions against the live clusters, not by reading alone (evidence below). Once v1.1 addresses them, only the revised steps need re-review.
+>
+> **Scheduling note:** the TokenRequest tokens from Phase 1 expire on **2026-10-31 at about 01:00 UTC**. If Track 2 hasn't shipped by then, run `make rotate-spoke-tokens`.
 
-### Implementation Conditions & Review Feedback (To be filled by Reviewer)
+### Implementation Conditions & Review Feedback
+
+**Blocking: must be fixed in plan v1.1 before the affected step runs**
 
 | ID | Type | Condition / Observation | Status |
 |:---:|:---:|---|:---:|
-| — | — | *No conditions registered yet — awaiting reviewer feedback.* | ⏳ |
+| **P2-B1** | ⛔ Blocker (Step 6–7) | **Headlamp's own pod stays cluster-admin on the hub.** The Deployment runs as SA `headlamp` with `automountServiceAccountToken=true`, and ClusterRoleBinding `headlamp-admin` → `cluster-admin` still exists (created by `setup-credentials.sh`). Moving the *kubeconfig* to `headlamp-viewer` doesn't change the pod's mounted token. A compromised Headlamp still owns the hub, including every Argo CD cluster Secret. **Fix:** delete `ClusterRoleBinding/headlamp-admin`, remove it from `setup-credentials.sh`, and set `serviceAccount.automount: false` (or `automountServiceAccountToken: false`) in `addon-headlamp.yaml`. | ⏳ Open |
+| **P2-B2** | ⛔ Blocker (Step 7) | **The `-insecure-ssl` flag defeats the TLS verification Step 7 adds.** `applicationsets/addon-headlamp.yaml` passes `-insecure-ssl` (live args: `-kubeconfig=… -insecure-ssl -dev`), so Headlamp skips certificate checks whatever the kubeconfig says. **Fix:** remove `-insecure-ssl` from `extraArgs` in the same change. The CA-verified kubeconfig will work: all three API server certificates list `k3d-<cluster>-server-0` in their SANs (verified). | ⏳ Open |
+| **P2-B3** | ⛔ Blocker (Step 6) | **The `headlamp-viewer-role` grants the wrong API group for ACK and omits logs.** ACK Queues live in `sqs.services.k8s.aws`; `services.k8s.aws` holds only `fieldexports` and `iamroleselectors` (verified). Headlamp would get Forbidden on exactly the resources the plan's CRD-visibility concern is about. The hand-written list also omits `pods/log`, `batch`, `policy` (the PDB), `discovery.k8s.io` and `internal.kro.run`. **Fix:** do what the plan's own concern describes. Bind the built-in **`view`** ClusterRole (it includes `pods/log` and excludes Secrets) and add a small ClusterRole labelled `rbac.authorization.k8s.io/aggregate-to-view: "true"` granting `get/list/watch` on `kro.run`, `internal.kro.run`, `sqs.services.k8s.aws`, `services.k8s.aws` and `apiextensions.k8s.io/customresourcedefinitions`. | ⏳ Open |
+| **P2-B4** | ⛔ Blocker (Step 9) | **The NetworkPolicy selects no pods, so it would pass verification while enforcing nothing.** It uses `podSelector: app.kubernetes.io/name: orders`, but the worker pods carry only `app: orders-<env>-worker`, `environment`, and `pod-template-hash` (verified). The k3s policy controller **is** enforcing (kube-router chains present on both spokes), so a corrected selector would take effect immediately. **Fix:** (1) add the policy as a resource in the **RGD** (`app: ${schema.spec.name}-${schema.spec.environment}-worker`) so it ships through the existing blueprint gate (non-prod on `main`, prod on a new tag, rollback by re-pointing the tag) rather than as an untracked `kubectl apply`; (2) narrow the moto egress from `0.0.0.0/0` to the `k3d-cloud-net` subnet `172.21.0.0/16` (moto is `172.21.0.9`); (3) prove on non-prod that liveness and readiness probes still pass under kube-router *before* tagging for prod; (4) change verification #11 to show that a blocked destination fails **and** that a pod outside the policy is unaffected. | ⏳ Open |
+| **P2-B5** | ⛔ Blocker (Step 10) | **CARM as planned would break every worker.** Verified against the live moto: a queue created under an assumed role in a non-default account is **not visible** to default credentials, and the worker's raw call style (`Authorization: … Credential=mock/…`, `orders-processor/src/main.py:22`) returns `NonExistentQueue` against that account's URL. moto separates accounts by credential, not by URL path, so the plan's conclusion that "partitioning is transparent" does not hold. In addition: (a) the CARM map `ack-system/ack-role-account-map` (account → role ARN) does not exist and is not in the plan; (b) changing an existing namespace's owner account makes ACK create **new** queues in the new account and orphans the old ones (a migration, not a toggle); the rollback ("remove annotation, restart") triggers a second migration. **Fix:** move L4-4 to a later phase that first (1) gives the worker per-environment credentials (the local equivalent of IRSA or Pod Identity), which needs an app change shipped through the L3-5 immutable-tag pipeline; (2) adds the CARM map; (3) writes a migration runbook (recreate instances, then delete orphaned queues in `123456789012`). | ⏳ Open |
+| **P2-B6** | ⛔ Blocker (Step 11) | **`{{metadata.annotations.workload-revision}}` cannot resolve.** `tenant-workloads-prod.yaml` uses a **List** generator (verified); `metadata.annotations` exists only with the Cluster generator, so the expression renders empty or literally. Also, `orders-processor` has **no Git tags** (verified), so "pin to `v1.2.0`" has nothing to pin to. **Fix:** add an element field such as `valuesRevision: v1.3.0` to the List element (promotion then becomes a reviewed control-plane PR, consistent with `blueprint-revisions.env`). Create the first `orders-processor` release tag through the new L3-5 pipeline **before** switching. | ⏳ Open |
+
+**Conditions for authorized steps (apply during execution; no re-review needed)**
+
+| ID | Type | Condition / Observation | Status |
+|:---:|:---:|---|:---:|
+| **C-1** | Condition (Step 1) | `type=ref,event=branch` still publishes a **mutable** `main` tag. That's acceptable only if no `deploy/values-*.yaml` ever references it. The existing `v1.2.0` tag was overwritten historically, so cut a fresh release (e.g. `v1.3.0`) from the new pipeline and repoint all three values files to it (ideally by digest). This tag is also the prerequisite for P2-B6. Track 1 must run before Track 4. | ✅ Resolved in Run #01 |
+| **C-2** | Condition (Step 3) | Don't hard-code "7 applications". Assert that **every** Application is Synced/Healthy *and* that the expected set is present, so adding an app neither breaks the test nor hides a missing one. Count queues by name (3 queues + 3 DLQs), not by line count. | ✅ Resolved in Run #01 |
+| **C-3** | Condition (Step 2) | The key `reconcile.defaultResyncPeriod` is correct for chart `sqs-chart` 1.7.1 (verified). Put it in `platform-catalog/controllers/ack/values-sqs.yaml` only (drop the duplicate `--set`). For acceptance #6, allow up to 2× the period for jitter, and record the observed recreation time. | ✅ Resolved in Run #01 |
+| **C-4** | Condition (Step 8) | Namespaces are created by Argo CD (`CreateNamespace=true`), so `kubectl label` is untracked and is lost if a namespace is recreated. Declare the PSS labels in the tenant ApplicationSets with `syncPolicy.managedNamespaceMetadata.labels`. The workloads already pass the `restricted` dry run (Validation-03), so enforcement is safe. | ✅ Resolved in Run #01 |
+
+**Non-blocking review feedback (address in v1.1)**
+
+| ID | Type | Condition / Observation | Status |
+|:---:|:---:|---|:---:|
+| **F-1** | Scope | The title says "Critical & High", but two **High** findings are missing without a stated deferral: **L4-2** (Argo CD `admin`/`admin123`, bcrypt hash in a public repo, plain HTTP) and **L3-2** (moto state is ephemeral; with L3-1 this means "green against an empty cloud"). **L2-1** (High) appears only as a roadmap item with no steps or acceptance criteria. Either add them or list them under "Deferred to Phase 3" with a reason. | ⏳ Open |
+| **F-2** | Design | Step 11's always-on `deny` sync window (`* * * * *`, 24 h) also **blocks self-heal** on `orders-prod`, so drift would no longer be corrected. Once prod values are pinned to an immutable ref, automated sync is safe, because the pin is the gate. Recommend: pin plus keep `automated`/`selfHeal`, and use sync windows only for change freezes. | ⏳ Open |
+| **F-3** | Residual risk | L4-1 also covers *no authentication* and `0.0.0.0:8080` exposure. After Track 2, Headlamp is read-only but still unauthenticated, with `-dev` (relaxed CORS). Mark L4-1 as **Mitigated** (not Closed) after Track 2 and record the residual risk, or add a step (bind the k3d load balancer to `127.0.0.1`, or put OIDC in front). | ⏳ Open |
+| **F-4** | Rollback | The Headlamp rollback ("rerun with previous credentials") would restore cluster-admin, which brings back the Critical finding. Make the rollback `kubectl -n headlamp scale deploy/headlamp --replicas=0` while fixing forward. | ⏳ Open |
+| **F-5** | Hygiene | The plan reintroduces absolute `/home/bleite/repos/...` target paths (Steps 1–2). The L1-6 check excludes `docs/remediation/`, so it won't catch them. Use repo-relative names (`orders-processor/.github/workflows/ci.yaml`). | ⏳ Open |
+
+**Verified during this review** (read-only, except one temporary moto queue in a fake account, created and deleted): worker pod labels; k3s NetworkPolicy enforcement (kube-router iptables chains); moto cross-account visibility with the worker's credential style; ACK chart 1.7.1 `reconcile.*` keys; ACK API groups; CARM map absence; API server certificate SANs on all 3 clusters; Headlamp Deployment SA, automount and args; `headlamp-admin` binding; no Application uses the `default` project (so locking it down is safe); `orders-processor` has no tags; `tenant-workloads-prod` generator type; built-in `view` includes `pods/log`.
 
 ---
 

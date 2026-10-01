@@ -6,7 +6,6 @@ metadata:
 spec:
   description: "Multi-tenant application workloads (Tenant-A, etc.)"
   sourceRepos:
-    - "https://github.com/brunobml/tenant-workloads.git"
     - "https://github.com/brunobml/orders-processor.git"
     - "ghcr.io/brunobml/charts"
   destinations:
