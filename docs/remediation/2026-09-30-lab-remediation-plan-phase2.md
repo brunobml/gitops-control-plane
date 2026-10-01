@@ -13,16 +13,53 @@
 
 | Field | Details |
 |---|---|
-| **Current Status** | 🟡 **SUBMITTED FOR RE-REVIEW (Plan v1.1)** |
-| **Plan Version** | `v1.1` (commit [`2cfbeaf`](https://github.com/brunobml/gitops-control-plane/commit/2cfbeaf)) |
+| **Current Status** | 🟠 **APPROVED WITH MANDATORY CORRECTIONS (Plan v1.1)**. All in-scope steps are authorized, provided corrections MC-1 to MC-5 below are applied exactly as written |
+| **Plan Version** | `v1.1` (commit [`2cfbeaf`](https://github.com/brunobml/gitops-control-plane/commit/2cfbeaf); sign-off reference synced in `6941cd6`) |
 | **Reviewed By** | Claude (Opus 5.5), AI peer reviewer |
-| **Review Date** | 2026-09-30 (v1.0 review & Validation-01) · Resubmitted 2026-09-30 (v1.1) |
-| **Authorization Decision** | ⏳ **Awaiting Final Re-Review on Revised Scope** (Tracks 2, 3, 4 and Step 1 PV-1 remediation) |
+| **Review Date** | v1.0 review 2026-09-30 · Validation-01 2026-09-30 · **v1.1 re-review 2026-09-30** |
+| **Authorization Decision** | 🟠 **CONDITIONAL GO.** Execution order: **Step 1 (PV-1) → Step 5 (PV-2) → Track 2 → Step 9 → Track 4.** No further review cycle is needed if MC-1 to MC-5 are followed; the validation run will check each MC explicitly. |
 
-### Review Decision & Authorization Banner
+### Reviewer Decision on Plan v1.1
 
-> ### 🟡 PLAN v1.1 SUBMITTED FOR RE-REVIEW
+> ### 🟠 CONDITIONAL GO: authorized with mandatory corrections
 >
+> v1.1 addresses the **intent** of every v1.0 blocker and every validation observation, and the deferrals to Phase 3 (F-1) are well reasoned. Checking v1.1's concrete snippets against the real charts and repos found **five specification errors**. Three of them would have failed silently, which is the most dangerous kind:
+>
+> | Step | Authorization | Mandatory correction |
+> |---|---|---|
+> | **Step 1** (PV-1 digest pin) | ✅ Go | MC-4 (ordering and verification) |
+> | **Step 5** (PV-2 preflight) | ✅ Go | none |
+> | **Track 2** (Headlamp, L4-1) | ✅ Go, **only** with MC-1 | **MC-1**: the v1.1 key is a no-op, and the binding is owned by the Helm chart (Argo CD would recreate it) |
+> | **Step 9** (NetworkPolicy) | ✅ Go, **only** with MC-2 | **MC-2**: `${schema.spec.namespace}` doesn't exist and would break the RGD on non-prod |
+> | **Track 4** (prod gate) | ✅ Go, **only** with MC-3 | **MC-3**: the snippet replaces the real chart source with a nonexistent one, and `valuesRevision: 1.3.0` isn't a Git ref |
+> | Track 2 acceptance | n/a | **MC-5**: least-privilege verification matrix |
+>
+> **Reviewer correction:** my v1.0 note on P2-B1 said `headlamp-admin` was "created by `setup-credentials.sh`". The script does create it, but the live object is **rendered by the Headlamp chart** (`clusterRoleBinding.create: true`, `clusterRoleName: cluster-admin`), carries `managed-by=Helm`, and is tracked by `addon-headlamp`. That attribution error carried into v1.1's fix; MC-1 corrects it.
+>
+> **Scheduling:** the TokenRequest tokens expire **2026-10-31 at about 01:00 UTC**. Track 2 issues new Headlamp tokens but does not rotate `argocd-manager`, so `make rotate-spoke-tokens` is still due before that date.
+
+#### Mandatory Corrections (v1.1 re-review)
+
+| ID | Applies to | Defect found in v1.1 (evidence) | Required correction | Added acceptance check |
+|:---:|:---:|---|---|---|
+| **MC-1** | Track 2 / Step 7 (P2-B1) | **(a)** Headlamp chart `0.45.0` has **no `serviceAccount.automount` key**. The setting is top-level `automountServiceAccountToken` (default `true`). `helm template … --set serviceAccount.automount=false` still renders `automountServiceAccountToken: true` (verified). **(b)** `ClusterRoleBinding/headlamp-admin` → `cluster-admin` comes from the chart's `clusterRoleBinding.create: true` and is tracked by `addon-headlamp` (`managed-by=Helm`, Argo CD tracking-id present). With `selfHeal: true`, a `kubectl delete` would be reverted within seconds. | In `applicationsets/addon-headlamp.yaml` `valuesObject`, set **`automountServiceAccountToken: false`** (top level) and **`clusterRoleBinding: {create: false}`**. Argo CD (`prune: true`) then removes the binding. Also remove the binding from `addons/headlamp/setup-credentials.sh` so the script can't recreate it. Do **not** `kubectl delete` it by hand. Mirror the same values in `addons/headlamp/values.yaml`. | `kubectl get clusterrolebinding headlamp-admin` → NotFound, **still NotFound 5 min after sync**. Live Headlamp pod: `automountServiceAccountToken: false` and **no `kube-api-access-*` volume**. `addon-headlamp` Synced/Healthy. |
+| **MC-2** | Step 9 (P2-B4) | The NetworkPolicy template sets `namespace: ${schema.spec.namespace}`. The `QueueBackedService` schema has **no `namespace` field** (`name`, `environment`, `replicas`, `messageRetentionPeriod`, `image`), so kro rejects the RGD and the blueprint goes inactive on non-prod. Target path `platform-catalog/blueprints/kro/rgd-queue-service.yaml` doesn't exist (actual: `blueprints/queue-backed-service-rgd.yaml`). The rollback `kubectl delete netpol` doesn't work, because kro recreates its children within seconds. | **Omit `metadata.namespace`**, as every other resource in the RGD does (kro uses the instance namespace). Edit `blueprints/queue-backed-service-rgd.yaml`. Rollback: **non-prod**: `git revert` on `platform-catalog@main`; **prod**: it stays on its tag until promoted, and is rolled back by re-pointing `blueprint-revisions.env` + `make promote-blueprints`. Promote to prod only via a **new** tag (`v1.2.0`) after non-prod passes. | RGD `queuebackedservice` stays `Active` on non-prod. `orders-dev`/`orders-test` pods Ready with **0 restarts across ≥ 3 liveness periods** (probes pass under kube-router). From a worker pod: DNS ✅, `moto-cloud:5000` ✅, `1.1.1.1:443` ❌. A pod **outside** the policy in the same namespace is unaffected. Traefik → app returns HTTP 200. |
+| **MC-3** | Track 4 / Step 11 (P2-B6) | **(a)** The snippet rewrites the generator and sources with values that don't exist in this repo: element keys `cluster/url/environment/valuesFile` (the template uses `app/tenant/env/port`) and a chart source `https://brunobml.github.io/platform-catalog` / `queue-service` / `0.1.0` (actual: `ghcr.io/brunobml/charts` / `queue-backed-service` / `1.0.0`, the only chart repo whitelisted in the AppProject). **(b)** `valuesRevision: 1.3.0` is not a Git ref: `orders-processor` has only the tag `v1.3.0`. **(c)** Even `v1.3.0` is wrong: at that commit `deploy/values-prod.yaml` still references `orders-processor:v1.3.0`, the **404 image** (verified). | Make a **minimal diff**: (1) add `valuesRevision: <sha>` to the **existing** List element, keeping `app/tenant/env/port`; (2) change **only** the `ref: values` source's `targetRevision` from `main` to `'{{valuesRevision}}'`; (3) leave the chart source untouched. Set `<sha>` to the **full 40-character commit SHA of the PV-1 digest-pin commit** (an immutable ref that contains the pullable digest). Don't create a new `v*` tag just for this, because CI builds an image on every `v*` tag. Keep `automated` + `selfHeal` (F-2 ✅). | `orders-prod` Application source revision == `<sha>`. Values render `…:1.3.0@sha256:3fc6e216…`. A no-op commit to `orders-processor@main` moves `orders-dev`/`orders-test` but **not** `orders-prod`. |
+| **MC-4** | Step 1 (PV-1) | The purge runs **before** the repoint and uses `\|\| true`, which hides failures (`crictl rmi` on an in-use image can error). | Order: (1) commit the digest-pinned values (all 3 files) plus the `pattern=v{{version}}` CI change, and push; (2) wait for the kro rollout: with `tag@digest` the kubelet must pull from GHCR, because the imported image has no repo digest; (3) **then** `crictl rmi` the `:v1.3.0` local tag on the 4 nodes, **without** `\|\| true`, and report each result. | Every pod's `imageID` = `ghcr.io/brunobml/orders-processor@sha256:3fc6e216…`. `crictl images` on all 4 nodes shows no `orders-processor:v1.3.0`. Live footer `Git Commit: 8f5e0b6`. |
+| **MC-5** | Track 2 acceptance (#1–#3) | "Compare token hashes" and a single `create ns` attempt don't prove least privilege across clusters. | Add an `auth can-i` matrix per cluster for `system:serviceaccount:headlamp-access:headlamp-viewer`. | On **each** of the 3 clusters: `get pods/log` ✅, `list queues.sqs.services.k8s.aws` ✅, `list resourcegraphdefinitions.kro.run` ✅, **`get secrets` ❌**, `create deployments` ❌, `delete namespaces` ❌. Headlamp UI loads all 3 clusters with `-insecure-ssl` removed. |
+
+#### Non-blocking notes (v1.1 re-review)
+
+| ID | Note |
+|:---:|---|
+| N-1 | `aggregate-to-view` rules also flow into the built-in `edit` and `admin` roles, so every subject bound to view/edit/admin gains read access to these CRDs. This is the intended Kubernetes pattern and acceptable here; say so in the Track 2 write-up so it isn't a surprise. |
+| N-2 | Verified as **correct** in v1.1: the hub/spoke CA from `kube-root-ca.crt` (`k3s-server-ca@…`) is the issuer of each API server's serving certificate, and the SANs include `k3d-<cluster>-server-0`, so strict TLS will verify. CoreDNS on the spokes carries `k8s-app=kube-dns` and Traefik carries `app.kubernetes.io/name=traefik` in `kube-system`, so the NetworkPolicy peer selectors match. PV-2's `rev-parse HEAD == origin/main` closes the stale-`main` gap. |
+| N-3 | The remaining `/home/bleite/` mention in this file is descriptive text in the PV-3 row, not a link. PV-3 is resolved. |
+
+---
+
+### Author's v1.1 Submission Summary
+
 > | Scope | Status in v1.1 |
 > |---|---|
 > | **Track 1 Quick Wins (Steps 2–5)** | ✅ **Closed & Validated** in Run #01 (ACK 300s resync, honest smoke tests, AppProjects, preflight branch pin) |
