@@ -14,7 +14,7 @@
 | Field | Details |
 |---|---|
 | **Current Status** | 🟡 **SUBMITTED FOR PEER REVIEW** |
-| **Plan Version** | `v1.0` (commit: recorded on submission; see `git log -- docs/remediation/2026-10-01-lab-remediation-plan-phase3.md`) |
+| **Plan Version** | `v1.0` (commit [`5d70290`](https://github.com/brunobml/gitops-control-plane/commit/5d70290)) |
 | **Author** | Claude (Opus 5.5) |
 | **Reviewed By** | ⏳ *Awaiting independent peer reviewer.* The author validated Phases 1–2 and wrote this plan, so **the author must not sign it off.** |
 | **Review Date** | Pending |
