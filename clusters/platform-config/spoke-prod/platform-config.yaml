@@ -1,0 +1,10 @@
+# Phase 3 D.5 (L2-6): cluster-specific facts the queue-backed-service blueprint reads via
+# kro externalRef, instead of hard-coding them in the RGD. One file per spoke.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-config
+  namespace: kube-system
+data:
+  MOTO_ENDPOINT: "http://moto-cloud:5000"
+  INGRESS_PORT: "8082"

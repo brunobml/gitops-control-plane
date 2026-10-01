@@ -1,0 +1,40 @@
+# Phase 3 D.5: per-spoke platform-config ConfigMap (kube-system/platform-config), read by the
+# queue-backed-service RGD through kro externalRef. Must exist before blueprint v1.3.0.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: addons-spoke-platform-config
+  namespace: argocd
+spec:
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            addons-managed: "true"
+  template:
+    metadata:
+      name: "addon-platform-config-{{name}}"
+      labels:
+        app.kubernetes.io/part-of: platform-addons
+        addon: platform-config
+    spec:
+      project: platform-addons
+      source:
+        repoURL: https://github.com/brunobml/gitops-control-plane.git
+        targetRevision: main
+        path: "clusters/platform-config/{{name}}"
+      destination:
+        server: "{{server}}"
+        namespace: kube-system
+      syncPolicy:
+        automated:
+          prune: false
+          selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m

@@ -10,6 +10,7 @@ spec:
   description: "Phase 3 B.2: spoke platform controllers (kro, ACK) managed from Git"
   sourceRepos:
     - "https://github.com/brunobml/platform-catalog.git"
+    - "https://github.com/brunobml/gitops-control-plane.git"
     - "registry.k8s.io/kro/charts"
     - "public.ecr.aws/aws-controllers-k8s"
   destinations:
@@ -29,6 +30,14 @@ spec:
       namespace: "kro"
     - server: "https://k3d-spoke-prod-server-0:6443"
       namespace: "ack-system"
+    - name: "spoke-nonprod"
+      namespace: "kube-system"
+    - name: "spoke-prod"
+      namespace: "kube-system"
+    - server: "https://k3d-spoke-nonprod-server-0:6443"
+      namespace: "kube-system"
+    - server: "https://k3d-spoke-prod-server-0:6443"
+      namespace: "kube-system"
   # Controllers ship CRDs, ClusterRoles and webhooks; cluster-scoped access is intended here
   # (narrowed later by C.3 kro aggregation and C.2 destination impersonation).
   clusterResourceWhitelist:
