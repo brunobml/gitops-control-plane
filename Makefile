@@ -13,6 +13,7 @@ help:
 	@echo "  make build-app           - Build & push orders-processor container image to local registry (TAG=v1.0.0)"
 	@echo "  make push                - Push all repositories to GitHub (origin main)"
 	@echo "  make bootstrap           - Apply root-control-plane Argo CD application to Hub"
+	@echo "  make post-bootstrap      - After bootstrap: worker credentials, adopt argo-cd, resync, smoke test"
 	@echo "  make rotate-spoke-tokens - Rotate 30-day TokenRequest tokens for Argo CD spokes and Headlamp"
 	@echo "  make promote-blueprints  - Annotate spoke cluster secrets with revisions from clusters/blueprint-revisions.env"
 	@echo "  make password            - Print Argo CD web UI admin password"
@@ -100,6 +101,9 @@ status:
 	@echo ""
 	@echo "=== CENTRAL MOTO CLOUD SQS QUEUES ==="
 	@AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs list-queues --output table 2>/dev/null || echo "No queues found."
+
+post-bootstrap:
+	@bash $(ROOT_DIR)/scripts/post-bootstrap.sh
 
 teardown:
 	@bash $(ROOT_DIR)/scripts/teardown-hub-spoke.sh

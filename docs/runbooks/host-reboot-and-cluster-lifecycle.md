@@ -155,3 +155,16 @@ docker restart k3d-spoke-nonprod-agent-0
 kubectl --context k3d-spoke-nonprod get nodes   # Ready within seconds
 ```
 Use the same procedure for `k3d-spoke-prod-agent-0` if it shows the symptom. With the 300 s ACK resync, missing queues are recreated automatically once the controller is healthy (observed: within seconds of the node recovering).
+
+### Issue F: Orders Accepted but Never Processed (worker keys lost after moto restart)
+**Seen on 2026-10-01 after a host reboot** (all three environments; caught by smoke stage 9).
+
+**Symptoms:** the dashboards accept orders but none appear as processed; `make test` fails at `[9/9] Asserting End-to-End Order Flow`. Worker logs show auth errors or reads from an empty queue.
+
+**Cause:** moto keeps all state in memory. A moto restart (host reboot, Docker restart) wipes the IAM users that `scripts/provision-worker-credentials.sh` created, so the keys in the `orders-<env>-aws` Secrets no longer resolve to the namespace's CARM account (111111111111 / 222222222222). Queues are recreated by ACK within its 300 s resync (Issue C), but the keys are not.
+
+**Fix** (idempotent; keeps valid keys, re-provisions only stale ones, restarts workers one pod at a time, runs the smoke test):
+```bash
+make post-bootstrap
+```
+Run it after every `make start`.

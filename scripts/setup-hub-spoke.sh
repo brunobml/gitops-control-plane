@@ -22,7 +22,14 @@ echo -e "${BLUE}============================================================${NC
 
 # 1. Create Docker Network
 echo -e "\n${YELLOW}[1/6] Creating shared Docker network '${NETWORK_NAME}'...${NC}"
-docker network create "${NETWORK_NAME}" 2>/dev/null || true
+# Fixed subnet: the queue-backed-service blueprint's worker NetworkPolicy allows egress to
+# moto in 172.21.0.0/16, so the network must not get a different subnet on re-creation.
+if ! docker network inspect "${NETWORK_NAME}" >/dev/null 2>&1; then
+  docker network create --subnet 172.21.0.0/16 "${NETWORK_NAME}"
+elif [[ "$(docker network inspect "${NETWORK_NAME}" --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}')" != "172.21.0.0/16" ]]; then
+  echo -e "${RED}✘ ${NETWORK_NAME} exists with a subnet other than 172.21.0.0/16; run 'make teardown' first.${NC}" >&2
+  exit 1
+fi
 
 # 2. Launch Central Moto Cloud
 # moto pinned by registry digest (5.2.3.dev0, the image the lab was validated on; Phase 3 B.5).
@@ -109,9 +116,17 @@ fi
 kubectl --context "k3d-${HUB_CLUSTER}" wait --for=condition=ready --timeout=120s pod -l app.kubernetes.io/name=argocd-server -n argocd
 
 # Log the CLI in as platform-admin: register-spokes.sh verifies connectivity with `argocd cluster list`.
-argocd login localhost:8080 --plaintext --grpc-web --skip-test-tls \
-  --username platform-admin \
-  --password "$(cat "${GITOPS_LAB_SECRET_DIR:-$HOME/.config/gitops-lab}/argocd-platform-admin.password")" </dev/null
+# Retry: the server can be Ready slightly before the Traefik route serves it.
+for attempt in $(seq 1 30); do
+  if argocd login localhost:8080 --plaintext --grpc-web --skip-test-tls \
+      --username platform-admin \
+      --password "$(cat "${GITOPS_LAB_SECRET_DIR:-$HOME/.config/gitops-lab}/argocd-platform-admin.password")" </dev/null >/dev/null 2>&1; then
+    echo "✔ argocd CLI logged in as platform-admin"
+    break
+  fi
+  [[ "$attempt" == 30 ]] && { echo -e "${RED}✘ argocd login failed after 30 attempts${NC}" >&2; exit 1; }
+  sleep 5
+done
 
 # 4c. Apply Enterprise AppProjects
 echo -e "\n${YELLOW}[4c/7] Creating Enterprise AppProjects on ${HUB_CLUSTER}...${NC}"
