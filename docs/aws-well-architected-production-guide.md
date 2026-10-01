@@ -88,9 +88,12 @@ flowchart TD
 | Best Practice Requirement | Implementation in Our Platform |
 | :--- | :--- |
 | **Blast Radius Isolation** | Hard physical separation: Non-production (`k3d-spoke-nonprod`) and Production (`k3d-spoke-prod`) run on separate Kubernetes clusters. |
+| **Short-Lived Spoke Credentials (TokenRequest API)** | Spoke cluster authentication uses short-lived tokens generated via Kubernetes `TokenRequest` API with 30-day bounded lifespans (`--duration=720h`), eliminating static permanent `kubernetes.io/service-account-token` Secrets. Secret plaintext annotations (`last-applied-configuration`) are stripped before server-side apply. Rotation is managed via `make rotate-spoke-tokens`, and early revocation is executed by deleting and recreating the `argocd-manager` ServiceAccount. |
+| **Production Target: EKS Access Entries & Pod Identity** | In AWS production environments, cluster registration transitions from bearer tokens to IAM-based authentication via **EKS Access Entries** and IAM Roles for Service Accounts (IRSA) / EKS Pod Identity. Argo CD running on the Hub assumes a cross-account IAM role with scoped `AmazonEKSClusterAdminPolicy` access entries, entirely removing stored bearer tokens. |
+| **Dedicated ServiceAccounts & Token Shielding** | Workload pods run under dedicated ServiceAccounts (`${schema.spec.name}-${schema.spec.environment}-sa`) with `automountServiceAccountToken: false`, preventing unnecessary Kubernetes API credentials from mounting into application containers. |
+| **Pod Security Standards (Restricted Profile)** | Containers enforce `seccompProfile.type: RuntimeDefault`, `readOnlyRootFilesystem: true` with temporary `emptyDir` mounts on `/tmp`, `allowPrivilegeEscalation: false`, and `capabilities.drop: ["ALL"]`, satisfying the Kubernetes Pod Security Standards Restricted profile. |
 | **Argo CD AppProject Guardrails** | AppProjects strictly restrict which Git repositories can be synced (`sourceRepos`), which clusters/namespaces can be targeted (`destinations`), and whitelist safe cluster resources. |
-| **Non-Root Container Execution** | Containers run as unprivileged `appuser` (UID/GID `10001`) via Dockerfile and Kubernetes `securityContext.runAsNonRoot: true`. |
-| **Linux Capability Dropping** | Pod security context specifies `capabilities.drop: ["ALL"]` and `allowPrivilegeEscalation: false` to eliminate privilege escalation exploits. |
+| **Blueprint Promotion Gates** | Platform catalog blueprints are promoted between environments using Git tags (`v1.0.0`, `v1.1.0`) referenced via `clusters/blueprint-revisions.env`, eliminating manual drift and silent rollbacks. |
 | **Zero-Trust IAM Governance** | Workloads do not have cluster-admin privileges; cloud resource access is isolated per queue. |
 
 ---
@@ -102,6 +105,7 @@ flowchart TD
 | **Loose Coupling via Asynchronous Queuing** | Web endpoints submit orders to Amazon SQS; worker processes asynchronously dequeue and store them. If the database is busy, SQS buffers traffic without dropping transactions. |
 | **Dead Letter Queue (DLQ) & Redrive** | Every queue is paired with an automatic DLQ (`orders-dev-dlq`). If a poison-pill message fails processing 5 times (`maxReceiveCount: 5`), SQS isolates it into the DLQ. |
 | **Multi-Replica Redundancy** | Production runs with multiple worker replicas across nodes (`replicas: 2`). |
+| **Pod Disruption Budgets (PDB)** | Multi-replica workloads automatically instantiate a `PodDisruptionBudget` (`minAvailable: 1`) via Kro CEL `includeWhen: [ ${schema.spec.replicas > 1} ]`, ensuring voluntary cluster disruptions (upgrades, node drains) never drop below required service capacity while avoiding PDB deadlocks on single-replica dev workloads. |
 | **Zero-Downtime Rolling Updates** | Kubernetes Deployment rolling update strategy (`maxSurge: 25%`, `maxUnavailable: 0`) ensures a new healthy pod is ready before the old pod terminates. |
 | **Automated Controller Self-Healing** | ACK continuously queries AWS APIs to ensure queues match the declared Kubernetes spec. |
 
