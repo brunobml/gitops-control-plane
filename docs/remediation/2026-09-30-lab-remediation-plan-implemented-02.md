@@ -100,8 +100,8 @@ This guarantees that if Argo CD cannot reach a spoke with the newly minted crede
   ```
 - Audited all namespaces across all three clusters: **Zero** `kubernetes.io/service-account-token` Secrets remain in the entire lab.
 
-#### **V-6: RGD Container Runtime Note**
-The inclusion of `PYTHONDONTWRITEBYTECODE: "1"` in `blueprints/queue-backed-service-rgd.yaml` is recorded as a deliberate engineering decision: with `readOnlyRootFilesystem: true`, Python attempts to write `.pyc` files next to source code fail unless bytecode writing is disabled or redirected to `/tmp`.
+#### **V-6: RGD Container Runtime Note (W-2)**
+The inclusion of `PYTHONDONTWRITEBYTECODE: "1"` in `blueprints/queue-backed-service-rgd.yaml` is recorded as a deliberate hygiene decision: while CPython silently ignores bytecode write failures on read-only filesystems and continues execution without error, setting this environment variable suppresses futile write attempts, eliminates unnecessary filesystem stats, and ensures deterministic container runtime behavior.
 
 #### **V-7: Restored Controls in AWS Well-Architected Guide**
 Restored the explicit rows for `Non-Root Container Execution` (`runAsNonRoot: true`, UID/GID 10001) and `Linux Capability Dropping` (`capabilities.drop: ["ALL"]`, `allowPrivilegeEscalation: false`) in the Security pillar of `docs/aws-well-architected-production-guide.md`.
@@ -111,6 +111,17 @@ All script targets in `Makefile` (`rotate-spoke-tokens`, `promote-blueprints`, `
 
 #### **V-9: Accurate Headlamp Framing**
 The Headlamp changes in Step 0 are framed as **Headlamp credential refresh**. Assessment **L4-1 (Critical)** remains open because Headlamp continues to share Argo CD's `argocd-manager` spoke credentials and runs as `cluster-admin` across all clusters. This will be addressed in the High/Critical remediation track.
+
+### 3.3. Follow-up Hardening from Validation Run #02 (W-1 to W-4)
+
+1. **W-1 (Fail-Closed Guard Diagnostics):**
+   Appended `|| true` to the pipeline `bp_rev=$(grep -E "^${spoke}=" "$REVISIONS_FILE" | cut -d= -f2 || true)` in both `scripts/promote-blueprints.sh` and `scripts/register-spokes.sh`. This ensures that under `set -eo pipefail`, missing keys allow the execution to reach `: "${bp_rev:?no blueprints-revision for ...}"`, outputting the operator diagnostic message rather than terminating silently.
+2. **W-2 (CPython Bytecode Rationale):**
+   Corrected the technical rationale in §3.1 (V-6) to accurately reflect CPython's graceful handling of read-only directories.
+3. **W-3 (ApplicationSet Routing Clarification):**
+   Updated `docs/developer-tutorial.md` to explicitly state that routing decisions originate from the ApplicationSet manifests (`applicationsets/tenant-workloads-*.yaml`), which reference each values file.
+4. **W-4 (Git Preflight Check in Promotion Script):**
+   Added preflight validation to `scripts/promote-blueprints.sh` requiring `clusters/blueprint-revisions.env` to have no uncommitted changes (`git diff --quiet HEAD -- clusters/blueprint-revisions.env`) and all commits to be pushed upstream (`git merge-base --is-ancestor HEAD @{u}`) before applying annotations.
 
 ---
 

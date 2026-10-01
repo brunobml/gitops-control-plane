@@ -63,10 +63,10 @@ deploy/
 └── values-prod.yaml     # Deployed to spoke-prod (namespace: orders-prod)
 ```
 
-The GitOps platform uses folder names and Helm values to make decisions:
-- `deploy/values-dev.yaml` $\rightarrow$ automatically routes to **`spoke-nonprod`** in namespace `orders-dev`.
-- `deploy/values-test.yaml` $\rightarrow$ automatically routes to **`spoke-nonprod`** in namespace `orders-test`.
-- `deploy/values-prod.yaml` $\rightarrow$ automatically routes to **`spoke-prod`** in namespace `orders-prod`.
+Environment mappings and deployment targets are explicitly declared in [`applicationsets/tenant-workloads-nonprod.yaml`](../applicationsets/tenant-workloads-nonprod.yaml) and [`applicationsets/tenant-workloads-prod.yaml`](../applicationsets/tenant-workloads-prod.yaml); the Helm values files are referenced by each ApplicationSet entry:
+- `deploy/values-dev.yaml` $\rightarrow$ referenced by `tenant-workloads-nonprod` to target **`spoke-nonprod`** in namespace `orders-dev`.
+- `deploy/values-test.yaml` $\rightarrow$ referenced by `tenant-workloads-nonprod` to target **`spoke-nonprod`** in namespace `orders-test`.
+- `deploy/values-prod.yaml` $\rightarrow$ referenced by `tenant-workloads-prod` to target **`spoke-prod`** in namespace `orders-prod`.
 
 ---
 

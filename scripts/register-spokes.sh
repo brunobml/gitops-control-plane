@@ -62,7 +62,7 @@ EOF
     echo "Error: Revisions file $REVISIONS_FILE not found" >&2
     exit 1
   fi
-  bp_rev=$(grep -E "^${spoke}=" "$REVISIONS_FILE" | cut -d'=' -f2)
+  bp_rev=$(grep -E "^${spoke}=" "$REVISIONS_FILE" | cut -d'=' -f2 || true)
   : "${bp_rev:?no blueprints-revision for ${spoke} in clusters/blueprint-revisions.env}"
 
   expires_at=$(date -u -d @$(( $(date +%s) + 2592000 )) +%F 2>/dev/null || date -u -v+30d +%F 2>/dev/null || date -d "+30 days" +%Y-%m-%d 2>/dev/null || echo "2026-10-30")
