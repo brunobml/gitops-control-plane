@@ -5,42 +5,67 @@ HUB_CTX="k3d-hub-cluster"
 NONPROD_CTX="k3d-spoke-nonprod"
 PROD_CTX="k3d-spoke-prod"
 
-echo "Configuring Headlamp Multi-Cluster Credentials on Hub..."
+CLUSTERS=("${HUB_CTX}" "${NONPROD_CTX}" "${PROD_CTX}")
 
-# 1. Ensure namespace exists
-kubectl --context "${HUB_CTX}" create namespace headlamp --dry-run=client -o yaml | kubectl --context "${HUB_CTX}" apply -f -
+echo "Configuring Headlamp Multi-Cluster Least-Privilege Credentials..."
 
-# 2. Ensure ServiceAccount headlamp and ClusterRoleBinding exist on Hub (without permanent legacy token secret - B2)
-cat <<EOF | kubectl --context "${HUB_CTX}" apply -f -
+# 1. Ensure target namespaces and RBAC exist on all three clusters
+for ctx in "${CLUSTERS[@]}"; do
+  echo "Setting up RBAC on cluster: ${ctx}..."
+  kubectl --context "${ctx}" create namespace headlamp-access --dry-run=client -o yaml | kubectl --context "${ctx}" apply -f -
+
+  cat <<EOF | kubectl --context "${ctx}" apply -f -
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: headlamp
-  namespace: headlamp
+  name: headlamp-viewer
+  namespace: headlamp-access
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: headlamp-crd-viewer
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+rules:
+  - apiGroups: ["kro.run", "internal.kro.run"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["sqs.services.k8s.aws", "services.k8s.aws"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: headlamp-admin
+  name: headlamp-viewer-binding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cluster-admin
+  name: view
 subjects:
-- kind: ServiceAccount
-  name: headlamp
-  namespace: headlamp
+  - kind: ServiceAccount
+    name: headlamp-viewer
+    namespace: headlamp-access
 EOF
+done
 
-# Delete legacy permanent token secret if present (B2)
-kubectl --context "${HUB_CTX}" -n headlamp delete secret headlamp-token 2>/dev/null || true
+# 2. Issue 720h (30d) TokenRequest tokens for dedicated viewer ServiceAccounts
+echo "Issuing TokenRequest tokens..."
+HUB_TOKEN=$(kubectl --context "${HUB_CTX}" -n headlamp-access create token headlamp-viewer --duration=720h)
+NONPROD_TOKEN=$(kubectl --context "${NONPROD_CTX}" -n headlamp-access create token headlamp-viewer --duration=720h)
+PROD_TOKEN=$(kubectl --context "${PROD_CTX}" -n headlamp-access create token headlamp-viewer --duration=720h)
 
-# 3. Retrieve TokenRequest token for Hub and spoke tokens from Argo CD cluster secrets
-HUB_TOKEN=$(kubectl --context "${HUB_CTX}" -n headlamp create token headlamp --duration=720h)
-NONPROD_TOKEN=$(kubectl --context "${HUB_CTX}" -n argocd get secret cluster-spoke-nonprod -o jsonpath='{.data.config}' | base64 -d | jq -r .bearerToken)
-PROD_TOKEN=$(kubectl --context "${HUB_CTX}" -n argocd get secret cluster-spoke-prod -o jsonpath='{.data.config}' | base64 -d | jq -r .bearerToken)
+# 3. Retrieve root CA certificates directly from kube-root-ca.crt ConfigMaps
+echo "Retrieving cluster root CA certificates..."
+HUB_CA=$(kubectl --context "${HUB_CTX}" -n default get cm kube-root-ca.crt -o jsonpath='{.data.ca\.crt}' | base64 -w0)
+NONPROD_CA=$(kubectl --context "${NONPROD_CTX}" -n default get cm kube-root-ca.crt -o jsonpath='{.data.ca\.crt}' | base64 -w0)
+PROD_CA=$(kubectl --context "${PROD_CTX}" -n default get cm kube-root-ca.crt -o jsonpath='{.data.ca\.crt}' | base64 -w0)
 
-# 4. Assemble multi-cluster kubeconfig
+# 4. Assemble multi-cluster kubeconfig with strict CA TLS verification (insecure-skip-tls-verify: false)
 TMP_KUBECONFIG=$(mktemp)
 cat <<EOF > "${TMP_KUBECONFIG}"
 apiVersion: v1
@@ -48,47 +73,53 @@ kind: Config
 clusters:
 - cluster:
     server: https://k3d-hub-cluster-server-0:6443
-    insecure-skip-tls-verify: true
+    certificate-authority-data: ${HUB_CA}
+    insecure-skip-tls-verify: false
   name: k3d-hub-cluster
 - cluster:
     server: https://k3d-spoke-nonprod-server-0:6443
-    insecure-skip-tls-verify: true
+    certificate-authority-data: ${NONPROD_CA}
+    insecure-skip-tls-verify: false
   name: k3d-spoke-nonprod
 - cluster:
     server: https://k3d-spoke-prod-server-0:6443
-    insecure-skip-tls-verify: true
+    certificate-authority-data: ${PROD_CA}
+    insecure-skip-tls-verify: false
   name: k3d-spoke-prod
 contexts:
 - context:
     cluster: k3d-hub-cluster
-    user: hub-admin
+    user: headlamp-hub-viewer
   name: k3d-hub-cluster
 - context:
     cluster: k3d-spoke-nonprod
-    user: spoke-nonprod-admin
+    user: headlamp-spoke-nonprod-viewer
   name: k3d-spoke-nonprod
 - context:
     cluster: k3d-spoke-prod
-    user: spoke-prod-admin
+    user: headlamp-spoke-prod-viewer
   name: k3d-spoke-prod
 current-context: k3d-hub-cluster
 users:
-- name: hub-admin
+- name: headlamp-hub-viewer
   user:
     token: ${HUB_TOKEN}
-- name: spoke-nonprod-admin
+- name: headlamp-spoke-nonprod-viewer
   user:
     token: ${NONPROD_TOKEN}
-- name: spoke-prod-admin
+- name: headlamp-spoke-prod-viewer
   user:
     token: ${PROD_TOKEN}
 EOF
 
-# 5. Strip existing plaintext last-applied-configuration annotation before server-side apply (B1)
+# 5. Ensure headlamp namespace exists on Hub
+kubectl --context "${HUB_CTX}" create namespace headlamp --dry-run=client -o yaml | kubectl --context "${HUB_CTX}" apply -f -
+
+# 6. Strip existing plaintext last-applied-configuration annotation before server-side apply (B1)
 kubectl --context "${HUB_CTX}" -n headlamp annotate secret headlamp-kubeconfig \
   kubectl.kubernetes.io/last-applied-configuration- 2>/dev/null || true
 
-# 6. Create or update the Kubernetes Secret in namespace headlamp via server-side apply (B1)
+# 7. Create or update the Kubernetes Secret in namespace headlamp via server-side apply (B1)
 kubectl --context "${HUB_CTX}" -n headlamp create secret generic headlamp-kubeconfig \
   --from-file=config="${TMP_KUBECONFIG}" \
   --dry-run=client -o yaml | kubectl --context "${HUB_CTX}" apply --server-side --force-conflicts -f -

@@ -17,11 +17,13 @@ spec:
     helm:
       releaseName: headlamp
       valuesObject:
+        automountServiceAccountToken: false
+        clusterRoleBinding:
+          create: false
         config:
           inCluster: false
           extraArgs:
             - "-kubeconfig=/home/headlamp/.kube/config"
-            - "-insecure-ssl"
             - "-dev"
           oidc:
             secret:

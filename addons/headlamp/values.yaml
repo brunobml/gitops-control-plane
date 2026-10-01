@@ -2,6 +2,11 @@
 # Deployed on: k3d-hub-cluster
 # Access URL: http://headlamp.localhost:8080
 
+automountServiceAccountToken: false
+
+clusterRoleBinding:
+  create: false
+
 config:
   # Multi-cluster setup via mounted kubeconfig containing all 3 clusters:
   # - k3d-hub-cluster (in-cluster hub management)
@@ -10,7 +15,6 @@ config:
   inCluster: false
   extraArgs:
     - "-kubeconfig=/home/headlamp/.kube/config"
-    - "-insecure-ssl"
     - "-dev"
   oidc:
     secret:
