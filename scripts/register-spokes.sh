@@ -16,27 +16,10 @@ for spoke in "${SPOKES[@]}"; do
   context="k3d-${spoke}"
   echo "Registering ${spoke} (${context}) to ${HUB_CONTEXT}..."
 
-  # 1. Ensure ServiceAccount and ClusterRoleBinding exist on the spoke (without legacy permanent token secret - B2)
-  kubectl --context "$context" apply -f - <<'EOF'
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: argocd-manager
-  namespace: kube-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: argocd-manager-cluster-admin
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin
-subjects:
-  - kind: ServiceAccount
-    name: argocd-manager
-    namespace: kube-system
-EOF
+  # 1. Argo CD identities on the spoke (Phase 3 C.2): argocd-manager gets read + impersonate
+  #    only; all writes happen as argocd-tenant-deployer / argocd-platform-deployer via
+  #    AppProject destinationServiceAccounts. Never re-grants cluster-admin.
+  bash "${SCRIPT_DIR}/apply-argocd-spoke-rbac.sh" "$spoke" --reduce-manager
 
   # 2. Issue 30-day token via TokenRequest API (L4-10, B2)
   echo "Issuing 30-day TokenRequest token for argocd-manager on ${context}..."

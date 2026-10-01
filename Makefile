@@ -80,6 +80,7 @@ setup:
 	@bash $(ROOT_DIR)/scripts/setup-hub-spoke.sh
 
 bootstrap:
+	@kubectl --context k3d-hub-cluster apply -f $(ROOT_DIR)/bootstrap/argocd-hub-deployer.yaml
 	@kubectl --context k3d-hub-cluster apply -f $(ROOT_DIR)/projects/ --validate=false
 	@kubectl --context k3d-hub-cluster apply -f $(ROOT_DIR)/bootstrap/root-app.yaml --validate=false
 	@echo "✔ Projects & Root application deployed to Hub Argo CD"
