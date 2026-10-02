@@ -75,6 +75,14 @@ spec:
               forwardAuth:
                 address: http://oauth2-proxy.oauth2-proxy.svc.cluster.local/
                 trustForwardHeader: true
+                # Pass oauth2-proxy's refreshed session cookie back to the browser (ForwardAuth drops
+                # Set-Cookie on success otherwise, and every request would refresh at Keycloak).
+                # Large sessions are split into _0, _1, ... cookies.
+                addAuthCookiesToResponse:
+                  - _oauth2_proxy
+                  - _oauth2_proxy_0
+                  - _oauth2_proxy_1
+                  - _oauth2_proxy_2
                 authResponseHeaders:
                   - X-Auth-Request-User
                   - X-Auth-Request-Email
