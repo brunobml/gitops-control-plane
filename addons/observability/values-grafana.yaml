@@ -1,0 +1,102 @@
+# Phase 5 A.4: Grafana on the hub, the single UI for metrics and alerts (chart grafana-community/grafana 13.2.7; the grafana/grafana chart is deprecated).
+# Sign-in with Keycloak (realm lab, client grafana). Roles from the groups claim (owner decision O-2):
+# lab-platform-admins -> Admin, lab-tenant-a -> Viewer, anyone else is refused.
+# Break-glass: local admin (password in ~/.config/gitops-lab/grafana-admin.password).
+# Stateless: no PVC; datasources and dashboards are provisioned from Git on every start.
+
+image:
+  tag: "13.2.3-distroless@sha256:202e5d5b3f8499e70ccac7991eea6d7da72d2790eb2e0597e7987acf724e7180"
+
+admin:
+  existingSecret: grafana-admin
+  userKey: admin-user
+  passwordKey: admin-password
+
+envValueFrom:
+  GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
+    secretKeyRef:
+      name: grafana-oidc
+      key: client-secret
+
+persistence:
+  enabled: false
+initChownData:
+  enabled: false
+testFramework:
+  enabled: false
+
+resources:
+  requests: {cpu: 50m, memory: 128Mi}
+  limits: {memory: 384Mi}
+
+ingress:
+  enabled: true
+  ingressClassName: traefik
+  hosts: [grafana.localhost]
+  annotations:
+    link.argocd.argoproj.io/external-link: "http://grafana.localhost:8080"
+
+grafana.ini:
+  server:
+    root_url: http://grafana.localhost:8080
+  analytics:
+    reporting_enabled: false
+    check_for_updates: false
+    check_for_plugin_updates: false
+  auth:
+    disable_login_form: false        # local admin stays available (break-glass)
+    oauth_auto_login: false
+    # Logout ends the Keycloak session too, so another user can sign in (Phase 4 lesson).
+    signout_redirect_url: http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/logout?client_id=grafana&post_logout_redirect_uri=http%3A%2F%2Fgrafana.localhost%3A8080%2Flogin
+  auth.generic_oauth:
+    enabled: true
+    name: Keycloak
+    allow_sign_up: true
+    client_id: grafana
+    scopes: openid email profile
+    use_pkce: true
+    # Browser-facing URL and in-cluster URLs are identical thanks to the CoreDNS rewrite (Phase 4 A.0).
+    auth_url: http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/auth
+    token_url: http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/token
+    api_url: http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/userinfo
+    login_attribute_path: preferred_username
+    email_attribute_path: email
+    groups_attribute_path: groups
+    role_attribute_path: "contains(groups[*], 'lab-platform-admins') && 'Admin' || contains(groups[*], 'lab-tenant-a') && 'Viewer'"
+    role_attribute_strict: true      # no matching group -> login refused
+    skip_org_role_sync: false
+  users:
+    allow_sign_up: false
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        url: http://prometheus-server.monitoring.svc
+        isDefault: true
+        editable: false
+      - name: Alertmanager
+        uid: alertmanager
+        type: alertmanager
+        url: http://prometheus-alertmanager.monitoring.svc:9093
+        editable: false
+        jsonData:
+          implementation: prometheus
+          handleGrafanaManagedAlerts: false
+
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: lab
+        folder: GitOps Lab
+        type: file
+        disableDeletion: true
+        editable: false
+        options:
+          path: /var/lib/grafana/dashboards/lab
+dashboardsConfigMaps:
+  lab: grafana-dashboards-lab

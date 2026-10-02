@@ -1,0 +1,10 @@
+# Phase 5 A.4: Grafana dashboards as code (mounted by the grafana chart via dashboardsConfigMaps).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+generatorOptions:
+  disableNameSuffixHash: true
+configMapGenerator:
+  - name: grafana-dashboards-lab
+    files:
+      - platform-overview.json

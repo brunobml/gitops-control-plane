@@ -1,4 +1,4 @@
-# Only Traefik (browser path), argocd-server and oauth2-proxy (in-cluster OIDC) reach Keycloak.
+# Only Traefik (browser path), argocd-server, oauth2-proxy and Grafana (in-cluster OIDC) reach Keycloak.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -19,5 +19,10 @@ spec:
             matchLabels: {app.kubernetes.io/name: argocd-server}
         - namespaceSelector:
             matchLabels: {kubernetes.io/metadata.name: oauth2-proxy}
+        # Phase 5 A.4: Grafana (OIDC token and userinfo calls)
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: monitoring}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: grafana}
       ports:
         - port: 8080
