@@ -74,3 +74,16 @@
 | **Verification** | Browser-equivalent script, both users: login → Argo CD `/auth/logout` → 303 to Keycloak logout → 302 back to `http://localhost:8080/`; Argo CD session gone; **next login shows the Keycloak form**. Headlamp: `/oauth2/sign_out` → old cookie gets 302; next login shows the form |
 | **Usage** | Argo CD: the normal **Log out** button. Headlamp has no logout button for the proxy: open `http://headlamp.localhost:8080/oauth2/sign_out` (listed in `make password`). Logging out of either app ends the shared Keycloak session; the other app's own cookie stays valid until it expires or is signed out |
 | **Lesson** | SSO acceptance must include logout and user switching, not only login |
+
+## 7. Addendum 3 — owner found that the first Headlamp user "sticks" (fixed, `e764289`, `2d37336`)
+
+| | |
+|---|---|
+| **Reported by owner** | Argo CD login/logout worked for `platform-admin`, `platform-user` and `tenant-a-user`; in Headlamp the first signed-in user stayed signed in |
+| **Root cause** | oauth2-proxy keeps its own session cookie (10 h) and re-checked it with Keycloak only every hour (`cookie_refresh = "1h"`). Ending the Keycloak session elsewhere (Argo CD logout) did not affect Headlamp. Reproduced: Headlamp login → Argo CD SSO login + logout → Headlamp's old cookie still **200** after 75 s |
+| **Fix 1** | `cookie_refresh = "1m"`: after a minute oauth2-proxy refreshes with Keycloak; if the Keycloak session has ended the refresh fails and Headlamp requires a login. Re-test: old cookie → **302** after 75 s |
+| **Defect found while testing** | Traefik ForwardAuth does not return the auth server's `Set-Cookie` on success, so the refreshed cookie never reached the browser and every Headlamp request after the first minute would have refreshed at Keycloak (Headlamp polls continuously) |
+| **Fix 2** | Middleware `addAuthCookiesToResponse: [_oauth2_proxy, _oauth2_proxy_0.._2]` (Traefik v3.7). Re-test: after 70 s the refreshed cookie is returned to the browser; 5 further requests → **0** Keycloak refreshes |
+| **No re-prompt regression** | An active session kept working across refreshes (requests at 75 s and 150 s → 200, no login form) — the Phase 3 re-prompt problem does not return |
+| **Behaviour now** | Logging out anywhere (Argo CD **Log out** or Headlamp `/oauth2/sign_out`) ends the Keycloak session; Headlamp asks for a login again within about a minute. Headlamp has no per-user view: both groups get the same read-only view (O-2) |
+| **Harness note** | Two of my scripted runs were invalid (cookie filter dropped the base64-padded CSRF cookie); fixed before the results above |
