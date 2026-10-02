@@ -66,6 +66,8 @@ metadata:
     environment: ${env_tag}
     # Phase 3 B.2: spoke controllers (kro, ACK) are deployed by the addons-spoke ApplicationSets.
     addons-managed: "true"
+    # Phase 4 B.3/B.4: Kyverno image signature verification (addons-spoke-kyverno).
+    kyverno: enabled
   annotations:
     blueprints-revision: ${bp_rev}
     lab/token-expires: "${expires_at}"

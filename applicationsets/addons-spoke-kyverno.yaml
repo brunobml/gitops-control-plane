@@ -1,7 +1,7 @@
 # Phase 4 B.3: Kyverno (image signature verification) on spokes labelled kyverno=enabled.
-# Separate from addons-spoke so it can be rolled out one cluster at a time: the label is added
-# to spoke-nonprod first and to spoke-prod after promotion (register-spokes.sh sets it for both
-# once Phase 4 B.4 is complete). Values come from platform-catalog at the cluster's
+# Separate from addons-spoke so it can be rolled out one cluster at a time (it was enabled on
+# spoke-nonprod first, then on spoke-prod with platform-catalog v1.4.0). register-spokes.sh sets
+# the label on both spokes, so a rebuild deploys it everywhere. Values come from platform-catalog at the cluster's
 # blueprints-revision, like the other controllers.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
