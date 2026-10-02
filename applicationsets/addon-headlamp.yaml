@@ -48,6 +48,8 @@ spec:
           ingressClassName: traefik
           annotations:
             argocd.argoproj.io/ignore-default-links: "true"
+            # Phase 4 A.5: SSO via oauth2-proxy (addon-oauth2-proxy owns this Middleware).
+            traefik.ingress.kubernetes.io/router.middlewares: headlamp-oauth2-forward-auth@kubernetescrd
             link.argocd.argoproj.io/external-link: "http://headlamp.localhost:8080"
           hosts:
             - host: headlamp.localhost
