@@ -79,6 +79,8 @@ spec:
             pod-security.kubernetes.io/enforce-version: latest
             pod-security.kubernetes.io/warn: restricted
             pod-security.kubernetes.io/audit: restricted
+            # Phase 4 B.4: opt in to Kyverno image signature verification.
+            platform.lab/image-verification: "enabled"
           # Phase 3 D.3 (L4-4): nonprod cloud resources live in account 111111111111 (ACK CARM).
           annotations:
             services.k8s.aws/owner-account-id: "111111111111"
