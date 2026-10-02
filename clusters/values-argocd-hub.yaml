@@ -74,12 +74,16 @@ configs:
       g, lab-tenant-a, role:tenant-a
   cm:
     url: http://localhost:8080
+    # Phase 4 A.4 fix: the UI is also served on argocd.localhost; Argo CD accepts SSO return and
+    # callback URLs only for url + additionalUrls.
+    additionalUrls: |
+      - http://argocd.localhost:8080
     # Local accounts (Phase 3 A.2). Passwords are set via the API and never stored in Git.
     accounts.platform-admin: login
     accounts.tenant-a: login
     admin.enabled: "false"
-    # Phase 4 A.4: SSO with Keycloak. Public client + PKCE: the UI runs the login in the browser
-    # (callback /pkce/verify), so there is no client secret. argocd-server reaches the same issuer
+    # Phase 4 A.4: SSO with Keycloak. Public client + PKCE: argocd-server runs the login
+    # (callback /auth/callback, verifier kept server-side), so there is no client secret. argocd-server reaches the same issuer
     # URL through the CoreDNS rewrite in addons/keycloak. The local platform-admin account stays
     # as break-glass and for automation (review remark R-4).
     oidc.config: |

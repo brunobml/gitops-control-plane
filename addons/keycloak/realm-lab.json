@@ -15,8 +15,12 @@
   "ssoSessionMaxLifespan": 36000,
   "accessTokenLifespan": 300,
   "groups": [
-    { "name": "lab-platform-admins" },
-    { "name": "lab-tenant-a" }
+    {
+      "name": "lab-platform-admins"
+    },
+    {
+      "name": "lab-tenant-a"
+    }
   ],
   "users": [
     {
@@ -26,9 +30,15 @@
       "emailVerified": true,
       "firstName": "Platform",
       "lastName": "User",
-      "groups": ["lab-platform-admins"],
+      "groups": [
+        "lab-platform-admins"
+      ],
       "credentials": [
-        { "type": "password", "value": "${LAB_PLATFORM_USER_PASSWORD}", "temporary": false }
+        {
+          "type": "password",
+          "value": "${LAB_PLATFORM_USER_PASSWORD}",
+          "temporary": false
+        }
       ]
     },
     {
@@ -38,9 +48,15 @@
       "emailVerified": true,
       "firstName": "Tenant A",
       "lastName": "User",
-      "groups": ["lab-tenant-a"],
+      "groups": [
+        "lab-tenant-a"
+      ],
       "credentials": [
-        { "type": "password", "value": "${LAB_TENANT_A_USER_PASSWORD}", "temporary": false }
+        {
+          "type": "password",
+          "value": "${LAB_TENANT_A_USER_PASSWORD}",
+          "temporary": false
+        }
       ]
     }
   ],
@@ -48,7 +64,7 @@
     {
       "clientId": "argocd",
       "name": "Argo CD",
-      "description": "Public client; PKCE S256. The UI runs the flow in the browser (/pkce/verify), the CLI on localhost:8085.",
+      "description": "Public client; PKCE S256. Argo CD's server runs the login (callback /auth/callback on both UI hosts); the CLI uses localhost:8085.",
       "enabled": true,
       "publicClient": true,
       "standardFlowEnabled": true,
@@ -57,11 +73,11 @@
       "serviceAccountsEnabled": false,
       "rootUrl": "http://localhost:8080",
       "redirectUris": [
-        "http://localhost:8080/pkce/verify",
-        "http://argocd.localhost:8080/pkce/verify",
+        "http://localhost:8080/auth/callback",
+        "http://argocd.localhost:8080/auth/callback",
         "http://localhost:8085/auth/callback"
       ],
-      "webOrigins": ["http://localhost:8080", "http://argocd.localhost:8080"],
+      "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "http://localhost:8080/*##http://argocd.localhost:8080/*"
@@ -93,7 +109,9 @@
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "rootUrl": "http://headlamp.localhost:8080",
-      "redirectUris": ["http://headlamp.localhost:8080/oauth2/callback"],
+      "redirectUris": [
+        "http://headlamp.localhost:8080/oauth2/callback"
+      ],
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256",
