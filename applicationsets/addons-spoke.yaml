@@ -16,7 +16,12 @@ metadata:
   name: addons-spoke
   namespace: argocd
 spec:
+  # Phase 4 C.1 (L2-4): Go templates; a missing key fails rendering instead of producing "".
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
   syncPolicy:
+    # TEMPORARY (Phase 4 C.1 migration guard): never delete Applications while templates change.
+    applicationsSync: create-update
     preserveResourcesOnDeletion: true
   generators:
     - matrix:
@@ -43,26 +48,26 @@ spec:
                   valuesFile: controllers/ack/values-sqs.yaml
   template:
     metadata:
-      name: "addon-{{addon}}-{{name}}"
+      name: "addon-{{ .addon }}-{{ .name }}"
       labels:
         app.kubernetes.io/part-of: platform-addons
-        addon: "{{addon}}"
+        addon: "{{ .addon }}"
     spec:
       project: platform-addons
       sources:
-        - chart: "{{chart}}"
-          repoURL: "{{chartRepo}}"
-          targetRevision: "{{chartVersion}}"
+        - chart: "{{ .chart }}"
+          repoURL: "{{ .chartRepo }}"
+          targetRevision: "{{ .chartVersion }}"
           helm:
-            releaseName: "{{releaseName}}"
+            releaseName: "{{ .releaseName }}"
             valueFiles:
-              - "$values/{{valuesFile}}"
+              - "$values/{{ .valuesFile }}"
         - repoURL: https://github.com/brunobml/platform-catalog.git
-          targetRevision: "{{metadata.annotations.blueprints-revision}}"
+          targetRevision: '{{ index .metadata.annotations "blueprints-revision" }}'
           ref: values
       destination:
-        server: "{{server}}"
-        namespace: "{{targetNamespace}}"
+        server: "{{ .server }}"
+        namespace: "{{ .targetNamespace }}"
       syncPolicy:
         # Enabled after both spokes were adopted with a reviewed, manual first sync.
         # prune stays off: a chart upgrade that drops an object leaves it orphaned
