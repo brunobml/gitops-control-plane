@@ -24,7 +24,6 @@ spec:
           inCluster: false
           extraArgs:
             - "-kubeconfig=/home/headlamp/.kube/config"
-            - "-dev"
           oidc:
             secret:
               create: false

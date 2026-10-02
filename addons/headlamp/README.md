@@ -131,7 +131,6 @@ spec:
           extraArgs:
             - "-kubeconfig=/home/headlamp/.kube/config"
             - "-insecure-ssl"
-            - "-dev"
           oidc:
             secret:
               create: false
