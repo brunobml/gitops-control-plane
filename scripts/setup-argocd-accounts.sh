@@ -11,7 +11,8 @@ set -euo pipefail
 
 HUB_CONTEXT="k3d-hub-cluster"
 NAMESPACE="argocd"
-ACCOUNTS=("platform-admin" "tenant-a")
+# tenant-a was retired in Phase 4 (O-1): tenants use Keycloak SSO (tenant-a-user).
+ACCOUNTS=("platform-admin")
 SECRET_DIR="${GITOPS_LAB_SECRET_DIR:-$HOME/.config/gitops-lab}"
 
 umask 077

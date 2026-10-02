@@ -110,7 +110,7 @@ make setup
 ```
 
 Access Web Dashboards on Port 8080:
-* **Argo CD UI (Desired State)**: [http://localhost:8080](http://localhost:8080) (or `http://argocd.localhost:8080`; log in as `platform-admin` or `tenant-a`, passwords via `make password`)
+* **Argo CD UI (Desired State)**: [http://localhost:8080](http://localhost:8080) (or `http://argocd.localhost:8080`; "Log in via Keycloak" as `platform-user` or `tenant-a-user`; break-glass: local `platform-admin`; passwords via `make password`)
 * **Headlamp UI (Runtime State)**: [http://headlamp.localhost:8080](http://headlamp.localhost:8080) (Single Pane of Glass across Hub, Non-Prod, and Prod clusters)
 
 ### 2. Push Repositories to GitHub

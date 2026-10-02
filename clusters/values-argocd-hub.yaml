@@ -68,7 +68,6 @@ configs:
       p, role:tenant-a, applications, sync, tenant-workloads/orders-dev, allow
       p, role:tenant-a, applications, sync, tenant-workloads/orders-test, allow
       p, role:tenant-a, logs,         get,  tenant-workloads/*, allow
-      g, tenant-a, role:tenant-a
       # Phase 4 A.4: Keycloak groups (realm lab, `groups` claim) map to the same roles.
       g, lab-platform-admins, role:admin
       g, lab-tenant-a, role:tenant-a
@@ -78,9 +77,10 @@ configs:
     # callback URLs only for url + additionalUrls.
     additionalUrls: |
       - http://argocd.localhost:8080
-    # Local accounts (Phase 3 A.2). Passwords are set via the API and never stored in Git.
+    # Local account (Phase 3 A.2): platform-admin only, as break-glass and for automation. The local
+    # tenant-a account was retired after SSO acceptance (Phase 4 O-1); tenants log in via Keycloak.
+    # Passwords are set via kubectl and never stored in Git.
     accounts.platform-admin: login
-    accounts.tenant-a: login
     admin.enabled: "false"
     # Phase 4 A.4: SSO with Keycloak. Public client + PKCE: argocd-server runs the login
     # (callback /auth/callback, verifier kept server-side), so there is no client secret. argocd-server reaches the same issuer
