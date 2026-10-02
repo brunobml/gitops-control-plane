@@ -70,6 +70,8 @@ metadata:
     addons-managed: "true"
     # Phase 4 B.3/B.4: Kyverno image signature verification (addons-spoke-kyverno).
     kyverno: enabled
+    # Phase 5 A.3/B.2: Prometheus agent + synthetic order probe (addons-spoke-observability).
+    observability: enabled
   annotations:
     blueprints-revision: ${bp_rev}
     lab/token-expires: "${expires_at}"
