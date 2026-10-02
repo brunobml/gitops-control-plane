@@ -73,6 +73,7 @@ password:
 	@echo "  tenant-a-user  : group lab-tenant-a (Argo CD tenant-a role, Headlamp)"
 	@echo "  passwords      : $${GITOPS_LAB_SECRET_DIR:-$$HOME/.config/gitops-lab}/keycloak-<user>.password"
 	@echo "  Keycloak admin : http://keycloak.localhost:8080/admin/ (user kc-admin, keycloak-admin.password)"
+	@echo "  Switch user    : Argo CD 'Log out' ends the Keycloak session; Headlamp: open http://headlamp.localhost:8080/oauth2/sign_out"
 	@echo "  Break-glass    : the local platform-admin account above works even when Keycloak is down"
 
 push:

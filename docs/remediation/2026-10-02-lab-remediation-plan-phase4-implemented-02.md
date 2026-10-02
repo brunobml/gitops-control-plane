@@ -63,3 +63,14 @@
 | **Verification** | Full browser-equivalent flow through `argocd-server` (`/auth/login` → Keycloak form → `/auth/callback` → `argocd.token` cookie → `userinfo`), **4/4 pass**: both users × both hosts, callback lands on the same host's `/applications`, groups correct. Negative: unregistered redirect URI → Keycloak error page (no login form); `return_url=http://evil.example/` → Argo CD 400. |
 | **Regression guard** | Smoke stage 10 now follows every SSO entry point (Argo CD on both hosts, Headlamp) to Keycloak and requires the **login form** (no password used). It would have failed on the old configuration. |
 | **Lesson** | SSO acceptance must exercise the relying party's own login endpoints, not only the IdP. |
+
+## 6. Addendum 2 — owner found that users could not switch after logout (fixed, `1b883c2`)
+
+| | |
+|---|---|
+| **Reported by owner** | After logging in to Argo CD through Keycloak once, logging out and signing in as another user was impossible |
+| **Root cause** | Argo CD's **Log out** only cleared its own `argocd.token` cookie. The Keycloak SSO session (10 h) stayed alive, so the next "Log in via Keycloak" was answered silently with the previous user (reproduced: `/auth/logout` → 303 to `/`; next login → Keycloak 302 straight to `/auth/callback`, no form). Same for Headlamp: `/oauth2/sign_out` cleared only the oauth2-proxy cookie |
+| **Fix** | OIDC RP-initiated logout. Argo CD `oidc.config.logoutURL` = Keycloak end-session endpoint with `id_token_hint={{token}}` and `post_logout_redirect_uri={{logoutRedirectURL}}`; oauth2-proxy `backend_logout_url` with `id_token_hint={id_token}`; realm: exact post-logout redirect URIs for both Argo CD hosts and Headlamp. Argo CD via commit + manual `argo-cd` sync (diff: `logoutURL` + checksums) |
+| **Verification** | Browser-equivalent script, both users: login → Argo CD `/auth/logout` → 303 to Keycloak logout → 302 back to `http://localhost:8080/`; Argo CD session gone; **next login shows the Keycloak form**. Headlamp: `/oauth2/sign_out` → old cookie gets 302; next login shows the form |
+| **Usage** | Argo CD: the normal **Log out** button. Headlamp has no logout button for the proxy: open `http://headlamp.localhost:8080/oauth2/sign_out` (listed in `make password`). Logging out of either app ends the shared Keycloak session; the other app's own cookie stays valid until it expires or is signed out |
+| **Lesson** | SSO acceptance must include logout and user switching, not only login |
