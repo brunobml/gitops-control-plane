@@ -1,0 +1,109 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: platform-probes
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: synthetic-order-probe
+---
+# Read-only discovery of tenant namespaces and their QueueBackedServices; nothing else.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: platform-probes-synthetic-order-probe
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [list]
+  - apiGroups: [kro.run]
+    resources: [queuebackedservices]
+    verbs: [list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: platform-probes-synthetic-order-probe
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: platform-probes-synthetic-order-probe}
+subjects:
+  - {kind: ServiceAccount, name: synthetic-order-probe, namespace: platform-probes}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: synthetic-order-probe
+  labels: {app.kubernetes.io/name: synthetic-order-probe}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: synthetic-order-probe}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: synthetic-order-probe}
+    spec:
+      serviceAccountName: synthetic-order-probe
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: probe
+          image: docker.io/library/python:3.11-alpine@sha256:9a725b14f2ae4e1b92ae4c7a8f575c7bf0f451276b5d38c9ec20bb005d0063a8
+          command: ["python3", "-u", "/app/synthetic_order_probe.py"]
+          env:
+            - {name: PROBE_INTERVAL, value: "300"}
+            - {name: PYTHONDONTWRITEBYTECODE, value: "1"}
+          ports: [{name: metrics, containerPort: 9102}]
+          readinessProbe: {httpGet: {path: /healthz, port: metrics}, periodSeconds: 30}
+          resources:
+            requests: {cpu: 5m, memory: 24Mi}
+            limits: {memory: 96Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          volumeMounts:
+            - {name: app, mountPath: /app, readOnly: true}
+      volumes:
+        - name: app
+          configMap: {name: synthetic-order-probe}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: synthetic-order-probe
+spec:
+  selector: {app.kubernetes.io/name: synthetic-order-probe}
+  ports: [{name: metrics, port: 9102, targetPort: metrics}]
+---
+# Review remark R-3: egress only to DNS, moto, the spoke Traefik and the API server;
+# ingress only from the spoke Prometheus agent.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: synthetic-order-probe
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: synthetic-order-probe}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: monitoring}}
+      ports: [{port: 9102}]
+  egress:
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+          podSelector: {matchLabels: {k8s-app: kube-dns}}
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: traefik}}
+      ports: [{port: 8000}]
+    # moto-cloud and the API server live on the k3d Docker network (fixed 172.21.0.0/16, Phase 3 R5)
+    - to:
+        - ipBlock: {cidr: 172.21.0.0/16}
+      ports: [{port: 5000}, {port: 6443}]

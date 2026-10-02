@@ -49,6 +49,15 @@ spec:
       namespace: "monitoring"
     - server: "https://k3d-spoke-prod-server-0:6443"
       namespace: "monitoring"
+    # Phase 5 B.2: synthetic order probe
+    - name: "spoke-nonprod"
+      namespace: "platform-probes"
+    - name: "spoke-prod"
+      namespace: "platform-probes"
+    - server: "https://k3d-spoke-nonprod-server-0:6443"
+      namespace: "platform-probes"
+    - server: "https://k3d-spoke-prod-server-0:6443"
+      namespace: "platform-probes"
     # Phase 4 B.3: Kyverno
     - name: "spoke-nonprod"
       namespace: "kyverno"

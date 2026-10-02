@@ -1,4 +1,4 @@
-# Phase 5 A.3: Prometheus agent on spokes labelled observability=enabled (nonprod first, prod
+# Phase 5 A.3/B.2: Prometheus agent and synthetic order probe on spokes labelled observability=enabled (nonprod first, prod
 # after a platform-catalog tag; register-spokes.sh then labels both). Values from platform-catalog
 # at the cluster's blueprints-revision; the cluster name and the remote-write user come from here.
 apiVersion: argoproj.io/v1alpha1
@@ -41,6 +41,10 @@ spec:
         - repoURL: https://github.com/brunobml/platform-catalog.git
           targetRevision: '{{ index .metadata.annotations "blueprints-revision" }}'
           ref: values
+        # Phase 5 B.2: synthetic order probe (platform code, not promoted per spoke)
+        - repoURL: https://github.com/brunobml/gitops-control-plane.git
+          targetRevision: main
+          path: addons/probes
       destination:
         server: "{{ .server }}"
         namespace: monitoring

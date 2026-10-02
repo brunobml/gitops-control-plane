@@ -1,0 +1,10 @@
+# Phase 5 B.2: synthetic order probe on each spoke (deployed by addons-spoke-observability).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: platform-probes
+resources:
+  - probe.yaml
+configMapGenerator:
+  - name: synthetic-order-probe
+    files:
+      - synthetic_order_probe.py

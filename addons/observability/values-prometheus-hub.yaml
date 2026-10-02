@@ -197,6 +197,21 @@ serverFiles:
               runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spokeagentdown--spokecontrollerdown
       - name: lab.probes
         rules:
+          - alert: OrdersNotProcessed
+            # Phase 3 F-1: workers silently stopped processing after moto lost their IAM keys.
+            expr: lab_order_e2e_success == 0
+            for: 10m
+            labels: {severity: critical}
+            annotations:
+              summary: "Synthetic order not processed in {{ $labels.namespace }} on {{ $labels.cluster }}"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-ordersnotprocessed
+          - alert: SyntheticProbeStale
+            expr: time() - lab_order_e2e_last_run_timestamp_seconds > 900
+            for: 5m
+            labels: {severity: warning}
+            annotations:
+              summary: "Synthetic order probe on {{ $labels.cluster }} has not completed a run for 15 min"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-ordersnotprocessed
           - alert: ProbeFailed
             expr: probe_success{job="blackbox"} == 0
             for: 5m
