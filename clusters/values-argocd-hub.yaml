@@ -22,6 +22,11 @@ server:
       - name: argocd.localhost
         path: /
 
+# Phase 4 A.4: SSO is Keycloak via Argo CD's native OIDC (oidc.config below), so Dex is not
+# deployed (P4-2).
+dex:
+  enabled: false
+
 configs:
   params:
     server.insecure: true
@@ -64,12 +69,25 @@ configs:
       p, role:tenant-a, applications, sync, tenant-workloads/orders-test, allow
       p, role:tenant-a, logs,         get,  tenant-workloads/*, allow
       g, tenant-a, role:tenant-a
+      # Phase 4 A.4: Keycloak groups (realm lab, `groups` claim) map to the same roles.
+      g, lab-platform-admins, role:admin
+      g, lab-tenant-a, role:tenant-a
   cm:
     url: http://localhost:8080
     # Local accounts (Phase 3 A.2). Passwords are set via the API and never stored in Git.
     accounts.platform-admin: login
     accounts.tenant-a: login
     admin.enabled: "false"
+    # Phase 4 A.4: SSO with Keycloak. Public client + PKCE: the UI runs the login in the browser
+    # (callback /pkce/verify), so there is no client secret. argocd-server reaches the same issuer
+    # URL through the CoreDNS rewrite in addons/keycloak. The local platform-admin account stays
+    # as break-glass and for automation (review remark R-4).
+    oidc.config: |
+      name: Keycloak
+      issuer: http://keycloak.localhost:8080/realms/lab
+      clientID: argocd
+      enablePKCEAuthentication: true
+      requestedScopes: ["openid", "profile", "email"]
     # Phase 3 C.2: every sync runs as the destinationServiceAccounts identity of its AppProject
     # (see scripts/audit-impersonation.sh; rollback: scripts/rollback-argocd-impersonation.sh).
     application.sync.impersonation.enabled: "true"
