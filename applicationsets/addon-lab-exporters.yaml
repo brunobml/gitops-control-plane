@@ -1,0 +1,19 @@
+# Phase 5 B.1: lab exporters on the hub (credential expiry).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: addon-lab-exporters
+  namespace: argocd
+  labels: {app.kubernetes.io/name: lab-exporters, app.kubernetes.io/part-of: platform-control-plane}
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: control-plane
+  source:
+    repoURL: https://github.com/brunobml/gitops-control-plane.git
+    targetRevision: main
+    path: addons/observability/exporters
+  destination: {server: https://kubernetes.default.svc, namespace: monitoring}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true]
+    retry: {limit: 5, backoff: {duration: 10s, factor: 2, maxDuration: 3m}}

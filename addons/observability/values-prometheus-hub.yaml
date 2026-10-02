@@ -97,3 +97,110 @@ extraManifests:
                     name: prometheus-server
                     port:
                       number: 80
+
+# Phase 5 A.5: synthetic probes through the blackbox exporter (module per target).
+extraScrapeConfigs: |
+  - job_name: blackbox
+    metrics_path: /probe
+    static_configs:
+      - targets: ["http://traefik.traefik.svc/healthz"]
+        labels: {module: argocd, probe: argocd-ui}
+      - targets: ["http://traefik.traefik.svc/api/health"]
+        labels: {module: grafana, probe: grafana-ui}
+      - targets: ["http://traefik.traefik.svc/"]
+        labels: {module: headlamp_requires_sso, probe: headlamp-sso}
+      - targets: ["http://keycloak.localhost:8080/realms/lab/.well-known/openid-configuration"]
+        labels: {module: http_2xx, probe: keycloak-oidc}
+      - targets: ["http://moto-cloud:5000/moto-api/"]
+        labels: {module: http_2xx, probe: moto}
+    relabel_configs:
+      - {source_labels: [__address__], target_label: __param_target}
+      - {source_labels: [module], target_label: __param_module}
+      - {source_labels: [__param_target], target_label: instance}
+      - {target_label: __address__, replacement: blackbox-prometheus-blackbox-exporter.monitoring.svc:9115}
+
+# Phase 5 B: alerts for failure modes seen in Phases 2-4. Each has a runbook section.
+serverFiles:
+  alerting_rules.yml:
+    groups:
+      - name: lab.argocd
+        rules:
+          - alert: ArgoAppDegraded
+            expr: argocd_app_info{health_status!="Healthy"}
+            for: 10m
+            labels: {severity: warning}
+            annotations:
+              summary: "Application {{ $labels.name }} is {{ $labels.health_status }}"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-argoappdegraded--argoappoutofsync
+          - alert: ArgoAppOutOfSync
+            # argo-cd itself is manual-sync by design (Phase 3 D-32)
+            expr: argocd_app_info{sync_status!="Synced", name!="argo-cd"}
+            for: 30m
+            labels: {severity: warning}
+            annotations:
+              summary: "Application {{ $labels.name }} is {{ $labels.sync_status }}"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-argoappdegraded--argoappoutofsync
+          - alert: ArgoClusterUnreachable
+            expr: argocd_cluster_connection_status != 1
+            for: 5m
+            labels: {severity: critical}
+            annotations:
+              summary: "Argo CD cannot reach {{ $labels.server }}"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-argoclusterunreachable
+      - name: lab.credentials
+        rules:
+          - alert: SpokeTokenExpiringSoon
+            expr: (lab_credential_expiry_timestamp_seconds - time()) < 7 * 86400
+            for: 5m
+            labels: {severity: warning}
+            annotations:
+              summary: "Credential {{ $labels.credential }} expires in {{ $value | humanizeDuration }}"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spoketokenexpiringsoon
+          - alert: CredentialExpiryUnknown
+            expr: absent(lab_credential_expiry_timestamp_seconds)
+            for: 30m
+            labels: {severity: warning}
+            annotations:
+              summary: "No credential expiry data (exporter down or ConfigMap missing)"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spoketokenexpiringsoon
+      - name: lab.spokes
+        rules:
+          - alert: SpokeAgentDown
+            expr: absent_over_time(up{job="agent", cluster="spoke-nonprod"}[5m]) or absent_over_time(up{job="agent", cluster="spoke-prod"}[5m])
+            for: 5m
+            labels: {severity: warning}
+            annotations:
+              summary: "No metrics from a spoke agent"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spokeagentdown--spokecontrollerdown
+          - alert: KyvernoDown
+            # A stopped Kyverno disappears from discovery instead of reporting up=0 (Phase 4 D-10:
+            # a graceful stop also removes its webhooks, so tenant admission fails open).
+            expr: count by (cluster) (up{job="agent"} == 1) unless count by (cluster) (up{job="kyverno"} == 1)
+            for: 2m
+            labels: {severity: critical}
+            annotations:
+              summary: "Kyverno is not running on {{ $labels.cluster }}: image verification is not enforced"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-kyvernodown
+          - alert: KyvernoSlowAdmission
+            expr: histogram_quantile(0.95, sum by (le, cluster) (rate(kyverno_admission_review_duration_seconds_bucket[5m]))) > 15
+            for: 5m
+            labels: {severity: warning}
+            annotations:
+              summary: "Kyverno p95 admission latency {{ $value | humanize }}s on {{ $labels.cluster }} (webhook timeout 30 s)"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-kyvernodown
+          - alert: SpokeControllerDown
+            expr: (count by (cluster) (up{job="agent"} == 1) unless count by (cluster) (up{job="kro"} == 1)) or (count by (cluster) (up{job="agent"} == 1) unless count by (cluster) (up{job="ack-sqs"} == 1))
+            for: 5m
+            labels: {severity: critical}
+            annotations:
+              summary: "kro or ACK controller not running on {{ $labels.cluster }}"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spokeagentdown--spokecontrollerdown
+      - name: lab.probes
+        rules:
+          - alert: ProbeFailed
+            expr: probe_success{job="blackbox"} == 0
+            for: 5m
+            labels: {severity: warning}
+            annotations:
+              summary: "Probe {{ $labels.probe }} failing ({{ $labels.instance }})"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-probefailed

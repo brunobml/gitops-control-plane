@@ -24,6 +24,8 @@ for spoke in "${SPOKES[@]}"; do
   # 2. Issue 30-day token via TokenRequest API (L4-10, B2)
   echo "Issuing 30-day TokenRequest token for argocd-manager on ${context}..."
   token=$(kubectl --context "$context" -n kube-system create token argocd-manager --duration=720h)
+  # Phase 5 B.1: expiry (not the token) for the credential-expiry exporter / SpokeTokenExpiringSoon
+  printf %s "$token" | bash "${SCRIPT_DIR}/record-credential-expiry.sh" "argocd-${spoke}"
 
   # 3. Retrieve Cluster CA certificate data directly from spoke cluster
   ca_data=$(kubectl --context "$context" -n default get cm kube-root-ca.crt -o jsonpath='{.data.ca\.crt}' | base64 | tr -d '\n')

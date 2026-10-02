@@ -1,0 +1,25 @@
+# Phase 5 A.5: blackbox exporter (synthetic HTTP probes) on the hub.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: addon-blackbox
+  namespace: argocd
+  labels: {app.kubernetes.io/name: blackbox-exporter, app.kubernetes.io/part-of: platform-control-plane}
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: control-plane
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: prometheus-blackbox-exporter
+      targetRevision: 11.19.1
+      helm:
+        releaseName: blackbox
+        valueFiles: [$values/addons/observability/values-blackbox.yaml]
+    - repoURL: https://github.com/brunobml/gitops-control-plane.git
+      targetRevision: main
+      ref: values
+  destination: {server: https://kubernetes.default.svc, namespace: monitoring}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    retry: {limit: 5, backoff: {duration: 10s, factor: 2, maxDuration: 3m}}

@@ -1,0 +1,10 @@
+# Phase 5 B.1: lab exporters on the hub (deployed by addon-lab-exporters).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+resources:
+  - credential-expiry.yaml
+configMapGenerator:
+  - name: credential-expiry-exporter
+    files:
+      - credential_expiry_exporter.py

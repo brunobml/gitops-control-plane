@@ -99,6 +99,11 @@ echo "Issuing TokenRequest tokens..."
 HUB_TOKEN=$(kubectl --context "${HUB_CTX}" -n headlamp-access create token headlamp-viewer --duration=720h)
 NONPROD_TOKEN=$(kubectl --context "${NONPROD_CTX}" -n headlamp-access create token headlamp-viewer --duration=720h)
 PROD_TOKEN=$(kubectl --context "${PROD_CTX}" -n headlamp-access create token headlamp-viewer --duration=720h)
+# Phase 5 B.1: expiries (not the tokens) for the credential-expiry exporter
+REC="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../scripts" && pwd)/record-credential-expiry.sh"
+printf %s "$HUB_TOKEN" | bash "$REC" headlamp-k3d-hub-cluster
+printf %s "$NONPROD_TOKEN" | bash "$REC" headlamp-k3d-spoke-nonprod
+printf %s "$PROD_TOKEN" | bash "$REC" headlamp-k3d-spoke-prod
 
 # 3. Retrieve root CA certificates directly from kube-root-ca.crt ConfigMaps
 echo "Retrieving cluster root CA certificates..."

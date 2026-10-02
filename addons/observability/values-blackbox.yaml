@@ -1,0 +1,34 @@
+# Phase 5 A.5: synthetic probes on the hub (chart prometheus-blackbox-exporter 11.19.1).
+# Targets and their modules are listed in values-prometheus-hub.yaml (job "blackbox").
+# UI probes go through the hub Traefik with the real host names, i.e. the path users take.
+image:
+  digest: "sha256:e753ff9f3fc458d02cca5eddab5a77e1c175eee484a8925ac7d524f04366c2fc"  # v0.28.0
+resources:
+  requests: {cpu: 5m, memory: 16Mi}
+  limits: {memory: 64Mi}
+config:
+  modules:
+    http_2xx:
+      prober: http
+      timeout: 5s
+      http: {preferred_ip_protocol: ip4, follow_redirects: true}
+    argocd:
+      prober: http
+      timeout: 5s
+      http: {preferred_ip_protocol: ip4, headers: {Host: argocd.localhost}}
+    grafana:
+      prober: http
+      timeout: 5s
+      http: {preferred_ip_protocol: ip4, headers: {Host: grafana.localhost}}
+    # Headlamp must NOT answer without a login: success = 302 to the Keycloak realm (Phase 4 W6).
+    headlamp_requires_sso:
+      prober: http
+      timeout: 5s
+      http:
+        preferred_ip_protocol: ip4
+        follow_redirects: false
+        valid_status_codes: [302]
+        headers: {Host: headlamp.localhost}
+        fail_if_header_not_matches:
+          - header: Location
+            regexp: '^http://keycloak\.localhost:8080/realms/lab/'
