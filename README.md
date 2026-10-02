@@ -69,8 +69,8 @@ flowchart TD
 ├── applicationsets/
 │   ├── addon-headlamp.yaml           # Deploys Headlamp dashboard to Hub cluster (Project: control-plane)
 │   ├── kro-blueprints.yaml           # Distributes ResourceGraphDefinitions to all spoke clusters (Project: platform-catalog)
-│   ├── tenant-workloads-nonprod.yaml # Routes dev & test workloads to k3d-spoke-nonprod (Project: tenant-workloads)
-│   └── tenant-workloads-prod.yaml    # Routes prod workloads to k3d-spoke-prod (Project: tenant-workloads)
+│   └── tenant-workloads.yaml         # One Application per tenant registration file in the tenant-workloads repo
+│                                     #   (tenants/<tenant>/apps/<app>-<env>.yaml; env decides spoke + AWS account)
 ├── bootstrap/
 │   └── root-app.yaml                 # App-of-Apps root application for Hub Argo CD (Project: control-plane)
 ├── clusters/

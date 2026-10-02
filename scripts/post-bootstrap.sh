@@ -2,7 +2,8 @@
 # Phase 3 B.7 pre-flight: the one documented step after `make bootstrap`. Idempotent; on a
 # running lab it only acts where something is missing or stale.
 #
-#  1. Wait until Argo CD has created the tenant namespaces (with their CARM account annotation).
+#  1. Discover tenant workloads from the tenant-workloads ApplicationSet (Phase 4 C.2) and wait
+#     for their namespaces (CARM account annotation) and QueueBackedServices.
 #  2. SSO prerequisites: restart CoreDNS when the keycloak.localhost rewrite changed (its
 #     reload plugin ignores imported files), then wait for Keycloak.
 #  3. Worker credentials: provision Secret <name>-<env>-aws in the namespace's owner account,
@@ -20,8 +21,6 @@ SECRET_DIR="${GITOPS_LAB_SECRET_DIR:-$HOME/.config/gitops-lab}"
 E=(--endpoint-url=http://localhost:5000 --region us-east-1)
 TIMEOUT_NS=600
 TIMEOUT_APPS=900
-# spoke:namespace:app-name:env
-WORKLOADS=("spoke-nonprod:orders-dev:orders:dev" "spoke-nonprod:orders-test:orders:test" "spoke-prod:orders-prod:orders:prod")
 
 ARGOCD_CFG=$(mktemp)
 trap 'rm -f "$ARGOCD_CFG"' EXIT
@@ -29,15 +28,31 @@ argocd login localhost:8080 --plaintext --grpc-web --skip-test-tls --config "$AR
   --username platform-admin --password "$(cat "${SECRET_DIR}/argocd-platform-admin.password")" </dev/null >/dev/null
 A=(argocd --config "$ARGOCD_CFG")
 
-echo "[1/7] Waiting for tenant namespaces and their owner-account annotation..."
-t0=$(date +%s)
-for w in "${WORKLOADS[@]}"; do
-  IFS=: read -r spoke ns _ _ <<<"$w"
-  until [[ -n "$(kubectl --context "k3d-${spoke}" get ns "$ns" -o jsonpath='{.metadata.annotations.services\.k8s\.aws/owner-account-id}' 2>/dev/null)" ]]; do
+echo "[1/7] Discovering tenant workloads (tenant-workloads registrations) and waiting for their namespaces..."
+# Phase 4 C.2: workloads are whatever tenants registered, not a fixed list. Each Application of
+# the tenant-workloads ApplicationSet names a spoke and namespace; the namespace's
+# QueueBackedService gives the app name and environment (Secret <name>-<env>-aws).
+t0=$(date +%s); targets=""; stable=0
+while :; do
+  now=$(kubectl --context k3d-hub-cluster -n argocd get applications -o json | jq -r \
+    '[.items[] | select(any(.metadata.ownerReferences[]?; .name=="tenant-workloads")) | "\(.spec.destination.name):\(.spec.destination.namespace)"] | sort | join(" ")')
+  if [[ -n "$now" && "$now" == "$targets" ]]; then stable=$((stable + 1)); else stable=0; targets=$now; fi
+  (( stable >= 2 )) && break
+  (( $(date +%s) - t0 > TIMEOUT_NS )) && { echo "✘ no tenant-workloads Applications after ${TIMEOUT_NS}s" >&2; exit 1; }
+  sleep 5
+done
+WORKLOADS=()   # spoke:namespace:app-name:env
+for t in $targets; do
+  IFS=: read -r spoke ns <<<"$t"
+  until [[ -n "$(kubectl --context "k3d-${spoke}" get ns "$ns" -o jsonpath='{.metadata.annotations.services\.k8s\.aws/owner-account-id}' 2>/dev/null)" ]] \
+        && [[ -n "$(kubectl --context "k3d-${spoke}" -n "$ns" get queuebackedservice -o name 2>/dev/null)" ]]; do
     (( $(date +%s) - t0 > TIMEOUT_NS )) && { echo "✘ namespace ${ns} on ${spoke} not ready after ${TIMEOUT_NS}s" >&2; exit 1; }
     sleep 5
   done
-  echo "  ✔ ${spoke}/${ns}"
+  while read -r name env; do
+    WORKLOADS+=("${spoke}:${ns}:${name}:${env}")
+    echo "  ✔ ${spoke}/${ns} (${name}, ${env})"
+  done < <(kubectl --context "k3d-${spoke}" -n "$ns" get queuebackedservice -o json | jq -r '.items[] | "\(.spec.name) \(.spec.environment)"')
 done
 
 echo "[2/7] SSO prerequisites (CoreDNS rewrite, Keycloak)..."

@@ -63,10 +63,21 @@ deploy/
 └── values-prod.yaml     # Deployed to spoke-prod (namespace: orders-prod)
 ```
 
-Environment mappings and deployment targets are explicitly declared in [`applicationsets/tenant-workloads-nonprod.yaml`](../applicationsets/tenant-workloads-nonprod.yaml) and [`applicationsets/tenant-workloads-prod.yaml`](../applicationsets/tenant-workloads-prod.yaml); the Helm values files are referenced by each ApplicationSet entry:
-- `deploy/values-dev.yaml` $\rightarrow$ referenced by `tenant-workloads-nonprod` to target **`spoke-nonprod`** in namespace `orders-dev`.
-- `deploy/values-test.yaml` $\rightarrow$ referenced by `tenant-workloads-nonprod` to target **`spoke-nonprod`** in namespace `orders-test`.
-- `deploy/values-prod.yaml` $\rightarrow$ referenced by `tenant-workloads-prod` to target **`spoke-prod`** in namespace `orders-prod`.
+Each environment is **registered by the tenant** with one small file in the `tenant-workloads` repository (Phase 4 C.2); the platform's [`applicationsets/tenant-workloads.yaml`](../applicationsets/tenant-workloads.yaml) turns every file into an Argo CD Application:
+
+```yaml
+# tenant-workloads/tenants/tenant-a/apps/orders-dev.yaml
+tenant: tenant-a
+app: orders          # Application and namespace: orders-dev
+env: dev             # dev | test | prod -> the platform picks the spoke and AWS account
+port: "8081"
+valuesRevision: main # prod must pin a full 40-character commit SHA
+# valuesFile: deploy/values-dev.yaml   (optional; this is the default)
+```
+
+- `deploy/values-dev.yaml` / `values-test.yaml` $\rightarrow$ **`spoke-nonprod`**, namespaces `orders-dev` / `orders-test` (account 111111111111).
+- `deploy/values-prod.yaml` $\rightarrow$ **`spoke-prod`**, namespace `orders-prod` (account 222222222222). **Promote to prod** by changing `valuesRevision` in `tenants/tenant-a/apps/orders-prod.yaml` to the reviewed commit SHA (pull request in `tenant-workloads`).
+- New app or environment: add a file (pull request in `tenant-workloads`), then run `make post-bootstrap` once so its worker gets cloud credentials.
 
 ---
 

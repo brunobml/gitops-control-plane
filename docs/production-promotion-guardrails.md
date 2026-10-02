@@ -1,5 +1,12 @@
 # Production Promotion Guardrails & Enterprise GitOps Patterns
 
+> **Current implementation (Phase 4 C.2, 2026-10-02):** tenant environments are registered in the
+> `tenant-workloads` repository (`tenants/<tenant>/apps/<app>-<env>.yaml`) and rendered by one
+> ApplicationSet, `applicationsets/tenant-workloads.yaml`. Production promotion = a reviewed pull
+> request in `tenant-workloads` that sets `valuesRevision` in `orders-prod.yaml` to a full commit SHA;
+> the template refuses anything else for `prod`. Images must also be CI-signed (Kyverno, Phase 4 B.4).
+> The `tenant-workloads-nonprod/prod.yaml` files named below are the pre-Phase-4 design examples.
+
 ## Executive Summary & Problem Statement
 
 In a multi-cluster GitOps architecture, a common pitfall occurs when application repositories contain both non-production (`values-dev.yaml`) and production (`values-prod.yaml`) configurations on the same branch (e.g., `main`), coupled with Argo CD automated synchronization (`syncPolicy.automated`).
