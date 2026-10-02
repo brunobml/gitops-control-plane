@@ -53,3 +53,14 @@
 | D-5 | **My false alarm**: `kubectl auth can-i get nodes/proxy` read `proxy` as a node *name*; the correct `--subresource=proxy` check and `can-i --list` show the agent has **no** `nodes/proxy` |
 | D-6 | Keycloak NetworkPolicy extended to Grafana and blackbox pods (`monitoring` namespace, by pod label) |
 | D-7 | Footprint (X14): new components' working set ≈ **1.0 GiB** (hub monitoring 827 Mi, spoke agents ~90 Mi each, probes ~12 Mi each, 2nd Kyverno replica) — **within** the < 1.5 GiB target. `docker stats` container totals grew 5.79 → 8.64 GiB; on the hub 4.8 GiB of the container's 8.3 GiB is reclaimable file cache. Largest single process remains Keycloak (763 Mi, Phase 4). Host: 19 GiB available |
+
+## 5. Addendum — owner test: Grafana "Bad Gateway" / "no available server" (fixed, `e5ab72a`)
+
+| | |
+|---|---|
+| **Reported by owner** | Login as `platform-user` worked, then a red "Bad Gateway" banner; dashboards kept loading; notifications "no available server" |
+| **Root cause** | Grafana was **OOM-killed** (exit 137) at its 384 Mi limit during the owner's first interactive session (idle ~260 Mi). While it restarted, Traefik had no ready endpoint ("no available server" / 502). Grafana is stateless (emptyDir), so the restart also invalidated the browser session ("user token not found" in the logs) and the UI kept retrying |
+| **Why my tests missed it** | X4 tested login, roles and logout through Grafana's endpoints with scripts, which never loaded the browser frontend; memory stayed ~260 Mi |
+| **Fix** | requests 256 Mi / **limit 1 Gi** (`values-grafana.yaml`) |
+| **Verification** | new pod Running, limit 1 Gi; as `platform-user`: dashboard JSON + all 6 panel queries + Alertmanager alert list, 5 rounds → all 200, memory steady ~252 Mi, 0 restarts. Owner to re-test in the browser (reload, log in again) |
+| **Lesson** | Acceptance for a UI must include a real browser session, not only API calls; size UI pods from their interactive peak |
