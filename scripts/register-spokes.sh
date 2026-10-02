@@ -72,6 +72,8 @@ metadata:
     kyverno: enabled
     # Phase 5 A.3/B.2: Prometheus agent + synthetic order probe (addons-spoke-observability).
     observability: enabled
+    # Phase 5 F.2: Alloy log shipping (addons-spoke-logging).
+    logging: enabled
   annotations:
     blueprints-revision: ${bp_rev}
     lab/token-expires: "${expires_at}"

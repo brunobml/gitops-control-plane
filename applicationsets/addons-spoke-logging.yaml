@@ -1,5 +1,5 @@
 # Phase 5 F.2: Alloy (pod logs + events -> hub Loki) on spokes labelled logging=enabled
-# (nonprod first, prod with the next platform-catalog tag; register-spokes.sh then labels both).
+# (rolled out nonprod first, prod with platform-catalog v1.6.0; register-spokes.sh labels both).
 # Values from platform-catalog at the cluster's blueprints-revision; CLUSTER comes from here.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
