@@ -51,3 +51,15 @@
    * Argo CD `http://localhost:8080` → **"Log in via Keycloak"** → `platform-user`, then `tenant-a-user` (passwords: `make password` lists the files).
    * Headlamp `http://headlamp.localhost:8080` → one Keycloak login → select **All clusters**: **no re-prompt**.
 2. **O-1:** after (1) succeeds, confirm removal of the local `tenant-a` Argo CD account (`platform-admin` stays as break-glass and for automation).
+
+## 5. Addendum — owner browser test found an Argo CD login defect (fixed, `2fcec18`)
+
+| | |
+|---|---|
+| **Reported by owner** | Both `http://localhost:8080` and `http://argocd.localhost:8080` failed with "Invalid redirect URL: the protocol and host (including port) must match and the path must be within allowed URLs if provided" |
+| **Root cause 1 (spike S3 was wrong)** | In Argo CD 3.5 the UI login with `enablePKCEAuthentication` runs **server-side**: `argocd-server` keeps the PKCE verifier and sends `redirect_uri=<host>/auth/callback`. The realm only allowed `/pkce/verify`, so Keycloak refused the redirect URI. My scripted tests had requested tokens from Keycloak directly and never went through Argo CD's own `/auth/login` → `/auth/callback`, so they missed it. |
+| **Root cause 2** | Argo CD accepts return/callback URLs only for `url` (`http://localhost:8080`); the UI is also served on `argocd.localhost:8080`, which Argo CD rejected with the message above. |
+| **Fix** | Realm: client `argocd` redirect URIs `http://localhost:8080/auth/callback`, `http://argocd.localhost:8080/auth/callback`, CLI `http://localhost:8085/auth/callback`; `/pkce/verify` and `webOrigins` removed (no browser-side token call). Argo CD: `additionalUrls: [http://argocd.localhost:8080]`. Applied by commit + manual `argo-cd` sync (diff: `additionalUrls` + checksum annotations only); Keycloak re-imported the realm on its own (ConfigMap hash). |
+| **Verification** | Full browser-equivalent flow through `argocd-server` (`/auth/login` → Keycloak form → `/auth/callback` → `argocd.token` cookie → `userinfo`), **4/4 pass**: both users × both hosts, callback lands on the same host's `/applications`, groups correct. Negative: unregistered redirect URI → Keycloak error page (no login form); `return_url=http://evil.example/` → Argo CD 400. |
+| **Regression guard** | Smoke stage 10 now follows every SSO entry point (Argo CD on both hosts, Headlamp) to Keycloak and requires the **login form** (no password used). It would have failed on the old configuration. |
+| **Lesson** | SSO acceptance must exercise the relying party's own login endpoints, not only the IdP. |
