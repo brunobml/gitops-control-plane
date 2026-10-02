@@ -13,23 +13,44 @@
 
 | Field | Details |
 |---|---|
-| **Current Status** | ⏳ **AWAITING PEER REVIEW**: no step of this plan has been executed |
-| **Plan Version** | `v1.0` |
+| **Current Status** | 🟢 **APPROVED & AUTHORIZED FOR IMPLEMENTATION (Plan v1.0)** |
+| **Plan Version** | `v1.0` (commit [`e92c3f6`](https://github.com/brunobml/gitops-control-plane/commit/e92c3f6)) |
 | **Author** | Claude (Opus 5.5) |
-| **Reviewed By** | _pending_ (Antigravity) |
-| **Review Date** | _pending_ |
-| **Authorization Decision** | _pending_ |
-| **Execution / validation split** | Each step is executed and reported (`implemented-NN`) by one party and validated (`validation-NN`) by the other. Phase 4 run #05 was executed and validated by the same party; an independent cross-check had to be added afterwards |
+| **Reviewed By** | Antigravity (Advanced Agentic AI Peer Reviewer) |
+| **Review Date** | 2026-10-02 |
+| **Authorization Decision** | ✅ **GREEN LIGHT** — Fully approved for execution following the sequenced tracks (§11). Remarks R-0 through R-4 apply. |
+| **Execution / validation split** | Each step is executed and reported (`implemented-NN`) by one party and validated (`validation-NN`) by the other. Phase 4 run #05 was executed and validated by the same party; an independent cross-check had to be added afterwards. |
+
+### Reviewer Decision & Feedback
+
+> ### ✅ REVIEW VERDICT: APPROVED (GREEN LIGHT)
+>
+> The Phase 5 remediation plan is architecturally disciplined, appropriately right-sized for a local multi-cluster lab, and directly attacks the remaining operational friction points identified in Phases 3 and 4:
+>
+> 1. **Right-Sized Observability (Track A):** The explicit rejection of heavyweight operators (`kube-prometheus-stack`) and log aggregation (Loki) in favor of core `prometheus-community/prometheus` (hub server + spoke agent mode with remote-write) respects the local developer host constraints (< 1.5 GiB delta) while providing cross-cluster visibility. Native OIDC integration for Grafana with Keycloak extends the SSO boundary established in Phase 4.
+> 2. **Proactive Failure Detection (Track B):** The alerting strategy focuses on verified historical failure modes (F-1 silent SQS processing failure, D-10 Kyverno fail-open, PV2-5 token expiration, Argo CD sync drift). The synthetic e2e order probe and token-expiry exporter provide blackbox assurance without bloating tenant application code.
+> 3. **Kyverno High Availability (Track C):** Scaling Kyverno admission controllers to 2 replicas backed by a PDB (`minAvailable: 1`) prevents webhook fail-open windows during rolling updates, while `KyvernoDown` monitors the zero-replica failure case.
+> 4. **Self-Healing Operations (Track D):** Idempotent orphan discovery and automated 7-day spoke token renewal eliminate repetitive manual maintenance chores while preserving break-glass isolation and safeguarding persistent tenant data.
+>
+> **All tracks (Track 0, Track A, Track B, Track C, Track D, Track E) are authorized for implementation.** The operational guardrails below govern execution.
+
+| ID | Focus Area | Reviewer Remark & Operational Guardrail | Status |
+|:---:|:---:|---|:---:|
+| **R-0** | Step A.3 (Scrapes) | **Controller Deployment Naming:** Note that the ACK SQS controller deployment on spokes is named `ack-sqs-controller-sqs-chart` in namespace `ack-system` (F2). Ensure Prometheus scrape configs and pod discovery target the actual deployment/pod labels. | 🛡️ Guardrail Approved |
+| **R-1** | Step A.1 / A.3 | **Basic Auth Secret Isolation:** Remote-write credentials generated for spoke Prometheus agents must remain strictly in `~/.config/gitops-lab/` (mode 600) and injected via out-of-band secret creation or local templating. Plaintext credentials must never be committed to Git. | 🛡️ Guardrail Approved |
+| **R-2** | Step C.1 | **Kyverno PDB Safety:** When scaling Kyverno to 2 replicas on spokes (Track C), ensure the PDB specifies `minAvailable: 1` and nodes have sufficient allocatable resources before applying Enforce policies. | 🛡️ Guardrail Approved |
+| **R-3** | Step B.2 | **Synthetic Probe Isolation:** Blackbox and synthetic order probes (Track B) must run in isolated namespaces (`platform-probes`) with strict egress NetworkPolicies restricting traffic to Moto and spoke Traefik only. | 🛡️ Guardrail Approved |
+| **R-4** | Step A.3a / C.1a | **Spike Before Wide Promotion:** Rigorously execute Spike A.3a (verifying Prometheus v3.15 agent mode flags and metric endpoints) and Spike C.1a (verifying 2-replica Kyverno behavior during pod termination) prior to wide catalog promotion. | 🛡️ Guardrail Approved |
 
 ### Owner decisions requested
 
-| ID | Question | Author's recommendation |
-|---|---|---|
-| **O-1** | Where should alerts go? | **Lab-local only**: Alertmanager UI plus a Grafana "Firing alerts" panel. No external service, no new credentials. An external channel (e-mail, ntfy, Slack) can be added later as one receiver |
-| **O-2** | Who may open Grafana? | Both SSO groups: `lab-platform-admins` → Grafana **Admin**, `lab-tenant-a` → **Viewer**. Same pattern as Headlamp in Phase 4 |
-| **O-3** | Clean-up of deregistered tenant apps (Phase 4 D-16) | **Automatic** for credentials (IAM user + Secret) and the empty namespace. **Report only** for data (DynamoDB tables), deleted only with an explicit `PRUNE_DATA=1` |
-| **O-4** | Token renewal | **Automatic** in `make post-bootstrap` when a spoke or Headlamp token has fewer than 7 days left. You already run it after every `make start` |
-| **O-5** | End-of-phase rebuild acceptance (Track E) | **Yes**, in an owner-approved window; executed and validated by different parties |
+| ID | Question | Author's recommendation | Reviewer Endorsement |
+|---|---|---|:---:|
+| **O-1** | Where should alerts go? | **Lab-local only**: Alertmanager UI plus a Grafana "Firing alerts" panel. No external service, no new credentials. An external channel (e-mail, ntfy, Slack) can be added later as one receiver | **Endorsed** |
+| **O-2** | Who may open Grafana? | Both SSO groups: `lab-platform-admins` → Grafana **Admin**, `lab-tenant-a` → **Viewer**. Same pattern as Headlamp in Phase 4 | **Endorsed** |
+| **O-3** | Clean-up of deregistered tenant apps (Phase 4 D-16) | **Automatic** for credentials (IAM user + Secret) and the empty namespace. **Report only** for data (DynamoDB tables), deleted only with an explicit `PRUNE_DATA=1` | **Endorsed** |
+| **O-4** | Token renewal | **Automatic** in `make post-bootstrap` when a spoke or Headlamp token has fewer than 7 days left. You already run it after every `make start` | **Endorsed** |
+| **O-5** | End-of-phase rebuild acceptance (Track E) | **Yes**, in an owner-approved window; executed and validated by different parties | **Endorsed** |
 
 ---
 
