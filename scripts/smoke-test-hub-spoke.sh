@@ -45,7 +45,7 @@ fi
 
 # 3. Argo CD Applications Health & Sync State (L3-4, C-2)
 echo -e "\n${YELLOW}[3/12] Asserting Argo CD Application Sync and Health...${NC}"
-EXPECTED_APPS=("argo-cd" "addon-headlamp" "addon-keycloak" "addon-oauth2-proxy" "addon-kyverno-spoke-nonprod" "addon-kyverno-spoke-prod" "addon-prometheus" "addon-grafana" "addon-blackbox" "addon-lab-exporters" "addon-observability-spoke-nonprod" "addon-observability-spoke-prod" "addon-platform-config-spoke-nonprod" "addon-platform-config-spoke-prod" "addon-traefik" "platform-projects" "addon-kro-spoke-nonprod" "addon-kro-spoke-prod" "addon-ack-sqs-spoke-nonprod" "addon-ack-sqs-spoke-prod" "addon-ack-credentials-spoke-nonprod" "addon-ack-credentials-spoke-prod" "kro-blueprints-spoke-nonprod" "kro-blueprints-spoke-prod" "orders-dev" "orders-test" "orders-prod" "root-control-plane")
+EXPECTED_APPS=("argo-cd" "addon-headlamp" "addon-keycloak" "addon-oauth2-proxy" "addon-kyverno-spoke-nonprod" "addon-kyverno-spoke-prod" "addon-prometheus" "addon-grafana" "addon-blackbox" "addon-lab-exporters" "addon-observability-spoke-nonprod" "addon-observability-spoke-prod" "addon-loki" "addon-alloy" "addon-logging-spoke-nonprod" "addon-logging-spoke-prod" "addon-platform-config-spoke-nonprod" "addon-platform-config-spoke-prod" "addon-traefik" "platform-projects" "addon-kro-spoke-nonprod" "addon-kro-spoke-prod" "addon-ack-sqs-spoke-nonprod" "addon-ack-sqs-spoke-prod" "addon-ack-credentials-spoke-nonprod" "addon-ack-credentials-spoke-prod" "kro-blueprints-spoke-nonprod" "kro-blueprints-spoke-prod" "orders-dev" "orders-test" "orders-prod" "root-control-plane")
 APP_DATA=$(kubectl --context k3d-hub-cluster -n argocd get applications -o jsonpath='{range .items[*]}{.metadata.name}:{.status.sync.status}:{.status.health.status}{"\n"}{end}')
 
 for expected in "${EXPECTED_APPS[@]}"; do
@@ -325,7 +325,7 @@ for target in "k3d-spoke-nonprod:orders-dev" "k3d-spoke-nonprod:orders-test" "k3
 done
 echo -e "${GREEN}✔ Only CI-signed, SBOM-attested images are admitted in tenant namespaces${NC}"
 
-echo -e "\n${YELLOW}[12/12] Asserting Observability (metrics, probes, alerts, Grafana SSO)...${NC}"
+echo -e "\n${YELLOW}[12/12] Asserting Observability (metrics, logs, probes, alerts, Grafana SSO)...${NC}"
 promq() { kubectl --context k3d-hub-cluster -n monitoring exec deploy/prometheus-server -c prometheus-server -- \
   wget -qO- "http://localhost:9090/api/v1/query?query=$(jq -rn --arg q "$1" '$q|@uri')" 2>/dev/null; }
 for spoke in spoke-nonprod spoke-prod; do
@@ -336,6 +336,13 @@ echo -e "${GREEN}✔ Hub receives metrics from both spokes${NC}"
 failed=$(promq 'probe_success{job="blackbox"} == 0' | jq -r '[.data.result[].metric.probe] | join(",")')
 if [[ -n "$failed" ]]; then echo -e "${RED}✘ Synthetic probes failing: ${failed}${NC}"; exit 1; fi
 echo -e "${GREEN}✔ HTTP probes green${NC}"
+# Phase 5 F: logs are shipped from every cluster and Loki is up.
+for cl in hub spoke-nonprod spoke-prod; do
+  r=$(promq "sum(rate(loki_write_sent_entries_total{cluster=\"${cl}\"}[10m]))" | jq -r '.data.result[0].value[1] // 0')
+  if ! awk -v r="$r" 'BEGIN{exit !(r > 0)}'; then echo -e "${RED}✘ no log lines shipped from ${cl} in the last 10 min${NC}"; exit 1; fi
+done
+if [[ "$(promq 'up{job="loki"}' | jq -r '.data.result[0].value[1] // 0')" != 1 ]]; then echo -e "${RED}✘ Loki is not up${NC}"; exit 1; fi
+echo -e "${GREEN}✔ Logs shipped from hub, spoke-nonprod and spoke-prod; Loki up${NC}"
 # The synthetic order probe runs every 5 min, so right after a recovery (e.g. post-bootstrap after a
 # moto restart) its last result can still be a failure; stage 9 already proved e2e processing directly.
 e2e=$(promq 'lab_order_e2e_success == 0' | jq -r '[.data.result[] | .metric.namespace] | join(",")')
