@@ -6,6 +6,12 @@ global:
   domain: localhost:8080
 
 server:
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8083"
   extraArgs:
     - --insecure
   service:
@@ -26,6 +32,37 @@ server:
 # deployed (P4-2).
 dex:
   enabled: false
+
+# Phase 5 A.2: metrics Services (no ServiceMonitor CRD in this lab); hub Prometheus scrapes them
+# through the prometheus.io/* annotations (kubernetes-service-endpoints job).
+controller:
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8082"
+repoServer:
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8084"
+applicationSet:
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+notifications:
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9001"
 
 configs:
   params:
