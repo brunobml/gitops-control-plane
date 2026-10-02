@@ -13,13 +13,13 @@
 
 | Field | Details |
 |---|---|
-| **Current Status** | 🟢 **APPROVED & AUTHORIZED FOR IMPLEMENTATION (Plan v1.0)** |
-| **Plan Version** | `v1.0` (commit [`e92c3f6`](https://github.com/brunobml/gitops-control-plane/commit/e92c3f6)) |
+| **Current Status** | 🟢 **APPROVED & AUTHORIZED FOR IMPLEMENTATION (Plan v1.1)** |
+| **Plan Version** | `v1.1` (commit [`f11e0eb`](https://github.com/brunobml/gitops-control-plane/commit/f11e0eb)) |
 | **Author** | Claude (Opus 5.5) |
 | **Reviewed By** | Antigravity (Advanced Agentic AI Peer Reviewer) |
 | **Review Date** | 2026-10-02 |
-| **Authorization Decision** | ✅ **GREEN LIGHT** — Fully approved for execution following the sequenced tracks (§11). Remarks R-0 through R-4 apply. |
-| **v1.1 amendment (Track F)** | ⏳ **AWAITING PEER REVIEW**: Track F (Loki + Alloy, §7a) and the related edits marked *v1.1* below. Nothing of Track F has been executed. Tracks 0–D remain approved under v1.0 and are implemented (reports `implemented-01..04`) |
+| **Authorization Decision** | ✅ **GREEN LIGHT** — Fully approved for execution following sequenced tracks (§11). Tracks 0–D complete; Track F authorized for execution. Remarks R-0 through R-8 apply. |
+| **v1.1 amendment (Track F)** | 🟢 **APPROVED**: Track F (§7a) and Step F.0 authorized for implementation. Owner decisions O-6 and O-7 endorsed. Remarks R-5 through R-8 apply. |
 | **Execution / validation split** | Each step is executed and reported (`implemented-NN`) by one party and validated (`validation-NN`) by the other. Phase 4 run #05 was executed and validated by the same party; an independent cross-check had to be added afterwards. |
 
 ### Reviewer Decision & Feedback
@@ -33,7 +33,16 @@
 > 3. **Kyverno High Availability (Track C):** Scaling Kyverno admission controllers to 2 replicas backed by a PDB (`minAvailable: 1`) prevents webhook fail-open windows during rolling updates, while `KyvernoDown` monitors the zero-replica failure case.
 > 4. **Self-Healing Operations (Track D):** Idempotent orphan discovery and automated 7-day spoke token renewal eliminate repetitive manual maintenance chores while preserving break-glass isolation and safeguarding persistent tenant data.
 >
-> **All tracks (Track 0, Track A, Track B, Track C, Track D, Track E) are authorized for implementation.** The operational guardrails below govern execution.
+> ### ✅ v1.1 AMENDMENT VERDICT (TRACK F): APPROVED (GREEN LIGHT)
+>
+> The Track F amendment directly addresses the core operational requirement for post-mortem log retention (querying logs of terminated/evicted pods) and natively integrates with Grafana 13's *Drilldown → Logs* workflow:
+>
+> 1. **Right-Sized Log Ingestion (Step F.1):** Selecting `grafana-community/loki` SingleBinary with local filesystem TSDB on a 5 GiB PVC completely eliminates external object storage (MinIO/S3) complexity and operator overhead.
+> 2. **Zero-HostPath Architecture (Step F.2):** Deploying Grafana Alloy as a single Deployment streaming via the Kubernetes API (`pods/log` and `events`) avoids privileged daemonsets, security context escalation, and `hostPath` volume bindings on k3d nodes.
+> 3. **Consistent Security Boundary:** Extending Traefik basic-auth Middleware on `k3d-hub-cluster-serverlb` for `/loki/api/v1/push` mirrors the proven Prometheus remote-write architecture (R-1), keeping all ingestion authenticated and internal.
+> 4. **Pod Security Governance (Step F.0):** Addressing the unlabelled `monitoring` namespace (finding F14) brings observability namespaces into compliance with the platform Pod Security standard.
+>
+> **All tracks (Track 0–D complete; Track F authorized) are approved.** The operational guardrails below govern execution.
 
 | ID | Focus Area | Reviewer Remark & Operational Guardrail | Status |
 |:---:|:---:|---|:---:|
@@ -42,6 +51,10 @@
 | **R-2** | Step C.1 | **Kyverno PDB Safety:** When scaling Kyverno to 2 replicas on spokes (Track C), ensure the PDB specifies `minAvailable: 1` and nodes have sufficient allocatable resources before applying Enforce policies. | 🛡️ Guardrail Approved |
 | **R-3** | Step B.2 | **Synthetic Probe Isolation:** Blackbox and synthetic order probes (Track B) must run in isolated namespaces (`platform-probes`) with strict egress NetworkPolicies restricting traffic to Moto and spoke Traefik only. | 🛡️ Guardrail Approved |
 | **R-4** | Step A.3a / C.1a | **Spike Before Wide Promotion:** Rigorously execute Spike A.3a (verifying Prometheus v3.15 agent mode flags and metric endpoints) and Spike C.1a (verifying 2-replica Kyverno behavior during pod termination) prior to wide catalog promotion. | 🛡️ Guardrail Approved |
+| **R-5** | Step F.2 (Alloy Tail) | **API Server Stream Rate-Limiting:** Because Alloy tails pod logs via the Kubernetes `pods/log` API rather than host filesystem tailing, ensure scrape configs filter out chatty high-frequency probes or self-logs to minimize control-plane overhead. | 🛡️ Guardrail Approved |
+| **R-6** | Step F.1 (Loki SingleBinary) | **Single-Replica Concurrency Safety:** In `deploymentMode: SingleBinary` with local filesystem storage and compactor enabled, strictly maintain `replicas: 1` to prevent concurrent write locks on the shared PVC volume. | 🛡️ Guardrail Approved |
+| **R-7** | Step F.1 / F.2 (Push Auth) | **Loki Basic Auth Secret Isolation:** Spoke Alloy push credentials must follow Remark R-1: generated securely into `~/.config/gitops-lab/` (mode 0600) and mounted as Secrets without plaintext in Git. | 🛡️ Guardrail Approved |
+| **R-8** | Step F.0 (PSS Labeling) | **Monitoring PSS Calibration:** Perform server dry-run validation (`--dry-run=server`) on all three clusters before applying PSS labels to `monitoring` to ensure Prometheus, Alertmanager, Grafana, and Alloy are not rejected. | 🛡️ Guardrail Approved |
 
 ### Owner decisions requested
 
@@ -51,7 +64,7 @@
 | **O-2** | Who may open Grafana? | Both SSO groups: `lab-platform-admins` → Grafana **Admin**, `lab-tenant-a` → **Viewer**. Same pattern as Headlamp in Phase 4 | **Endorsed** |
 | **O-3** | Clean-up of deregistered tenant apps (Phase 4 D-16) | **Automatic** for credentials (IAM user + Secret) and the empty namespace. **Report only** for data (DynamoDB tables), deleted only with an explicit `PRUNE_DATA=1` | **Endorsed** |
 | **O-4** | Token renewal | **Automatic** in `make post-bootstrap` when a spoke or Headlamp token has fewer than 7 days left. You already run it after every `make start` | **Endorsed** |
-| **O-5** | End-of-phase rebuild acceptance (Track E) | **Yes**, in an owner-approved window; executed and validated by different parties | **Endorsed** |
+| **O-5** | End-of-phase rebuild acceptance (Track E) | **Yes**, in an owner-approved window; executed and validated by different parties | **Endorsed** (runs after Track F) |
 
 ### v1.1 Amendment summary (2026-10-02)
 
@@ -65,10 +78,10 @@
 
 #### Owner decisions requested (v1.1)
 
-| ID | Question | Author's recommendation |
-|---|---|---|
-| **O-6** | Loki in this design has no per-tenant isolation: anyone who can open Grafana can query **all** namespaces' logs (platform namespaces included). Accept for the lab? | **Accept** as a recorded residual. It matches the lab preference "I need to see everything"; `tenant-a-user` is Viewer. Restricting it later = Loki multi-tenancy (`X-Scope-OrgID` per tenant) plus a per-team data source |
-| **O-7** | Log retention | **7 days** (same as metrics); compactor-enforced, 5 GiB volume |
+| ID | Question | Author's recommendation | Reviewer Endorsement |
+|---|---|---|:---:|
+| **O-6** | Loki in this design has no per-tenant isolation: anyone who can open Grafana can query **all** namespaces' logs (platform namespaces included). Accept for the lab? | **Accept** as a recorded residual. It matches the lab preference "I need to see everything"; `tenant-a-user` is Viewer. Restricting it later = Loki multi-tenancy (`X-Scope-OrgID` per tenant) plus a per-team data source | **Endorsed** (documented lab residual) |
+| **O-7** | Log retention | **7 days** (same as metrics); compactor-enforced, 5 GiB volume | **Endorsed** (matches metrics retention) |
 
 ---
 
