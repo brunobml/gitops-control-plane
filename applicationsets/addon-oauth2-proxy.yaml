@@ -30,6 +30,14 @@ spec:
           configFile: |
             provider = "keycloak-oidc"
             oidc_issuer_url = "http://keycloak.localhost:8080/realms/lab"
+            # Endpoints given explicitly: no OIDC discovery at startup, so oauth2-proxy starts even
+            # while Keycloak is still coming up (cold rebuild) or a new pod's NetworkPolicy access is
+            # not programmed yet. Signing keys are fetched from the JWKS URL when first needed.
+            skip_oidc_discovery = true
+            login_url = "http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/auth"
+            redeem_url = "http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/token"
+            oidc_jwks_url = "http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/certs"
+            profile_url = "http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/userinfo"
             redirect_url = "http://headlamp.localhost:8080/oauth2/callback"
             code_challenge_method = "S256"
             # The groups claim comes from the client's group mapper; the realm has no "groups" scope.
