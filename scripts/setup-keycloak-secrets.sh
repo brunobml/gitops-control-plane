@@ -6,6 +6,7 @@
 #   in process arguments or output):
 #     keycloak/keycloak-bootstrap-admin   Keycloak admin console (break-glass for the IdP)
 #     keycloak/keycloak-realm-secrets     ${…} placeholders of addons/keycloak/realm-lab.json
+#                                         (incl. the Grafana client secret, Phase 5 A.4)
 #     oauth2-proxy/oauth2-proxy-credentials  Headlamp SSO (client + cookie secret)
 # - Never prints a value.
 set -euo pipefail
@@ -28,7 +29,7 @@ gen() {
   fi
 }
 for f in keycloak-admin.password keycloak-platform-user.password keycloak-tenant-a-user.password \
-         oauth2-proxy-client.secret oauth2-proxy-cookie.secret; do
+         oauth2-proxy-client.secret oauth2-proxy-cookie.secret grafana-client.secret; do
   gen "$f"
 done
 printf %s "kc-admin" > "${SECRET_DIR}/keycloak-admin.username"
@@ -46,6 +47,7 @@ done
   --from-file=LAB_PLATFORM_USER_PASSWORD="${SECRET_DIR}/keycloak-platform-user.password" \
   --from-file=LAB_TENANT_A_USER_PASSWORD="${SECRET_DIR}/keycloak-tenant-a-user.password" \
   --from-file=LAB_HEADLAMP_CLIENT_SECRET="${SECRET_DIR}/oauth2-proxy-client.secret" \
+  --from-file=LAB_GRAFANA_CLIENT_SECRET="${SECRET_DIR}/grafana-client.secret" \
   --dry-run=client -o yaml | "${K[@]}" apply -f - >/dev/null
 
 printf %s "headlamp" > "${SECRET_DIR}/oauth2-proxy-client.id"

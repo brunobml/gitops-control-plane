@@ -14,6 +14,8 @@ spec:
     - "https://traefik.github.io/charts"
     - "https://argoproj.github.io/argo-helm"   # Phase 3 B.4: Argo CD manages itself
     - "https://oauth2-proxy.github.io/manifests"  # Phase 4 A.5: Headlamp SSO
+    - "https://prometheus-community.github.io/helm-charts"  # Phase 5 A.1/A.3/A.5
+    - "https://grafana.github.io/helm-charts"               # Phase 5 A.4
   destinations:
     - server: "https://kubernetes.default.svc"
       namespace: "*"
