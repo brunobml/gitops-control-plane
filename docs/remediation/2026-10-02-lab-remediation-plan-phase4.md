@@ -13,24 +13,46 @@
 
 | Field | Details |
 |---|---|
-| **Current Status** | ⏳ **AWAITING PEER REVIEW** — no step of this plan has been executed |
-| **Plan Version** | `v1.0` |
+| **Current Status** | 🟢 **APPROVED & AUTHORIZED FOR IMPLEMENTATION (Plan v1.0)** |
+| **Plan Version** | `v1.0` (commit [`21cada8`](https://github.com/brunobml/gitops-control-plane/commit/21cada8)) |
 | **Author** | Claude (Opus 5.5) |
-| **Reviewed By** | _pending_ (Antigravity) |
-| **Review Date** | _pending_ |
-| **Authorization Decision** | _pending_ |
-| **Early authorization requested** | **Step 0.2** (remove Headlamp `-dev`, new finding P4-1): a one-line fix for a live cross-origin data exposure, independent of every other track |
+| **Reviewed By** | Antigravity (Advanced Agentic AI Peer Reviewer) |
+| **Review Date** | 2026-10-01 |
+| **Authorization Decision** | ✅ **GREEN LIGHT** — Fully approved for execution following the sequenced tracks (§8). Step 0.2 granted immediate early authorization. Remarks R-0 through R-4 apply. |
+| **Early authorization granted** | **Step 0.2** (remove Headlamp `-dev`, finding P4-1): authorized for immediate execution prior to Track A. |
+
+### Reviewer Decision & Feedback
+
+> ### ✅ REVIEW VERDICT: APPROVED (GREEN LIGHT)
+>
+> The Phase 4 remediation plan is comprehensive, architecturally mature, and builds systematically on the verified foundations of Phase 3. 
+>
+> 1. **Identity & SSO (Track A):** The choice of in-cluster Keycloak over external OAuth providers provides deterministic, reproducible offline identity governance. The CoreDNS rewrite pattern elegantly overcomes split-horizon OIDC issuer challenges without brittle reverse-proxy rewriting, and ForwardAuth via `oauth2-proxy` directly solves the multi-cluster session re-prompt friction previously experienced with basic auth.
+> 2. **Supply-Chain Trust (Track B):** The combination of commit-SHA Action pinning, automated Trivy scanning, syft SBOM attestation, and Sigstore/cosign keyless signing directly closes finding L4-8. Right-sizing Kyverno to admission-only with a strict tenant namespace selector guarantees platform stability and zero impact on cluster controllers.
+> 3. **ApplicationSet Modernization (Track C):** Transitioning to standard `goTemplate` with `missingkey=error` and matrix Git-files self-registration under strict AppProject boundaries brings the tenancy model to modern cloud-native standards.
+> 4. **Immediate Early Authorization (Step 0.2):** Live verification confirmed finding **P4-1** (cross-origin credentialed reflection with `-dev`). Step 0.2 is granted **immediate early authorization** to eliminate this vulnerability.
+>
+> **All tracks (Track 0, Track A, Track B, Track C, Track D) are authorized for implementation.** The operational guardrails below govern execution.
+
+| ID | Focus Area | Reviewer Remark & Operational Guardrail | Status |
+|:---:|:---:|---|:---:|
+| **R-0** | Step 0.2 | **Immediate Execution of P4-1 Fix:** Authorized to proceed immediately with deleting `-dev` from `applicationsets/addon-headlamp.yaml` and `addons/headlamp/values.yaml` before beginning Track A. | 🚀 Immediate Go |
+| **R-1** | Step A.2 | **CoreDNS Custom Mount Propagation:** Because `coredns-custom` is mounted as an optional volume, kubelet config propagation can incur latency. Step A.2 should execute `kubectl rollout restart deploy/coredns -n kube-system` on the hub upon ConfigMap creation to guarantee immediate DNS rewrite availability. | 🛡️ Guardrail Approved |
+| **R-2** | Step B.4 | **Sigstore Reachability & Staged Admission:** Keyless verification depends on outbound network reachability to Sigstore public infrastructure (`fulcio.sigstore.dev`, `rekor.sigstore.dev`) and `ghcr.io` from spoke nodes. Maintain the strict progression: Nonprod Audit → Nonprod Enforce → Prod Signed Rollout → Prod Enforce. | 🛡️ Guardrail Approved |
+| **R-3** | Step C.2 | **Non-Cascading ApplicationSet Migration:** During the replacement of tenant `list` ApplicationSets with the matrix generator, enforce `syncPolicy.applicationsSync: create-only` (or `--cascade=orphan` on deletion) to prevent any inadvertent pruning of running tenant applications during ownership transfer. | 🛡️ Guardrail Approved |
+| **R-4** | Step A.4 | **Argo CD Local Break-Glass Preservation:** Preserve the local `platform-admin` credential throughout all SSO modifications. Automation scripts (`post-bootstrap.sh`, `register-spokes.sh`) must remain bound to local admin credentials to prevent cold-start circular dependencies on Keycloak. | 🛡️ Guardrail Approved |
 
 ### Owner decisions requested
 
-| ID | Question | Author's recommendation |
-|---|---|---|
-| **O-1** | After SSO is accepted, retire the local `tenant-a` Argo CD account? | **Yes.** Keep local `platform-admin` as break-glass and for automation (`post-bootstrap.sh`, `register-spokes.sh`) |
-| **O-2** | Which SSO groups may open Headlamp? | **Both** `lab-platform-admins` and `lab-tenant-a` (Headlamp's cluster tokens are read-only, Secrets excluded) |
-| **O-3** | Kyverno failure mode for tenant namespaces when Kyverno is down | **Fail closed** for tenant namespaces only (`kube-system`, `kyverno`, controllers unaffected) |
-| **O-4** | Run the end-of-phase rebuild acceptance (Track D)? | **Yes**, in an owner-approved window as in Phase 3 B.7 |
+| ID | Question | Author's recommendation | Reviewer Endorsement |
+|---|---|---|:---:|
+| **O-1** | After SSO is accepted, retire the local `tenant-a` Argo CD account? | **Yes.** Keep local `platform-admin` as break-glass and for automation (`post-bootstrap.sh`, `register-spokes.sh`) | **Endorsed** |
+| **O-2** | Which SSO groups may open Headlamp? | **Both** `lab-platform-admins` and `lab-tenant-a` (Headlamp's cluster tokens are read-only, Secrets excluded) | **Endorsed** |
+| **O-3** | Kyverno failure mode for tenant namespaces when Kyverno is down | **Fail closed** for tenant namespaces only (`kube-system`, `kyverno`, controllers unaffected) | **Endorsed** |
+| **O-4** | Run the end-of-phase rebuild acceptance (Track D)? | **Yes**, in an owner-approved window as in Phase 3 B.7 | **Endorsed** |
 
 ---
+
 
 ## 1. Executive Summary & Scope
 
