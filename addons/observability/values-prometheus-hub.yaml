@@ -8,10 +8,24 @@
 
 configmapReload:
   prometheus:
+    containerSecurityContext:              # Phase 5 F.0: PSS restricted
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities: {drop: ["ALL"]}
     image:
       digest: "sha256:06b52bd4dbe3ed6dd5905aadaf8b9987d9da4c31d37bb86deaadae68cee2d26b"  # v0.94.1
 
 server:
+  securityContext:
+    runAsUser: 65534
+    runAsNonRoot: true
+    runAsGroup: 65534
+    fsGroup: 65534
+    seccompProfile: {type: RuntimeDefault}   # Phase 5 F.0: PSS restricted
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities: {drop: ["ALL"]}
   image:
     digest: "sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e"  # v3.15.0
   retention: "7d"

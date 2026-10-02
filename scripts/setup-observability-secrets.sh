@@ -32,7 +32,11 @@ gen grafana-client.secret   # also used by setup-keycloak-secrets.sh
 printf %s "admin" > "${SECRET_DIR}/grafana-admin.username"
 
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
-ns() { "$@" create namespace monitoring --dry-run=client -o yaml | "$@" apply -f - >/dev/null; }
+ns() {
+  "$@" create namespace monitoring --dry-run=client -o yaml | "$@" apply -f - >/dev/null
+  # Phase 5 F.0: Pod Security restricted (also declared in Git; see addons/*/namespace-monitoring.yaml)
+  "$@" label namespace monitoring --overwrite pod-security.kubernetes.io/enforce=restricted pod-security.kubernetes.io/enforce-version=latest >/dev/null
+}
 
 # Hub: htpasswd for Traefik. Keep the existing bcrypt line when it still matches the password,
 # so re-runs do not rewrite the Secret.
