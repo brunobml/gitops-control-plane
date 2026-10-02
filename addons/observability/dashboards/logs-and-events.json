@@ -1,0 +1,149 @@
+{
+ "uid": "lab-logs",
+ "title": "Logs & events",
+ "tags": [
+  "gitops-lab"
+ ],
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "refresh": "30s",
+ "time": {
+  "from": "now-1h",
+  "to": "now"
+ },
+ "templating": {
+  "list": [
+   {
+    "name": "cluster",
+    "type": "query",
+    "datasource": {
+     "type": "loki",
+     "uid": "loki"
+    },
+    "query": {
+     "label": "cluster",
+     "refId": "cluster",
+     "stream": "",
+     "type": 1
+    },
+    "refresh": 2,
+    "includeAll": true,
+    "multi": true,
+    "current": {
+     "text": "All",
+     "value": "$__all"
+    }
+   },
+   {
+    "name": "namespace",
+    "type": "query",
+    "datasource": {
+     "type": "loki",
+     "uid": "loki"
+    },
+    "query": {
+     "label": "namespace",
+     "refId": "ns",
+     "stream": "{cluster=~\"$cluster\"}",
+     "type": 1
+    },
+    "refresh": 2,
+    "includeAll": true,
+    "multi": true,
+    "current": {
+     "text": "All",
+     "value": "$__all"
+    }
+   },
+   {
+    "name": "search",
+    "type": "textbox",
+    "label": "Line contains",
+    "current": {
+     "text": "",
+     "value": ""
+    }
+   }
+  ]
+ },
+ "panels": [
+  {
+   "id": 1,
+   "type": "timeseries",
+   "title": "Log lines per namespace",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 6
+   },
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (cluster, namespace) (count_over_time({cluster=~\"$cluster\", namespace=~\"$namespace\"} |= \"$search\" [1m]))",
+     "legendFormat": "{{cluster}}/{{namespace}}"
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "type": "logs",
+   "title": "Warning events (OOMKilled, BackOff, FailedCreate, Unhealthy, Evicted, ...)",
+   "gridPos": {
+    "x": 0,
+    "y": 6,
+    "w": 24,
+    "h": 9
+   },
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "options": {
+    "showTime": true,
+    "wrapLogMessage": true,
+    "sortOrder": "Descending"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "{job=\"kubernetes-events\", cluster=~\"$cluster\"} |= \"type=Warning\"",
+     "maxLines": 200
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "type": "logs",
+   "title": "Pod logs",
+   "gridPos": {
+    "x": 0,
+    "y": 15,
+    "w": 24,
+    "h": 16
+   },
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "options": {
+    "showTime": true,
+    "wrapLogMessage": true,
+    "sortOrder": "Descending",
+    "showLabels": false,
+    "enableLogDetails": true
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "{cluster=~\"$cluster\", namespace=~\"$namespace\", job!=\"kubernetes-events\"} |= \"$search\"",
+     "maxLines": 1000
+    }
+   ]
+  }
+ ]
+}

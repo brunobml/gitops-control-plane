@@ -8,3 +8,4 @@ configMapGenerator:
   - name: grafana-dashboards-lab
     files:
       - platform-overview.json
+      - logs-and-events.json

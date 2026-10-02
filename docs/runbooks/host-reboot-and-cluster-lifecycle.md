@@ -225,3 +225,9 @@ The synthetic order probe on a spoke could not get a marker message processed fo
 1. `make post-bootstrap` (re-provisions worker keys, restarts stale workers) — **Issue F**.
 2. Probe logs: `kubectl --context k3d-<spoke> -n platform-probes logs deploy/synthetic-order-probe`.
 *SyntheticProbeStale*: the probe itself stopped running; check that Deployment.
+
+### Alert: LokiDown / LogShipperDown / LogsMissing
+Logs are not being collected or stored (Phase 5 Track F). Metrics and alerts keep working; only Grafana's log panels are affected.
+1. `LokiDown`: `kubectl --context k3d-hub-cluster -n monitoring get pods loki-0`; its volume: `get pvc storage-loki-0` (7-day retention, 5 GiB).
+2. `LogShipperDown`: Alloy pod on that cluster: `kubectl --context k3d-<cluster> -n monitoring get pods -l app.kubernetes.io/name=alloy`; Argo CD app `addon-alloy` (hub) / `addon-logging-<spoke>`.
+3. `LogsMissing` / `LokiIngestionErrors`: Alloy runs but cannot push: `kubectl -n monitoring logs deploy/alloy -c alloy`; a spoke needs `monitoring/remote-write-credentials` (`bash scripts/setup-observability-secrets.sh` re-creates it) and the hub ingress `monitoring/loki-push`.

@@ -132,6 +132,18 @@ extraScrapeConfigs: |
       - {source_labels: [module], target_label: __param_module}
       - {source_labels: [__param_target], target_label: instance}
       - {target_label: __address__, replacement: blackbox-prometheus-blackbox-exporter.monitoring.svc:9115}
+  # Phase 5 F.4: log pipeline health on the hub (Alloy shipping, Loki itself)
+  - job_name: alloy
+    static_configs:
+      - targets: ["alloy.monitoring.svc:12345"]
+        labels: {cluster: hub}
+    metric_relabel_configs:
+      - {source_labels: [__name__], regex: "loki_write_(sent_entries_total|dropped_entries_total|request_duration_seconds_count)", action: keep}
+  - job_name: loki
+    static_configs:
+      - targets: ["loki.monitoring.svc:3100"]
+    metric_relabel_configs:
+      - {source_labels: [__name__], regex: "loki_build_info|loki_distributor_lines_received_total", action: keep}
 
 # Phase 5 B: alerts for failure modes seen in Phases 2-4. Each has a runbook section.
 serverFiles:
@@ -146,6 +158,7 @@ serverFiles:
             annotations:
               summary: "Application {{ $labels.name }} is {{ $labels.health_status }}"
               runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-argoappdegraded--argoappoutofsync
+              logs: "http://grafana.localhost:8080/d/lab-logs?var-namespace={{ $labels.dest_namespace }}"
           - alert: ArgoAppOutOfSync
             # argo-cd itself is manual-sync by design (Phase 3 D-32)
             expr: argocd_app_info{sync_status!="Synced", name!="argo-cd"}
@@ -195,6 +208,7 @@ serverFiles:
             annotations:
               summary: "Kyverno is not running on {{ $labels.cluster }}: image verification is not enforced"
               runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-kyvernodown
+              logs: "http://grafana.localhost:8080/d/lab-logs?var-cluster={{ $labels.cluster }}&var-namespace=kyverno"
           - alert: KyvernoSlowAdmission
             expr: histogram_quantile(0.95, sum by (le, cluster) (rate(kyverno_admission_review_duration_seconds_bucket[5m]))) > 15
             for: 5m
@@ -209,6 +223,38 @@ serverFiles:
             annotations:
               summary: "kro or ACK controller not running on {{ $labels.cluster }}"
               runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spokeagentdown--spokecontrollerdown
+              logs: "http://grafana.localhost:8080/d/lab-logs?var-cluster={{ $labels.cluster }}&var-namespace=kro&var-namespace=ack-system"
+      - name: lab.logs
+        rules:
+          - alert: LokiDown
+            expr: up{job="loki"} == 0 or absent(up{job="loki"})
+            for: 5m
+            labels: {severity: critical}
+            annotations:
+              summary: "Loki is down: no logs are stored (Grafana logs panels empty)"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-lokidown--logshipperdown--logsmissing
+          - alert: LogShipperDown
+            # spokes: agent alive but no healthy Alloy target; hub: Alloy scrape missing or down
+            expr: (count by (cluster) (up{job="agent"} == 1) unless count by (cluster) (up{job="alloy"} == 1)) or (up{job="alloy", cluster="hub"} == 0) or absent(up{job="alloy", cluster="hub"})
+            for: 5m
+            labels: {severity: warning}
+            annotations:
+              summary: "Alloy is not running on {{ $labels.cluster }}: its logs are not collected"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-lokidown--logshipperdown--logsmissing
+          - alert: LogsMissing
+            expr: sum by (cluster) (rate(loki_write_sent_entries_total[15m])) == 0
+            for: 15m
+            labels: {severity: warning}
+            annotations:
+              summary: "No log lines shipped from {{ $labels.cluster }} for 15 min"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-lokidown--logshipperdown--logsmissing
+          - alert: LokiIngestionErrors
+            expr: sum by (cluster, reason) (rate(loki_write_dropped_entries_total[10m])) > 0
+            for: 10m
+            labels: {severity: warning}
+            annotations:
+              summary: "{{ $labels.cluster }} is dropping log lines ({{ $labels.reason }})"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-lokidown--logshipperdown--logsmissing
       - name: lab.probes
         rules:
           - alert: OrdersNotProcessed
@@ -219,6 +265,7 @@ serverFiles:
             annotations:
               summary: "Synthetic order not processed in {{ $labels.namespace }} on {{ $labels.cluster }}"
               runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-ordersnotprocessed
+              logs: "http://grafana.localhost:8080/d/lab-logs?var-cluster={{ $labels.cluster }}&var-namespace={{ $labels.namespace }}"
           - alert: SyntheticProbeStale
             expr: time() - lab_order_e2e_last_run_timestamp_seconds > 900
             for: 5m
