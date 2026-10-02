@@ -54,6 +54,8 @@ spec:
             cookie_expire = "10h"
             cookie_refresh = "1h"
             set_xauthrequest = true
+            # /oauth2/sign_out also ends the Keycloak session (called server-side with the ID token).
+            backend_logout_url = "http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/logout?id_token_hint={id_token}"
         # Single replica in the lab; a PDB with minAvailable 1 would block node drains.
         podDisruptionBudget:
           enabled: false

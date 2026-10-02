@@ -92,6 +92,9 @@ configs:
       clientID: argocd
       enablePKCEAuthentication: true
       requestedScopes: ["openid", "profile", "email"]
+      # Logging out of Argo CD also ends the Keycloak session (RP-initiated logout); otherwise the
+      # next "Log in via Keycloak" silently signs the same user back in and users cannot switch.
+      logoutURL: http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/logout?id_token_hint={{token}}&post_logout_redirect_uri={{logoutRedirectURL}}
     # Phase 3 C.2: every sync runs as the destinationServiceAccounts identity of its AppProject
     # (see scripts/audit-impersonation.sh; rollback: scripts/rollback-argocd-impersonation.sh).
     application.sync.impersonation.enabled: "true"
