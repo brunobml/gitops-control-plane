@@ -2,6 +2,7 @@
 # Phase 3 B.7 pre-flight: the one documented step after `make bootstrap`. Idempotent; on a
 # running lab it only acts where something is missing or stale.
 #
+#  0. Renew spoke/Headlamp tokens with fewer than 7 days left (Phase 5 D.2).
 #  1. Discover tenant workloads from the tenant-workloads ApplicationSet (Phase 4 C.2) and wait
 #     for their namespaces (CARM account annotation) and QueueBackedServices.
 #  2. SSO prerequisites: restart CoreDNS when the keycloak.localhost rewrite changed (its
@@ -21,6 +22,7 @@ SECRET_DIR="${GITOPS_LAB_SECRET_DIR:-$HOME/.config/gitops-lab}"
 E=(--endpoint-url=http://localhost:5000 --region us-east-1)
 TIMEOUT_NS=600
 TIMEOUT_APPS=900
+RENEW_DAYS=7
 
 ARGOCD_CFG=$(mktemp)
 trap 'rm -f "$ARGOCD_CFG"' EXIT
@@ -28,7 +30,22 @@ argocd login localhost:8080 --plaintext --grpc-web --skip-test-tls --config "$AR
   --username platform-admin --password "$(cat "${SECRET_DIR}/argocd-platform-admin.password")" </dev/null >/dev/null
 A=(argocd --config "$ARGOCD_CFG")
 
-echo "[1/7] Discovering tenant workloads (tenant-workloads registrations) and waiting for their namespaces..."
+echo "[1/9] Credential expiry (renew when fewer than ${RENEW_DAYS} days are left)..."
+# Phase 5 D.2 (owner decision O-4): tokens are renewed here, not on a calendar. Expiries come from
+# monitoring/credential-expiry (written whenever a token is minted); missing data also renews.
+min_exp=$(kubectl --context k3d-hub-cluster -n monitoring get configmap credential-expiry -o json 2>/dev/null \
+  | jq -r '[.data // {} | to_entries[] | select(.key|test("^(argocd|headlamp)-")) | .value | tonumber] | if length >= 5 then min else 0 end' || echo 0)
+days_left=$(( (${min_exp:-0} - $(date +%s)) / 86400 ))
+if (( ${min_exp:-0} == 0 || days_left < RENEW_DAYS )); then
+  echo "  ↻ renewing spoke and Headlamp tokens (shortest left: ${days_left} days)"
+  # register-spokes.sh calls the argocd CLI; ARGOCD_OPTS points it at this script's own session.
+  ARGOCD_OPTS="--config ${ARGOCD_CFG}" bash "${SCRIPT_DIR}/register-spokes.sh" | sed 's/^/  /'
+  bash "${SCRIPT_DIR}/../addons/headlamp/setup-credentials.sh" | sed 's/^/  /'
+else
+  echo "  ✔ shortest credential lifetime left: ${days_left} days"
+fi
+
+echo "[2/9] Discovering tenant workloads (tenant-workloads registrations) and waiting for their namespaces..."
 # Phase 4 C.2: workloads are whatever tenants registered, not a fixed list. Each Application of
 # the tenant-workloads ApplicationSet names a spoke and namespace; the namespace's
 # QueueBackedService gives the app name and environment (Secret <name>-<env>-aws).
@@ -55,7 +72,7 @@ for t in $targets; do
   done < <(kubectl --context "k3d-${spoke}" -n "$ns" get queuebackedservice -o json | jq -r '.items[] | "\(.spec.name) \(.spec.environment)"')
 done
 
-echo "[2/7] SSO prerequisites (CoreDNS rewrite, Keycloak)..."
+echo "[3/9] SSO prerequisites (CoreDNS rewrite, Keycloak)..."
 H=(kubectl --context k3d-hub-cluster)
 t0=$(date +%s)
 until "${H[@]}" -n kube-system get cm coredns-custom >/dev/null 2>&1; do
@@ -79,7 +96,7 @@ done
 "${H[@]}" -n keycloak rollout status deploy/keycloak --timeout=600s >/dev/null
 echo "  ✔ Keycloak Ready (issuer $(curl -s http://keycloak.localhost:8080/realms/lab/.well-known/openid-configuration | jq -r .issuer))"
 
-echo "[3/7] Worker credentials..."
+echo "[4/9] Worker credentials..."
 declare -A PROVISIONED=()
 for w in "${WORKLOADS[@]}"; do
   IFS=: read -r spoke ns name env <<<"$w"
@@ -101,7 +118,7 @@ for w in "${WORKLOADS[@]}"; do
   fi
 done
 
-echo "[4/7] Workers running with their Secret's key..."
+echo "[5/9] Workers running with their Secret's key..."
 for w in "${WORKLOADS[@]}"; do
   IFS=: read -r spoke ns name env <<<"$w"
   K=(kubectl --context "k3d-${spoke}" -n "$ns")
@@ -125,7 +142,10 @@ for w in "${WORKLOADS[@]}"; do
   unset want have
 done
 
-echo "[5/7] Argo CD self-management (argo-cd Application, manual sync by design)..."
+echo "[6/9] Orphans of deregistered tenant apps (owner decision O-3)..."
+bash "${SCRIPT_DIR}/orphans.sh" | sed 's/^/  /'
+
+echo "[7/9] Argo CD self-management (argo-cd Application, manual sync by design)..."
 if [[ "$("${A[@]}" app get argo-cd -o json | jq -r .status.sync.status)" != "Synced" ]]; then
   "${A[@]}" app sync argo-cd --timeout 300 >/dev/null
   "${A[@]}" app wait argo-cd --health --sync --timeout 300 >/dev/null
@@ -134,7 +154,7 @@ else
   echo "  ✔ argo-cd already Synced"
 fi
 
-echo "[6/7] All Applications Synced/Healthy..."
+echo "[8/9] All Applications Synced/Healthy..."
 t0=$(date +%s)
 while :; do
   bad=$(kubectl --context k3d-hub-cluster -n argocd get applications -o json \
@@ -148,5 +168,5 @@ while :; do
   sleep 15
 done
 
-echo "[7/7] Smoke test..."
+echo "[9/9] Smoke test..."
 bash "${SCRIPT_DIR}/smoke-test-hub-spoke.sh"

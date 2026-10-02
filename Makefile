@@ -1,4 +1,4 @@
-.PHONY: all setup start stop push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints help
+.PHONY: orphans all setup start stop push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints help
 
 ROOT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 REPOS_DIR ?= $(abspath $(ROOT_DIR)/..)
@@ -14,6 +14,7 @@ help:
 	@echo "  make push                - Push all repositories to GitHub (origin main)"
 	@echo "  make bootstrap           - Apply root-control-plane Argo CD application to Hub"
 	@echo "  make post-bootstrap      - After bootstrap: worker credentials, adopt argo-cd, resync, smoke test"
+	@echo "  make orphans               - Report (dry run) what deregistered tenant apps left behind; post-bootstrap removes it"
 	@echo "  make rotate-spoke-tokens - Rotate 30-day TokenRequest tokens for Argo CD spokes and Headlamp"
 	@echo "  make promote-blueprints  - Annotate spoke cluster secrets with revisions from clusters/blueprint-revisions.env"
 	@echo "  make password            - Print Argo CD web UI admin password"
@@ -108,6 +109,9 @@ status:
 	@echo ""
 	@echo "=== CENTRAL MOTO CLOUD SQS QUEUES ==="
 	@AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs list-queues --output table 2>/dev/null || echo "No queues found."
+
+orphans:
+	@bash $(ROOT_DIR)/scripts/orphans.sh --dry-run
 
 post-bootstrap:
 	@bash $(ROOT_DIR)/scripts/post-bootstrap.sh

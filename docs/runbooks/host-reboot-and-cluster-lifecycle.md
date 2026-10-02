@@ -186,3 +186,42 @@ kubectl --context k3d-hub-cluster -n oauth2-proxy logs deploy/oauth2-proxy --tai
 * Keycloak keeps no state: deleting its pod re-imports realm `lab` from Git (`addons/keycloak/realm-lab.json`), with passwords from the `keycloak-realm-secrets` Secret. Only active sessions are lost.
 * If the in-cluster issuer check fails (smoke stage 10 "argocd-server" side), run `make post-bootstrap`. It restarts CoreDNS when `coredns-custom` changed (CoreDNS does not reload imported files).
 * Lost or rotated SSO passwords: delete the file in `~/.config/gitops-lab/`, run `bash scripts/setup-keycloak-secrets.sh`, then restart Keycloak (`kubectl -n keycloak rollout restart deploy/keycloak`) and oauth2-proxy if its secret changed.
+
+---
+
+## Alerts (Phase 5)
+Alerts are shown in **Grafana** (`http://grafana.localhost:8080`, Keycloak SSO; dashboard *GitOps Lab → Platform overview*, Alertmanager data source). They stay lab-local (owner decision O-1). Each alert's `runbook` annotation points to a section below.
+
+### Alert: ArgoAppDegraded / ArgoAppOutOfSync
+An Application is not Healthy for 10 min, or not Synced for 30 min (`argo-cd` itself is excluded: it is manual-sync by design).
+1. Open the app in Argo CD and read the failing resource and its message.
+2. Retry exhaustion after a cold start or reboot: `make post-bootstrap` (step 8 re-syncs stragglers). Do not use `--force` (Phase 3 D-31).
+3. Tenant app Degraded with `FailedCreate` events in its ReplicaSet: check image verification (unsigned image, see Issue/Alert *KyvernoDown*).
+
+### Alert: ArgoClusterUnreachable
+Argo CD cannot reach a spoke (`argocd_cluster_connection_status != 1`).
+1. Docker or host restart: see **Issue A/B**; agent cross-wired after an IP reshuffle: **Issue E**.
+2. Expired token: `make post-bootstrap` renews tokens automatically when < 7 days are left; force it with `make rotate-spoke-tokens`.
+
+### Alert: SpokeTokenExpiringSoon
+A spoke or Headlamp token expires within 7 days (`lab_credential_expiry_timestamp_seconds`).
+Run `make post-bootstrap` (renews automatically) or `make rotate-spoke-tokens`. *CredentialExpiryUnknown* means the exporter or the `monitoring/credential-expiry` ConfigMap is missing: `make rotate-spoke-tokens` rewrites it.
+
+### Alert: SpokeAgentDown / SpokeControllerDown
+No metrics from a spoke's Prometheus agent, or kro / ACK is not running there.
+1. `kubectl --context k3d-<spoke> -n monitoring get pods` / `-n kro` / `-n ack-system get pods`.
+2. Node NotReady after a reboot: **Issue E**. Agent cannot write to the hub: check `monitoring/remote-write-credentials` on the spoke (`bash scripts/setup-observability-secrets.sh` re-creates it).
+
+### Alert: KyvernoDown
+Kyverno is not running on a spoke. A graceful stop removes its webhooks, so **tenant images are not verified** until it is back (Phase 4 D-10; two replicas + PDB make this rare, Phase 5 C.1).
+1. `kubectl --context k3d-<spoke> -n kyverno get pods,deploy`; Argo CD app `addon-kyverno-<spoke>` self-heals the Deployment.
+2. *KyvernoSlowAdmission*: p95 admission > 15 s (timeout is 30 s); usually GHCR/Sigstore reachability.
+
+### Alert: ProbeFailed
+A synthetic HTTP probe fails (Argo CD UI, Grafana UI, Keycloak OIDC discovery, moto, or **Headlamp no longer requiring SSO**). Check the named component; for `headlamp-sso` see Issue G and the Traefik middleware `headlamp/oauth2-forward-auth`.
+
+### Alert: OrdersNotProcessed
+The synthetic order probe on a spoke could not get a marker message processed for 10 min (`lab_order_e2e_success == 0`). This is the Phase 3 F-1 failure (worker keys lost after a moto restart) or a broken worker.
+1. `make post-bootstrap` (re-provisions worker keys, restarts stale workers) — **Issue F**.
+2. Probe logs: `kubectl --context k3d-<spoke> -n platform-probes logs deploy/synthetic-order-probe`.
+*SyntheticProbeStale*: the probe itself stopped running; check that Deployment.
