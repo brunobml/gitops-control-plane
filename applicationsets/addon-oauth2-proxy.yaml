@@ -32,6 +32,8 @@ spec:
             oidc_issuer_url = "http://keycloak.localhost:8080/realms/lab"
             redirect_url = "http://headlamp.localhost:8080/oauth2/callback"
             code_challenge_method = "S256"
+            # The groups claim comes from the client's group mapper; the realm has no "groups" scope.
+            scope = "openid email profile"
             email_domains = ["*"]
             allowed_groups = ["lab-platform-admins", "lab-tenant-a"]
             # ForwardAuth mode: answer 202 when signed in; otherwise redirect to Keycloak.
