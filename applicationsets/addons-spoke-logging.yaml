@@ -1,0 +1,57 @@
+# Phase 5 F.2: Alloy (pod logs + events -> hub Loki) on spokes labelled logging=enabled
+# (nonprod first, prod with the next platform-catalog tag; register-spokes.sh then labels both).
+# Values from platform-catalog at the cluster's blueprints-revision; CLUSTER comes from here.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: addons-spoke-logging
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            addons-managed: "true"
+            logging: enabled
+  template:
+    metadata:
+      name: "addon-logging-{{ .name }}"
+      labels:
+        app.kubernetes.io/part-of: platform-addons
+        addon: logging
+    spec:
+      project: platform-addons
+      sources:
+        - chart: alloy
+          repoURL: https://grafana.github.io/helm-charts
+          targetRevision: "1.13.0"
+          helm:
+            releaseName: alloy
+            valueFiles:
+              - "$values/controllers/observability/values-alloy.yaml"
+            parameters:
+              - name: alloy.extraEnv[0].value
+                value: "{{ .name }}"
+        - repoURL: https://github.com/brunobml/platform-catalog.git
+          targetRevision: '{{ index .metadata.annotations "blueprints-revision" }}'
+          ref: values
+      destination:
+        server: "{{ .server }}"
+        namespace: monitoring
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m

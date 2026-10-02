@@ -1,0 +1,116 @@
+# Phase 5 F.2: Alloy on the hub (chart grafana/alloy 1.13.0, Alloy v1.20.0) - pod logs + events -> Loki.
+image:
+  digest: "sha256:f111cce835516c5f99166342be7038496b52ced16667be5a11e19258a3e4cd30"  # v1.20.0
+configReloader:
+  image:
+    digest: "sha256:142a1f11df8dd165f00375b0b1826aecb9c9adeb05c39855893138d7c7575ff7"  # v0.94.0
+  securityContext:                     # Phase 5 F.0: PSS restricted
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities: {drop: ["ALL"]}
+    runAsNonRoot: true
+    runAsUser: 65534
+
+# Least privilege: the chart's ClusterRole reads secrets, configmaps, nodes, ... and always appends
+# node rules, so it is replaced by an exact one below (Phase 5 F.2).
+rbac:
+  create: false
+crds:
+  create: false
+global:
+  podSecurityContext:                  # Phase 5 F.0: PSS restricted
+    seccompProfile: {type: RuntimeDefault}
+    fsGroup: 473
+extraObjects:
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata: {name: alloy-logs}
+    rules:
+      - apiGroups: [""]
+        resources: [pods, pods/log, namespaces, events]
+        verbs: [get, list, watch]
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata: {name: alloy-logs}
+    roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: alloy-logs}
+    subjects:
+      - {kind: ServiceAccount, name: alloy, namespace: monitoring}
+
+controller:
+  type: deployment                     # logs are read through the Kubernetes API, no node agent needed
+  replicas: 1
+  volumes:
+    extra:
+      - name: alloy-data
+        emptyDir: {}
+alloy:
+  storagePath: /tmp/alloy
+  stabilityLevel: generally-available
+  securityContext:                     # Phase 5 F.0: PSS restricted (image default user is root)
+    runAsNonRoot: true
+    runAsUser: 473
+    runAsGroup: 473
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities: {drop: ["ALL"]}
+  resources:
+    requests: {cpu: 20m, memory: 96Mi}
+    limits: {memory: 384Mi}
+  mounts:
+    extra:
+      - {name: alloy-data, mountPath: /tmp/alloy}
+  configMap:
+    content: |
+      // Pod logs through the Kubernetes API (no hostPath, no privileged pod).
+      discovery.kubernetes "pods" {
+        role = "pod"
+      }
+      discovery.relabel "pods" {
+        targets = discovery.kubernetes.pods.targets
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "container"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+          target_label  = "app"
+        }
+        // Review remark R-5: Alloy's own logs are not collected (no feedback loop).
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+          regex         = "alloy"
+          action        = "drop"
+        }
+      }
+      loki.source.kubernetes "pods" {
+        targets    = discovery.relabel.pods.output
+        forward_to = [loki.process.pods.receiver]
+      }
+      loki.process "pods" {
+        // Review remark R-5: drop high-frequency health-check access logs.
+        stage.drop {
+          expression          = ".*(kube-probe/|GET /healthz|GET /ready|GET /ping).*"
+          drop_counter_reason = "health_checks"
+        }
+        forward_to = [loki.write.hub.receiver]
+      }
+      // Kubernetes events (OOMKilled, BackOff, FailedCreate, ...) outlive the one-hour event TTL in Loki.
+      loki.source.kubernetes_events "events" {
+        job_name   = "kubernetes-events"
+        log_format = "logfmt"
+        forward_to = [loki.write.hub.receiver]
+      }
+      loki.write "hub" {
+        endpoint {
+          url = "http://loki.monitoring.svc:3100/loki/api/v1/push"
+        }
+        external_labels = { cluster = "hub" }
+      }

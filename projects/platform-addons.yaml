@@ -15,6 +15,7 @@ spec:
     - "public.ecr.aws/aws-controllers-k8s"
     - "https://kyverno.github.io/kyverno/"   # Phase 4 B.3
     - "https://prometheus-community.github.io/helm-charts"   # Phase 5 A.3
+    - "https://grafana.github.io/helm-charts"                # Phase 5 F.2 Alloy
   destinations:
     - name: "spoke-nonprod"
       namespace: "kro"
