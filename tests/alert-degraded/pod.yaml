@@ -1,0 +1,11 @@
+# Phase 5 X5b alert test only (temporary): a Pod that fails -> Argo CD health Degraded.
+apiVersion: v1
+kind: Pod
+metadata: {name: alert-test-degraded, namespace: default}
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  containers:
+    - name: fail
+      image: docker.io/library/busybox:1.36
+      command: ["sh", "-c", "exit 1"]
