@@ -13,6 +13,7 @@ spec:
     - "https://github.com/brunobml/gitops-control-plane.git"
     - "registry.k8s.io/kro/charts"
     - "public.ecr.aws/aws-controllers-k8s"
+    - "https://kyverno.github.io/kyverno/"   # Phase 4 B.3
   destinations:
     - name: "spoke-nonprod"
       namespace: "kro"
@@ -38,6 +39,15 @@ spec:
       namespace: "kube-system"
     - server: "https://k3d-spoke-prod-server-0:6443"
       namespace: "kube-system"
+    # Phase 4 B.3: Kyverno
+    - name: "spoke-nonprod"
+      namespace: "kyverno"
+    - name: "spoke-prod"
+      namespace: "kyverno"
+    - server: "https://k3d-spoke-nonprod-server-0:6443"
+      namespace: "kyverno"
+    - server: "https://k3d-spoke-prod-server-0:6443"
+      namespace: "kyverno"
   # Controllers ship CRDs, ClusterRoles and webhooks; cluster-scoped access is intended here
   # (narrowed later by C.3 kro aggregation and C.2 destination impersonation).
   clusterResourceWhitelist:
