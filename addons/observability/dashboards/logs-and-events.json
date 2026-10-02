@@ -90,12 +90,48 @@
    ]
   },
   {
-   "id": 2,
-   "type": "logs",
-   "title": "Warning events (OOMKilled, BackOff, FailedCreate, Unhealthy, Evicted, ...)",
+   "id": 4,
+   "type": "table",
+   "title": "Containers OOM-killed (last termination reason; Kubernetes emits no event for this)",
    "gridPos": {
     "x": 0,
     "y": 6,
+    "w": 24,
+    "h": 6
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "kube_pod_container_status_last_terminated_reason{reason=\"OOMKilled\"} == 1",
+     "format": "table",
+     "instant": true
+    }
+   ],
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "includeByName": {
+       "cluster": true,
+       "namespace": true,
+       "pod": true,
+       "container": true
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "type": "logs",
+   "title": "Warning events (BackOff, FailedCreate, Unhealthy, Evicted, ...)",
+   "gridPos": {
+    "x": 0,
+    "y": 12,
     "w": 24,
     "h": 9
    },
@@ -122,7 +158,7 @@
    "title": "Pod logs",
    "gridPos": {
     "x": 0,
-    "y": 15,
+    "y": 21,
     "w": 24,
     "h": 16
    },

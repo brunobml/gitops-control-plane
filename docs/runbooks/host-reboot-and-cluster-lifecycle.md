@@ -231,3 +231,8 @@ Logs are not being collected or stored (Phase 5 Track F). Metrics and alerts kee
 1. `LokiDown`: `kubectl --context k3d-hub-cluster -n monitoring get pods loki-0`; its volume: `get pvc storage-loki-0` (7-day retention, 5 GiB).
 2. `LogShipperDown`: Alloy pod on that cluster: `kubectl --context k3d-<cluster> -n monitoring get pods -l app.kubernetes.io/name=alloy`; Argo CD app `addon-alloy` (hub) / `addon-logging-<spoke>`.
 3. `LogsMissing` / `LokiIngestionErrors`: Alloy runs but cannot push: `kubectl -n monitoring logs deploy/alloy -c alloy`; a spoke needs `monitoring/remote-write-credentials` (`bash scripts/setup-observability-secrets.sh` re-creates it) and the hub ingress `monitoring/loki-push`.
+
+### Alert: ContainerOOMKilled
+A container restarted because it exceeded its memory limit (Kubernetes emits no event for this; the reason comes from kube-state-metrics). Example: Grafana at 384 Mi on 2026-10-02.
+1. Grafana → *Logs & events* (the alert's `logs` link): the container's last lines before the kill, and the *Containers OOM-killed* table.
+2. Raise the limit in the component's values (Git) if the usage is legitimate; otherwise investigate the leak.

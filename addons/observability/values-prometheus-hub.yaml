@@ -226,6 +226,15 @@ serverFiles:
               logs: "http://grafana.localhost:8080/d/lab-logs?var-cluster={{ $labels.cluster }}&var-namespace=kro&var-namespace=ack-system"
       - name: lab.logs
         rules:
+          - alert: ContainerOOMKilled
+            # Kubernetes emits no OOMKilled event; the reason is only in the container status
+            # (kube-state-metrics). Phase 5 owner test: Grafana was OOM-killed unnoticed.
+            expr: (sum by (cluster, namespace, pod, container) (increase(kube_pod_container_status_restarts_total[15m])) > 0) and on (cluster, namespace, pod, container) (kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1)
+            labels: {severity: warning}
+            annotations:
+              summary: "{{ $labels.namespace }}/{{ $labels.pod }} container {{ $labels.container }} was OOM-killed{{ with $labels.cluster }} on {{ . }}{{ end }}"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-containeroomkilled
+              logs: "http://grafana.localhost:8080/d/lab-logs?var-cluster={{ $labels.cluster }}&var-namespace={{ $labels.namespace }}"
           - alert: LokiDown
             expr: up{job="loki"} == 0 or absent(up{job="loki"})
             for: 5m

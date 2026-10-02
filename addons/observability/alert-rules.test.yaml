@@ -143,3 +143,14 @@ tests:
         exp_alerts:
           - exp_labels: {severity: critical, job: loki}
             exp_annotations: {summary: "Loki is down: no logs are stored (Grafana logs panels empty)", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-lokidown--logshipperdown--logsmissing"}
+  - name: ContainerOOMKilled after a restart with reason OOMKilled
+    interval: 1m
+    input_series:
+      - {series: 'kube_pod_container_status_restarts_total{cluster="spoke-nonprod",namespace="x",pod="p",container="c"}', values: '0 0 1 1 1'}
+      - {series: 'kube_pod_container_status_last_terminated_reason{cluster="spoke-nonprod",namespace="x",pod="p",container="c",reason="OOMKilled"}', values: '1x5'}
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: ContainerOOMKilled
+        exp_alerts:
+          - exp_labels: {severity: warning, cluster: spoke-nonprod, namespace: x, pod: p, container: c}
+            exp_annotations: {summary: "x/p container c was OOM-killed on spoke-nonprod", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-containeroomkilled", logs: "http://grafana.localhost:8080/d/lab-logs?var-cluster=spoke-nonprod&var-namespace=x"}
