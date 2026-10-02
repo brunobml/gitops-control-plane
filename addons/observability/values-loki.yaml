@@ -1,0 +1,95 @@
+# Phase 5 F.1: Loki on the hub (chart grafana-community/loki 18.13.7, Loki 3.7.8; the grafana/loki
+# chart is Enterprise-only since 2026-03-16). Single binary, filesystem storage, 7-day retention.
+# No UI ingress: logs are read in Grafana (Keycloak SSO). The only ingress is the push path for the
+# spoke Alloy agents, behind the same per-spoke basic auth as remote write (review remarks R-1, R-7).
+deploymentMode: SingleBinary
+
+loki:
+  image:
+    tag: "3.7.8@sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193"
+  auth_enabled: false            # single tenant (owner decision O-6)
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: filesystem
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index: {prefix: index_, period: 24h}
+  limits_config:
+    retention_period: 168h       # 7 days (owner decision O-7)
+    ingestion_rate_mb: 8
+    ingestion_burst_size_mb: 16
+    max_query_lookback: 168h
+  compactor:
+    retention_enabled: true
+    delete_request_store: filesystem
+  containerSecurityContext:      # Phase 5 F.0: PSS restricted
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities: {drop: ["ALL"]}
+
+singleBinary:
+  replicas: 1                    # review remark R-6: never more than one writer on the volume
+  persistence:
+    enabled: true
+    size: 5Gi
+  resources:
+    requests: {cpu: 50m, memory: 192Mi}
+    limits: {memory: 768Mi}
+
+read: {replicas: 0}
+write: {replicas: 0}
+backend: {replicas: 0}
+gateway: {enabled: false}
+chunksCache: {enabled: false}
+resultsCache: {enabled: false}
+lokiCanary: {enabled: false}
+test: {enabled: false}
+minio: {enabled: false}
+sidecar:
+  rules: {enabled: false}
+monitoring:
+  selfMonitoring: {enabled: false}
+  serviceMonitor: {enabled: false}
+
+extraObjects:
+  # Push endpoint for spoke Alloy agents: only /loki/api/v1/push, only with a spoke credential
+  # (reuses monitoring/remote-write-auth, i.e. the same per-spoke secrets as metrics).
+  - apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: loki-push
+      namespace: monitoring
+      annotations:
+        traefik.ingress.kubernetes.io/router.middlewares: monitoring-remote-write-auth@kubernetescrd
+    spec:
+      ingressClassName: traefik
+      rules:
+        - host: k3d-hub-cluster-serverlb
+          http:
+            paths:
+              - path: /loki/api/v1/push
+                pathType: Exact
+                backend:
+                  service: {name: loki, port: {number: 3100}}
+  # Loki is reachable only from Traefik (push), Grafana (queries), the hub Alloy and Prometheus.
+  - apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: loki
+      namespace: monitoring
+    spec:
+      podSelector:
+        matchLabels: {app.kubernetes.io/name: loki}
+      policyTypes: [Ingress]
+      ingress:
+        - from:
+            - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: traefik}}
+            - podSelector: {matchLabels: {app.kubernetes.io/name: grafana}}
+            - podSelector: {matchLabels: {app.kubernetes.io/name: alloy}}
+            - podSelector: {matchLabels: {app.kubernetes.io/name: prometheus, app.kubernetes.io/component: server}}
+          ports: [{port: 3100}]

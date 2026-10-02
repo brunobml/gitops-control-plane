@@ -1,0 +1,25 @@
+# Phase 5 F.1: Loki (log store) on the hub.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: addon-loki
+  namespace: argocd
+  labels: {app.kubernetes.io/name: loki, app.kubernetes.io/part-of: platform-control-plane}
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: control-plane
+  sources:
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: loki
+      targetRevision: 18.13.7
+      helm:
+        releaseName: loki
+        valueFiles: [$values/addons/observability/values-loki.yaml]
+    - repoURL: https://github.com/brunobml/gitops-control-plane.git
+      targetRevision: main
+      ref: values
+  destination: {server: https://kubernetes.default.svc, namespace: monitoring}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    retry: {limit: 5, backoff: {duration: 10s, factor: 2, maxDuration: 3m}}
