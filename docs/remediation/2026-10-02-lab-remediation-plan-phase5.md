@@ -1,7 +1,7 @@
 # Lab Remediation Plan: Phase 5 — Observability, Self-Healing Operations & Residual-Risk Closure
 ## Hub-and-Spoke GitOps Control Plane (2026-10-02)
 
-* **Plan Version:** 1.0 (initial submission)
+* **Plan Version:** 1.1 (v1.0 approved and implemented for Tracks 0–D; **v1.1 adds Track F, log aggregation**)
 * **Assessment Reference:** [`../assessments/2026-09-30-lab-assessment.md`](../assessments/2026-09-30-lab-assessment.md)
 * **Phase 4 Baseline:** [`2026-10-02-lab-remediation-plan-phase4-validation-05.md`](2026-10-02-lab-remediation-plan-phase4-validation-05.md) and [`…-phase4-crosscheck-05.md`](2026-10-02-lab-remediation-plan-phase4-crosscheck-05.md) (Phase 4 complete; full rebuild accepted)
 * **Target Repositories:** `gitops-control-plane`, `platform-catalog`, `tenant-workloads`
@@ -19,6 +19,7 @@
 | **Reviewed By** | Antigravity (Advanced Agentic AI Peer Reviewer) |
 | **Review Date** | 2026-10-02 |
 | **Authorization Decision** | ✅ **GREEN LIGHT** — Fully approved for execution following the sequenced tracks (§11). Remarks R-0 through R-4 apply. |
+| **v1.1 amendment (Track F)** | ⏳ **AWAITING PEER REVIEW**: Track F (Loki + Alloy, §7a) and the related edits marked *v1.1* below. Nothing of Track F has been executed. Tracks 0–D remain approved under v1.0 and are implemented (reports `implemented-01..04`) |
 | **Execution / validation split** | Each step is executed and reported (`implemented-NN`) by one party and validated (`validation-NN`) by the other. Phase 4 run #05 was executed and validated by the same party; an independent cross-check had to be added afterwards. |
 
 ### Reviewer Decision & Feedback
@@ -52,6 +53,23 @@
 | **O-4** | Token renewal | **Automatic** in `make post-bootstrap` when a spoke or Headlamp token has fewer than 7 days left. You already run it after every `make start` | **Endorsed** |
 | **O-5** | End-of-phase rebuild acceptance (Track E) | **Yes**, in an owner-approved window; executed and validated by different parties | **Endorsed** |
 
+### v1.1 Amendment summary (2026-10-02)
+
+| | |
+|---|---|
+| **Trigger** | Owner, after the Phase 5 Grafana acceptance: *"if the pod goes away I cannot see the logs anyways, so having Loki and Alloy would bring me more close to real life"*. Grafana 13's *Drilldown → Logs* also expects a Loki data source |
+| **Change** | Move **log aggregation** from out-of-scope (§1.2) into scope as **Track F** (§7a), executed **before** Track E so the final rebuild proves logging from Git as well |
+| **Also in F** | **F.0**: Pod Security labels for the Phase 5 `monitoring` namespaces (gap found in the v1.1 pre-flight: they have none, unlike every other platform namespace) |
+| **New owner decisions** | O-6 (who may read logs), O-7 (retention) |
+| **Unchanged** | Tracks 0–D, remarks R-0..R-4, owner decisions O-1..O-5 |
+
+#### Owner decisions requested (v1.1)
+
+| ID | Question | Author's recommendation |
+|---|---|---|
+| **O-6** | Loki in this design has no per-tenant isolation: anyone who can open Grafana can query **all** namespaces' logs (platform namespaces included). Accept for the lab? | **Accept** as a recorded residual. It matches the lab preference "I need to see everything"; `tenant-a-user` is Viewer. Restricting it later = Loki multi-tenancy (`X-Scope-OrgID` per tenant) plus a per-team data source |
+| **O-7** | Log retention | **7 days** (same as metrics); compactor-enforced, 5 GiB volume |
+
 ---
 
 ## 1. Executive Summary & Scope
@@ -79,7 +97,7 @@ Phase 5 adds **lightweight, SSO-protected observability** with alerts for exactl
 | Item | Reason |
 |---|---|
 | kube-prometheus-stack (Prometheus Operator, node-exporter, full dashboards) | Too heavy for the laptop lab and pulls in a CRD-based operator. The plain Prometheus chart with config-file rules covers the needs |
-| Logs aggregation (Loki) | Argo CD and Headlamp already show pod logs; revisit if a need appears |
+| ~~Logs aggregation (Loki)~~ | *v1.1: moved into scope as Track F (owner request: logs of pods that no longer exist)* |
 | TLS on lab UIs | Unchanged Phase 4 residual (loopback only, `*.localhost` secure context) |
 | Renovate / automated digest bumps | Needs a GitHub App or token outside the lab (owner action); can be added later |
 | Argo CD HA, EKS translation | Beyond lab parity goals |
@@ -102,6 +120,16 @@ Phase 5 adds **lightweight, SSO-protected observability** with alerts for exactl
 | F9 | `post-bootstrap.sh` already discovers tenant workloads from `tenant-workloads` registrations (Phase 4 C.2), so orphans can be computed as "exists but not registered" | script | D.1 |
 
 ---
+
+### 2.1 Pre-flight facts for v1.1 (verified 2026-10-02)
+
+| # | Fact | Evidence | Used by |
+|---|---|---|---|
+| F10 | **`grafana/loki` is enterprise-only now.** Since 2026-03-16 the OSS Loki chart is `grafana-community/loki` (**18.13.7**, Loki **3.7.8**); `grafana/loki` 7.3.0 is maintained for GEL only (chart README) | `helm show readme` | F.1 |
+| F11 | A minimal **SingleBinary** Loki (filesystem storage, no gateway, caches, canary or MinIO) renders to 1 StatefulSet + Services; it adds a `k8s-sidecar` for rules (can be disabled) | `helm template` | F.1 |
+| F12 | `grafana/alloy` **1.13.0** (Alloy **v1.20.0**) is maintained; as a `controller.type: deployment` it renders one Deployment + RBAC; the chart's config-reloader runs as 65534/non-root, the Alloy container's securityContext is empty by default | `helm template` | F.2 |
+| F13 | Alloy can tail pod logs **through the Kubernetes API** (`loki.source.kubernetes`) and collect **events** (`loki.source.kubernetes_events`): no hostPath, no privileged pod, no DaemonSet needed at lab scale | Alloy components | F.2 |
+| F14 | The Phase 5 **`monitoring` namespaces have no Pod Security labels** (hub and spokes); `platform-probes`, `keycloak` and tenant namespaces do | `get ns --show-labels` | F.0 |
 
 ## 3. Track 0: Housekeeping
 
@@ -235,9 +263,62 @@ Every alert's `runbook` annotation resolves to a section. New sections cover `Or
 
 ---
 
+## 7a. Track F: Log Aggregation (v1.1)
+
+**Target design**
+
+```
+every cluster (hub, spoke-nonprod, spoke-prod)                hub
+┌─────────────────────────────────────────────┐  push     ┌────────────────────────────────────────┐
+│ Alloy (1 Deployment, non-root, no hostPath) │ ────────► │ Loki SingleBinary (monitoring)          │
+│  pod logs   via Kubernetes API (pods/log)   │  spokes:  │  filesystem TSDB, 7 d retention (O-7)   │
+│  K8s events via Kubernetes API (events)     │  basic    │  no UI ingress; push path only          │
+│  labels: cluster, namespace, pod, container │  auth     │ Grafana: Loki datasource (SSO), links   │
+└─────────────────────────────────────────────┘           └────────────────────────────────────────┘
+```
+
+### Step F.0: Pod Security for `monitoring` (gap F14)
+Label `monitoring` on all three clusters at the strictest level its pods pass (`restricted` where possible, otherwise `baseline` with the reason recorded). The setup script and the Argo CD Applications (`managedNamespaceMetadata`) keep the labels after a rebuild. Verify with `kubectl label --dry-run=server` warnings before enforcing.
+
+### Step F.1: Loki on the hub
+* Application `addon-loki`, chart **`grafana-community/loki` 18.13.7**, `deploymentMode: SingleBinary`, filesystem storage on a 5 GiB PVC, `auth_enabled: false` (single tenant, O-6).
+* Retention 7 days through the compactor (O-7).
+* Gateway, caches, canary, MinIO and the rules sidecar disabled. Images digest-pinned.
+* Ingress: **only** `/loki/api/v1/push` on host `k3d-hub-cluster-serverlb`, behind a basic-auth Middleware. Same pattern as remote write; credentials per spoke from `setup-observability-secrets.sh`, outside Git.
+* NetworkPolicy: Loki is reachable from Traefik (push), Grafana, the hub Alloy and Prometheus (metrics) only.
+
+### Step F.2: Alloy on every cluster
+* Hub: Application `addon-alloy`. Spokes: ApplicationSet `addons-spoke-logging` (label `observability=enabled`), values in `platform-catalog` (promotion gate, nonprod first).
+* `controller.type: deployment`, 1 replica, non-root, read-only root FS. RBAC limited to `get/list/watch` on pods, `pods/log`, namespaces, events.
+* Components: `loki.source.kubernetes` (pod logs) and `loki.source.kubernetes_events`, labelled `cluster`, `namespace`, `pod`, `container`, `app`. `loki.write` goes to the hub (spokes with basic auth from a mounted Secret; the hub writes in-cluster).
+* **Drop noisy or sensitive streams**: Alloy's own logs, and kube-system debug noise if volume demands it. The `orders-processor` worker does not log credentials; that is checked once in F.5 by a search for `AWS_SECRET`/`password` patterns.
+
+### Step F.3: Grafana
+* Loki datasource (provisioned, `uid: loki`), so *Drilldown → Logs* works.
+* Dashboard links: from *Platform overview* and the tenant panels to Explore with `{cluster="…", namespace="…"}`.
+* Alert annotations get a `logs` link for `OrdersNotProcessed`, `KyvernoDown`, `SpokeControllerDown` and `ArgoAppDegraded`.
+* A small *Events* panel: the last Kubernetes warnings per cluster (OOMKilled, BackOff, FailedCreate). Today's Grafana OOM would have been visible there.
+
+### Step F.4: Alerts
+* `LogsMissing`: a cluster sent no log lines for 15 min.
+* `LokiDown`: Loki scrape target down for 5 min.
+* `LokiIngestionErrors`: push errors on the Alloy side, from Alloy's metrics scraped by the agents.
+* Unit tests added to `make test-alert-rules`; live fire tests in F.5.
+
+### Step F.5: Acceptance tests (Track F)
+* Logs of a **deleted pod** are still queryable.
+* Events show a provoked OOMKill / CrashLoop.
+* The push endpoint refuses wrong credentials.
+* `tenant-a-user` (Viewer) can query logs (O-6 residual demonstrated).
+* No secret patterns in a 1-hour sample.
+* Footprint measured.
+* Smoke: stage 12 also checks that the hub has log lines from all three clusters in the last 10 min.
+
 ## 8. Track E: Acceptance
 
 ### Step E.1: Full rebuild (O-5)
+*v1.1: Track E runs **after** Track F; the rebuild must also restore logging (log lines from all three clusters, Loki datasource in Grafana).*
+
 * `make teardown → setup → bootstrap → post-bootstrap` with the observability stack in the build path.
 * **Expected:**
   * all Applications Synced/Healthy (count recorded: about 22 + 4–5 new);
@@ -270,6 +351,20 @@ Every alert's `runbook` annotation resolves to a section. New sections cover `Or
 
 ---
 
+
+**v1.1 additions (Track F)**
+
+| # | Area | Test (cause the failure) | Expected |
+|---|---|---|---|
+| X17 | PSS | `monitoring` namespaces labelled; dry-run admission of every monitoring pod | no violations at the chosen level |
+| X18 | Deleted pod | delete a pod after it logged a marker, then query Loki | marker still found (owner's use case) |
+| X19 | Events | provoke an OOMKill / CrashLoop in a scratch namespace | event visible in Loki / Grafana *Events* panel |
+| X20 | Push auth | push without / with wrong credential to `/loki/api/v1/push`; query path on the same host | 401 / 401 / 404 |
+| X21 | Viewer access (O-6) | `tenant-a-user` queries a platform namespace's logs | allowed (documented residual) |
+| X22 | Secret hygiene | search 1 h of logs for credential patterns | none found |
+| X23 | Log alerts | stop a spoke's Alloy; stop Loki | `LogsMissing` / `LokiDown` fire and resolve |
+| X24 | Footprint | `docker stats` / `kubectl top` before and after | increase recorded (target < 600 MiB working set) |
+
 ## 10. Risk Register & Rollback
 
 | Risk | Likelihood | Impact | Mitigation / Rollback |
@@ -282,6 +377,11 @@ Every alert's `runbook` annotation resolves to a section. New sections cover `Or
 | Automatic token renewal fails mid-way | Low | Med | `register-spokes.sh` verifies each spoke before removing anything (Phase 3 G8 logic); smoke stage 8 still warns |
 | Grafana SSO repeats a Phase 4 defect (redirect, logout, stale session) | Med | Low | Phase 4 lessons applied from the start; X4 tests through Grafana's endpoints |
 | Footprint too high for the laptop | Low | Med | Agents instead of full Prometheus on spokes; no node-exporter or operator; measured (X14) |
+
+| *v1.1* Log volume fills the Loki PVC | Low | Med | 7-day compactor retention; 5 GiB PVC; `kube_persistentvolumeclaim` usage panel; drop noisy streams |
+| *v1.1* Secrets leak into logs | Low | High | F.5 pattern search; Alloy drop stage for matching lines if ever found; Loki not exposed (Grafana SSO only) |
+| *v1.1* Viewer can read platform logs (O-6) | High (by design) | Low (lab) | Recorded residual; multi-tenancy path documented |
+| *v1.1* API-based log tailing load on the API server | Low | Low | 1 Alloy per cluster; lab-scale pod count; measured in X24 |
 
 Rollback for any addon: remove its Application from Git (the root app prunes it; data is disposable).
 
@@ -296,6 +396,7 @@ Rollback for any addon: remove its Application from Git (the root app prunes it;
 | 3 | B.1, B.2, rules + X5–X10 | every alert fired once | M (≈ ½ day) |
 | 4 | spike C.1a, then C.1 | X11 | S |
 | 5 | D.1, D.2, D.3 | X12, X13 | M |
-| 6 | E.1 | owner approval (O-5); other party validates | S (+ validation) |
+| 5a | *v1.1*: F.0 → F.1 → F.2 (hub, then nonprod, then prod via a catalog tag) → F.3 → F.4 → F.5 | v1.1 review approval; each step live-verified | M (≈ ½ day) |
+| 6 | E.1 | owner approval (O-5); other party validates; **after Track F** | S (+ validation) |
 
 Tracks A–D each get their own implementation report and independent validation.
