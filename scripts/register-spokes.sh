@@ -88,10 +88,14 @@ EOF
   # Staggered validation (M2, C1): Verify cluster connection before deleting legacy secret
   echo "Verifying Argo CD cluster connectivity for ${spoke}..."
   status=""
-  for i in {1..15}; do
+  # "Failed" right after a token change can be Argo CD's cached state from the old token (Phase 5
+  # X13 recovery test: renewing an already-broken token read "Failed", then "Successful" seconds
+  # later), so keep polling; only Successful ends early, Unknown is checked directly below.
+  for i in {1..30}; do
     status=$(argocd cluster get "$server_url" --grpc-web -o json 2>/dev/null | jq -r '.connectionState.status // ""' || true)
-    [[ "$status" == "Successful" || "$status" == "Failed" ]] && break
-    sleep 1
+    [[ "$status" == "Successful" ]] && break
+    [[ "$status" == "Unknown" && $i -ge 10 ]] && break
+    sleep 2
   done
 
   # On a fresh hub Argo CD reports "Unknown" (no applications, not monitored) until an app

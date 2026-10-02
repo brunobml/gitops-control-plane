@@ -1,0 +1,105 @@
+# Phase 5 B: promtool unit tests for the hub alert rules (run: make test-alert-rules).
+# The rules file is rendered from values-prometheus-hub.yaml by the make target.
+rule_files: [alerting_rules.yml]
+evaluation_interval: 30s
+tests:
+  - name: KyvernoDown when a spoke's Kyverno target disappears (graceful stop, Phase 4 D-10)
+    interval: 30s
+    input_series:
+      - {series: 'up{job="agent",cluster="spoke-nonprod"}', values: '1x20'}
+      # a target that leaves service discovery gets staleness markers (also sent via remote write)
+      - {series: 'up{job="kyverno",cluster="spoke-nonprod"}', values: '1 1 stale'}
+      - {series: 'up{job="agent",cluster="spoke-prod"}', values: '1x20'}
+      - {series: 'up{job="kyverno",cluster="spoke-prod"}', values: '1x20'}
+    alert_rule_test:
+      - {eval_time: 1m, alertname: KyvernoDown, exp_alerts: []}
+      - eval_time: 5m
+        alertname: KyvernoDown
+        exp_alerts:
+          - exp_labels: {severity: critical, cluster: spoke-nonprod}
+            exp_annotations: {summary: "Kyverno is not running on spoke-nonprod: image verification is not enforced", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-kyvernodown"}
+  - name: SpokeControllerDown for kro, not for a healthy ACK
+    interval: 30s
+    input_series:
+      - {series: 'up{job="agent",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="kro",cluster="spoke-prod"}', values: '0x30'}
+      - {series: 'up{job="ack-sqs",cluster="spoke-prod"}', values: '1x30'}
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: SpokeControllerDown
+        exp_alerts:
+          - exp_labels: {severity: critical, cluster: spoke-prod}
+            exp_annotations: {summary: "kro or ACK controller not running on spoke-prod", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spokeagentdown--spokecontrollerdown"}
+  - name: SpokeAgentDown when a spoke stops sending
+    interval: 30s
+    input_series:
+      - {series: 'up{job="agent",cluster="spoke-nonprod"}', values: '1x40'}
+      - {series: 'up{job="agent",cluster="spoke-prod"}', values: '1 _x40'}
+    alert_rule_test:
+      - {eval_time: 3m, alertname: SpokeAgentDown, exp_alerts: []}
+      - eval_time: 15m
+        alertname: SpokeAgentDown
+        exp_alerts:
+          - exp_labels: {severity: warning, job: agent, cluster: spoke-prod}
+            exp_annotations: {summary: "No metrics from a spoke agent", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spokeagentdown--spokecontrollerdown"}
+  - name: SpokeTokenExpiringSoon below 7 days only
+    interval: 1m
+    input_series:
+      - {series: 'lab_credential_expiry_timestamp_seconds{credential="argocd-spoke-prod"}', values: '172800x10'}      # t=0 + 2 days
+      - {series: 'lab_credential_expiry_timestamp_seconds{credential="argocd-spoke-nonprod"}', values: '2592000x10'}  # + 30 days
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: SpokeTokenExpiringSoon
+        exp_alerts:
+          - exp_labels: {severity: warning, credential: argocd-spoke-prod}
+            exp_annotations:
+              summary: "Credential argocd-spoke-prod expires in 1d 23h 54m 0s"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spoketokenexpiringsoon
+  - name: CredentialExpiryUnknown when the exporter is gone
+    interval: 1m
+    input_series: []
+    alert_rule_test:
+      - eval_time: 31m
+        alertname: CredentialExpiryUnknown
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: "No credential expiry data (exporter down or ConfigMap missing)", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spoketokenexpiringsoon"}
+  - name: OrdersNotProcessed and SyntheticProbeStale
+    interval: 1m
+    input_series:
+      - {series: 'lab_order_e2e_success{cluster="spoke-nonprod",namespace="orders-dev"}', values: '0x20'}
+      - {series: 'lab_order_e2e_last_run_timestamp_seconds{cluster="spoke-nonprod"}', values: '0x30'}
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: OrdersNotProcessed
+        exp_alerts:
+          - exp_labels: {severity: critical, cluster: spoke-nonprod, namespace: orders-dev}
+            exp_annotations: {summary: "Synthetic order not processed in orders-dev on spoke-nonprod", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-ordersnotprocessed"}
+      - eval_time: 21m
+        alertname: SyntheticProbeStale
+        exp_alerts:
+          - exp_labels: {severity: warning, cluster: spoke-nonprod}
+            exp_annotations: {summary: "Synthetic order probe on spoke-nonprod has not completed a run for 15 min", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-ordersnotprocessed"}
+  - name: KyvernoSlowAdmission above 15 s p95
+    interval: 1m
+    input_series:
+      - {series: 'kyverno_admission_review_duration_seconds_bucket{cluster="spoke-prod",le="10"}', values: '0+0x20'}
+      - {series: 'kyverno_admission_review_duration_seconds_bucket{cluster="spoke-prod",le="20"}', values: '0+10x20'}
+      - {series: 'kyverno_admission_review_duration_seconds_bucket{cluster="spoke-prod",le="+Inf"}', values: '0+10x20'}
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: KyvernoSlowAdmission
+        exp_alerts:
+          - exp_labels: {severity: warning, cluster: spoke-prod}
+            exp_annotations: {summary: "Kyverno p95 admission latency 19.5s on spoke-prod (webhook timeout 30 s)", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-kyvernodown"}
+  - name: ArgoAppOutOfSync ignores the manual-sync argo-cd app
+    interval: 1m
+    input_series:
+      - {series: 'argocd_app_info{name="argo-cd",sync_status="OutOfSync",health_status="Healthy"}', values: '1x40'}
+      - {series: 'argocd_app_info{name="orders-dev",sync_status="OutOfSync",health_status="Healthy"}', values: '1x40'}
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: ArgoAppOutOfSync
+        exp_alerts:
+          - exp_labels: {severity: warning, name: orders-dev, sync_status: OutOfSync, health_status: Healthy}
+            exp_annotations: {summary: "Application orders-dev is OutOfSync", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-argoappdegraded--argoappoutofsync"}

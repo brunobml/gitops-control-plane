@@ -1,4 +1,4 @@
-.PHONY: orphans all setup start stop push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints help
+.PHONY: test-alert-rules orphans all setup start stop push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints help
 
 ROOT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 REPOS_DIR ?= $(abspath $(ROOT_DIR)/..)
@@ -14,6 +14,7 @@ help:
 	@echo "  make push                - Push all repositories to GitHub (origin main)"
 	@echo "  make bootstrap           - Apply root-control-plane Argo CD application to Hub"
 	@echo "  make post-bootstrap      - After bootstrap: worker credentials, adopt argo-cd, resync, smoke test"
+	@echo "  make test-alert-rules      - promtool unit tests for the hub alert rules"
 	@echo "  make orphans               - Report (dry run) what deregistered tenant apps left behind; post-bootstrap removes it"
 	@echo "  make rotate-spoke-tokens - Rotate 30-day TokenRequest tokens for Argo CD spokes and Headlamp"
 	@echo "  make promote-blueprints  - Annotate spoke cluster secrets with revisions from clusters/blueprint-revisions.env"
@@ -109,6 +110,15 @@ status:
 	@echo ""
 	@echo "=== CENTRAL MOTO CLOUD SQS QUEUES ==="
 	@AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs list-queues --output table 2>/dev/null || echo "No queues found."
+
+test-alert-rules:
+	@d=$$(mktemp -d) && helm template prometheus prometheus-community/prometheus --version 29.35.0 -n monitoring \
+	  -f $(ROOT_DIR)/addons/observability/values-prometheus-hub.yaml \
+	  | yq 'select(.kind=="ConfigMap" and .metadata.name=="prometheus-server") | .data["alerting_rules.yml"]' > $$d/alerting_rules.yml \
+	  && cp $(ROOT_DIR)/addons/observability/alert-rules.test.yaml $$d/ && chmod 755 $$d && chmod 644 $$d/* \
+	  && docker run --rm --entrypoint promtool -v $$d:/t -w /t \
+	     quay.io/prometheus/prometheus@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e \
+	     test rules alert-rules.test.yaml; rc=$$?; rm -rf $$d; exit $$rc
 
 orphans:
 	@bash $(ROOT_DIR)/scripts/orphans.sh --dry-run
