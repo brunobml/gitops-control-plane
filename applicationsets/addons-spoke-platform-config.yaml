@@ -6,7 +6,12 @@ metadata:
   name: addons-spoke-platform-config
   namespace: argocd
 spec:
+  # Phase 4 C.1 (L2-4): Go templates; a missing key fails rendering instead of producing "".
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
   syncPolicy:
+    # TEMPORARY (Phase 4 C.1 migration guard): never delete Applications while templates change.
+    applicationsSync: create-update
     preserveResourcesOnDeletion: true
   generators:
     - clusters:
@@ -15,7 +20,7 @@ spec:
             addons-managed: "true"
   template:
     metadata:
-      name: "addon-platform-config-{{name}}"
+      name: "addon-platform-config-{{ .name }}"
       labels:
         app.kubernetes.io/part-of: platform-addons
         addon: platform-config
@@ -24,9 +29,9 @@ spec:
       source:
         repoURL: https://github.com/brunobml/gitops-control-plane.git
         targetRevision: main
-        path: "clusters/platform-config/{{name}}"
+        path: "clusters/platform-config/{{ .name }}"
       destination:
-        server: "{{server}}"
+        server: "{{ .server }}"
         namespace: kube-system
       syncPolicy:
         automated:
