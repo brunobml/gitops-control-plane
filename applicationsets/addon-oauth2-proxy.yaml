@@ -52,7 +52,10 @@ spec:
             cookie_domains = ["headlamp.localhost"]
             cookie_samesite = "lax"
             cookie_expire = "10h"
-            cookie_refresh = "1h"
+            # Re-check the session with Keycloak every minute: once the Keycloak session ends (logout in
+            # Argo CD or Headlamp, or expiry) the refresh fails and Headlamp asks for a login again.
+            # With 1h the first signed-in user stayed in Headlamp after logging out elsewhere.
+            cookie_refresh = "1m"
             set_xauthrequest = true
             # /oauth2/sign_out also ends the Keycloak session (called server-side with the ID token).
             backend_logout_url = "http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/logout?id_token_hint={id_token}"
