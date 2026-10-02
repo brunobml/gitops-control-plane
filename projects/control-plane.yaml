@@ -13,6 +13,7 @@ spec:
     - "https://kubernetes-sigs.github.io/headlamp/"
     - "https://traefik.github.io/charts"
     - "https://argoproj.github.io/argo-helm"   # Phase 3 B.4: Argo CD manages itself
+    - "https://oauth2-proxy.github.io/manifests"  # Phase 4 A.5: Headlamp SSO
   destinations:
     - server: "https://kubernetes.default.svc"
       namespace: "*"

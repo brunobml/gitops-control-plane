@@ -1,0 +1,100 @@
+# Phase 4 A.5: Headlamp single sign-on. Traefik ForwardAuth sends every Headlamp request to
+# oauth2-proxy, which logs the user in at Keycloak (client `headlamp`, realm `lab`) and admits
+# members of the allowed groups (owner decision O-2). Headlamp itself is unchanged: it keeps
+# its read-only multi-cluster kubeconfig. Credentials (client + cookie secret) come from
+# scripts/setup-keycloak-secrets.sh, never from Git.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: addon-oauth2-proxy
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: oauth2-proxy
+    app.kubernetes.io/part-of: platform-control-plane
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: control-plane
+  source:
+    repoURL: https://oauth2-proxy.github.io/manifests
+    chart: oauth2-proxy
+    targetRevision: 10.7.1
+    helm:
+      releaseName: oauth2-proxy
+      valuesObject:
+        image:
+          # v7.15.5, pinned by digest (Phase 4 F7)
+          tag: "v7.15.5@sha256:8498b0d0ef0a7b29686414000a08aee467f02d0299c9ed1e006a8f33fc017916"
+        config:
+          existingSecret: oauth2-proxy-credentials
+          configFile: |
+            provider = "keycloak-oidc"
+            oidc_issuer_url = "http://keycloak.localhost:8080/realms/lab"
+            redirect_url = "http://headlamp.localhost:8080/oauth2/callback"
+            code_challenge_method = "S256"
+            email_domains = ["*"]
+            allowed_groups = ["lab-platform-admins", "lab-tenant-a"]
+            # ForwardAuth mode: answer 202 when signed in; otherwise redirect to Keycloak.
+            upstreams = ["static://202"]
+            reverse_proxy = true
+            skip_provider_button = true
+            whitelist_domains = ["headlamp.localhost:8080"]
+            cookie_domains = ["headlamp.localhost"]
+            cookie_samesite = "lax"
+            cookie_expire = "10h"
+            cookie_refresh = "1h"
+            set_xauthrequest = true
+        # Single replica in the lab; a PDB with minAvailable 1 would block node drains.
+        podDisruptionBudget:
+          enabled: false
+        resources:
+          requests: {cpu: 10m, memory: 32Mi}
+          limits: {memory: 128Mi}
+        extraObjects:
+          - apiVersion: traefik.io/v1alpha1
+            kind: Middleware
+            metadata:
+              name: oauth2-forward-auth
+              namespace: headlamp
+            spec:
+              forwardAuth:
+                address: http://oauth2-proxy.oauth2-proxy.svc.cluster.local/
+                trustForwardHeader: true
+                authResponseHeaders:
+                  - X-Auth-Request-User
+                  - X-Auth-Request-Email
+                  - X-Auth-Request-Groups
+          # oauth2-proxy's own endpoints (callback, sign-out) on the Headlamp host.
+          - apiVersion: networking.k8s.io/v1
+            kind: Ingress
+            metadata:
+              name: oauth2-proxy-headlamp
+              namespace: oauth2-proxy
+            spec:
+              ingressClassName: traefik
+              rules:
+                - host: headlamp.localhost
+                  http:
+                    paths:
+                      - path: /oauth2
+                        pathType: Prefix
+                        backend:
+                          service:
+                            name: oauth2-proxy
+                            port:
+                              number: 80
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: oauth2-proxy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
