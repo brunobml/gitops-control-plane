@@ -266,6 +266,18 @@ if [[ "$(jq -r '.oidcConfig.issuer // ""' <<<"$settings")" != "$ISSUER" || "$(jq
   exit 1
 fi
 echo -e "${GREEN}✔ Argo CD advertises Keycloak SSO (PKCE)${NC}"
+# Every SSO entry point must reach Keycloak's login form, not an error page: this catches
+# unregistered redirect URIs and hosts Argo CD does not accept (no password is used).
+for start in "http://localhost:8080/auth/login?return_url=http%3A%2F%2Flocalhost%3A8080%2Fapplications" \
+             "http://argocd.localhost:8080/auth/login?return_url=http%3A%2F%2Fargocd.localhost%3A8080%2Fapplications" \
+             "http://headlamp.localhost:8080/"; do
+  kc_url=$(curl -s -o /dev/null -w '%{redirect_url}' "$start")
+  if [[ "$kc_url" != "${ISSUER}/protocol/openid-connect/auth?"* ]] || ! curl -s "$kc_url" | grep -q 'id="kc-form-login"'; then
+    echo -e "${RED}✘ SSO entry point does not reach the Keycloak login form: ${start%%\?*}${NC}"
+    exit 1
+  fi
+done
+echo -e "${GREEN}✔ Argo CD (localhost, argocd.localhost) and Headlamp reach the Keycloak login form${NC}"
 # Break-glass: the local platform-admin account must keep working (Phase 4 R-4).
 pw_file="${GITOPS_LAB_SECRET_DIR:-$HOME/.config/gitops-lab}/argocd-platform-admin.password"
 token=$(jq -n --rawfile p "$pw_file" '{username: "platform-admin", password: ($p | rtrimstr("\n"))}' \
