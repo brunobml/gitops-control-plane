@@ -87,3 +87,14 @@
 | **No re-prompt regression** | An active session kept working across refreshes (requests at 75 s and 150 s → 200, no login form) — the Phase 3 re-prompt problem does not return |
 | **Behaviour now** | Logging out anywhere (Argo CD **Log out** or Headlamp `/oauth2/sign_out`) ends the Keycloak session; Headlamp asks for a login again within about a minute. Headlamp has no per-user view: both groups get the same read-only view (O-2) |
 | **Harness note** | Two of my scripted runs were invalid (cookie filter dropped the base64-padded CSRF cookie); fixed before the results above |
+
+## 8. Owner browser acceptance and O-1 (Track A closed on the implementation side)
+
+| | |
+|---|---|
+| **Browser acceptance** | Owner: Argo CD login and logout work for `platform-admin` (local), `platform-user` and `tenant-a-user` (SSO); Headlamp "is working now" after addendum 3 |
+| **O-1 decision** | Owner chose **"Remove tenant-a"** |
+| **Change** (`24bc1b5`) | `accounts.tenant-a` and `g, tenant-a, role:tenant-a` removed from `clusters/values-argocd-hub.yaml` (the `role:tenant-a` policy stays, bound to group `lab-tenant-a`); `setup-argocd-accounts.sh` manages `platform-admin` only; `make password`, README and developer tutorial point tenants to "Log in via Keycloak" as `tenant-a-user`. Applied by commit + manual `argo-cd` sync. Password hash keys removed from `argocd-secret`; `~/.config/gitops-lab/argocd-tenant-a.password` deleted |
+| **Defect found (D-15)** | After the sync, `accounts.tenant-a: login` was **still in the live `argocd-cm`** although Argo CD showed Synced: with server-side apply, Argo CD only removes fields it owns, and this key was owned by the original bootstrap **Helm** install (field manager `helm`, operation `Update`). A field-ownership audit of `argocd-cm`, `argocd-rbac-cm`, `argocd-cmd-params-cm` found one more case: `server.dex.server` / `server.dex.server.strict.tls` (left from Dex, removed in A.4). All three keys removed by hand; `argocd-server` restarted; `argo-cd` stays Synced. A rebuild never has this problem (Helm records are removed right after bootstrap and no further Helm writes happen) |
+| **Verification** | local `tenant-a` → 401 "Invalid username or password"; local `platform-admin` → token; SSO `tenant-a-user` → logged in, `lab-tenant-a`, sync `orders-dev` yes / `orders-prod` no; ownership audit → no keys owned only by Helm; smoke 11/11 |
+| **Lesson** | When a self-managed app adopts objects first written by Helm, removing a key from Git does not remove it live; check field ownership after removals |
