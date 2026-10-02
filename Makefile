@@ -67,6 +67,13 @@ password:
 	@echo "Passwords are stored outside Git, readable only by you:"
 	@echo "  $${GITOPS_LAB_SECRET_DIR:-$$HOME/.config/gitops-lab}/argocd-<account>.password"
 	@echo "To (re)set them: bash $(ROOT_DIR)/scripts/setup-argocd-accounts.sh"
+	@echo ""
+	@echo "Single sign-on (Keycloak realm 'lab', Phase 4): 'Log in via Keycloak' in Argo CD; Headlamp redirects"
+	@echo "  platform-user  : group lab-platform-admins (Argo CD admin, Headlamp)"
+	@echo "  tenant-a-user  : group lab-tenant-a (Argo CD tenant-a role, Headlamp)"
+	@echo "  passwords      : $${GITOPS_LAB_SECRET_DIR:-$$HOME/.config/gitops-lab}/keycloak-<user>.password"
+	@echo "  Keycloak admin : http://keycloak.localhost:8080/admin/ (user kc-admin, keycloak-admin.password)"
+	@echo "  Break-glass    : the local platform-admin account above works even when Keycloak is down"
 
 push:
 	@bash $(ROOT_DIR)/scripts/push-all.sh

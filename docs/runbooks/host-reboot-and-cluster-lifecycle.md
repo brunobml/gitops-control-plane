@@ -168,3 +168,21 @@ Use the same procedure for `k3d-spoke-prod-agent-0` if it shows the symptom. Wit
 make post-bootstrap
 ```
 Run it after every `make start`.
+
+### Issue G: Single Sign-On Unavailable (Keycloak down or misconfigured)
+**Symptoms:** "Log in via Keycloak" in Argo CD fails or loops; Headlamp redirects to a Keycloak error page; smoke stage 10 fails.
+
+**Break-glass (always available):** log in to Argo CD with the **local `platform-admin`** account (`make password`). It does not depend on Keycloak. Automation (`post-bootstrap.sh`, `register-spokes.sh`) only ever uses this local account. Headlamp has no local fallback; use `kubectl` until SSO is back.
+
+**Diagnose:**
+```bash
+kubectl --context k3d-hub-cluster -n keycloak get pods
+curl -s http://keycloak.localhost:8080/realms/lab/.well-known/openid-configuration | jq -r .issuer
+kubectl --context k3d-hub-cluster -n kube-system get cm coredns-custom -o yaml   # keycloak.localhost rewrite
+kubectl --context k3d-hub-cluster -n oauth2-proxy logs deploy/oauth2-proxy --tail=20
+```
+
+**Fix:**
+* Keycloak keeps no state: deleting its pod re-imports realm `lab` from Git (`addons/keycloak/realm-lab.json`), with passwords from the `keycloak-realm-secrets` Secret. Only active sessions are lost.
+* If the in-cluster issuer check fails (smoke stage 10 "argocd-server" side), run `make post-bootstrap`. It restarts CoreDNS when `coredns-custom` changed (CoreDNS does not reload imported files).
+* Lost or rotated SSO passwords: delete the file in `~/.config/gitops-lab/`, run `bash scripts/setup-keycloak-secrets.sh`, then restart Keycloak (`kubectl -n keycloak rollout restart deploy/keycloak`) and oauth2-proxy if its secret changed.

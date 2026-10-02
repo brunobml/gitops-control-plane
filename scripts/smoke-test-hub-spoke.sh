@@ -12,7 +12,7 @@ echo -e "${BLUE}  Multi-Cluster Hub-and-Spoke Smoke Test                   ${NC}
 echo -e "${BLUE}============================================================${NC}"
 
 # 1. Central Moto Cloud
-echo -e "\n${YELLOW}[1/9] Checking Central Mock AWS Cloud (moto-cloud)...${NC}"
+echo -e "\n${YELLOW}[1/10] Checking Central Mock AWS Cloud (moto-cloud)...${NC}"
 if curl -s -f http://localhost:5000/moto-api/ > /dev/null; then
   echo -e "${GREEN}✔ moto-cloud is responding at http://localhost:5000${NC}"
 else
@@ -21,7 +21,7 @@ else
 fi
 
 # 2. Hub Cluster & Argo CD Core Pods
-echo -e "\n${YELLOW}[2/9] Checking Hub Cluster & Argo CD...${NC}"
+echo -e "\n${YELLOW}[2/10] Checking Hub Cluster & Argo CD...${NC}"
 kubectl --context k3d-hub-cluster get nodes > /dev/null
 echo -e "${GREEN}✔ Hub cluster API is reachable${NC}"
 
@@ -44,8 +44,8 @@ else
 fi
 
 # 3. Argo CD Applications Health & Sync State (L3-4, C-2)
-echo -e "\n${YELLOW}[3/9] Asserting Argo CD Application Sync and Health...${NC}"
-EXPECTED_APPS=("argo-cd" "addon-headlamp" "addon-keycloak" "addon-platform-config-spoke-nonprod" "addon-platform-config-spoke-prod" "addon-traefik" "platform-projects" "addon-kro-spoke-nonprod" "addon-kro-spoke-prod" "addon-ack-sqs-spoke-nonprod" "addon-ack-sqs-spoke-prod" "addon-ack-credentials-spoke-nonprod" "addon-ack-credentials-spoke-prod" "kro-blueprints-spoke-nonprod" "kro-blueprints-spoke-prod" "orders-dev" "orders-test" "orders-prod" "root-control-plane")
+echo -e "\n${YELLOW}[3/10] Asserting Argo CD Application Sync and Health...${NC}"
+EXPECTED_APPS=("argo-cd" "addon-headlamp" "addon-keycloak" "addon-oauth2-proxy" "addon-platform-config-spoke-nonprod" "addon-platform-config-spoke-prod" "addon-traefik" "platform-projects" "addon-kro-spoke-nonprod" "addon-kro-spoke-prod" "addon-ack-sqs-spoke-nonprod" "addon-ack-sqs-spoke-prod" "addon-ack-credentials-spoke-nonprod" "addon-ack-credentials-spoke-prod" "kro-blueprints-spoke-nonprod" "kro-blueprints-spoke-prod" "orders-dev" "orders-test" "orders-prod" "root-control-plane")
 APP_DATA=$(kubectl --context k3d-hub-cluster -n argocd get applications -o jsonpath='{range .items[*]}{.metadata.name}:{.status.sync.status}:{.status.health.status}{"\n"}{end}')
 
 for expected in "${EXPECTED_APPS[@]}"; do
@@ -78,7 +78,7 @@ done <<< "$APP_DATA"
 echo -e "${GREEN}✔ All Argo CD applications are Synced and Healthy${NC}"
 
 # 4. Spoke Controllers (Kro + ACK)
-echo -e "\n${YELLOW}[4/9] Checking Spoke Controllers (Kro + ACK)...${NC}"
+echo -e "\n${YELLOW}[4/10] Checking Spoke Controllers (Kro + ACK)...${NC}"
 for ctx in "k3d-spoke-nonprod" "k3d-spoke-prod"; do
   kubectl --context "$ctx" get nodes > /dev/null
   echo -e "${GREEN}✔ ${ctx} API is reachable${NC}"
@@ -91,7 +91,7 @@ for ctx in "k3d-spoke-nonprod" "k3d-spoke-prod"; do
 done
 
 # 5. Kro Custom Resources State
-echo -e "\n${YELLOW}[5/9] Asserting QueueBackedService Resource Status...${NC}"
+echo -e "\n${YELLOW}[5/10] Asserting QueueBackedService Resource Status...${NC}"
 for spoke_ns in "k3d-spoke-nonprod:orders-dev" "k3d-spoke-nonprod:orders-test" "k3d-spoke-prod:orders-prod"; do
   ctx="${spoke_ns%%:*}"
   ns="${spoke_ns##*:}"
@@ -105,7 +105,7 @@ done
 echo -e "${GREEN}✔ All QueueBackedService instances are ACTIVE${NC}"
 
 # 6. SQS Queues in Central Mock AWS Cloud (L3-4, C-2)
-echo -e "\n${YELLOW}[6/9] Asserting AWS Cloud SQS Queues & DLQs...${NC}"
+echo -e "\n${YELLOW}[6/10] Asserting AWS Cloud SQS Queues & DLQs...${NC}"
 # Phase 3 D.3 (CARM): each workload namespace may live in its own cloud account
 # (namespace annotation services.k8s.aws/owner-account-id; default 123456789012).
 # List queues *in that account* by assuming a role there in moto.
@@ -135,7 +135,7 @@ done
 echo -e "${GREEN}✔ All 6 expected SQS queues (3 queues + 3 DLQs) verified in Moto Cloud${NC}"
 
 # 7. GitOps Workload Pods (L3-4, C-2)
-echo -e "\n${YELLOW}[7/9] Asserting Workload Pods...${NC}"
+echo -e "\n${YELLOW}[7/10] Asserting Workload Pods...${NC}"
 DEV_PODS=$(kubectl --context k3d-spoke-nonprod -n orders-dev get pods --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l | tr -d ' ')
 TEST_PODS=$(kubectl --context k3d-spoke-nonprod -n orders-test get pods --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l | tr -d ' ')
 PROD_PODS=$(kubectl --context k3d-spoke-prod -n orders-prod get pods --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l | tr -d ' ')
@@ -155,7 +155,7 @@ echo -e "${GREEN}✔ All orders workloads running across non-prod and prod spoke
 #    mounted in the running Headlamp pod (a subPath mount does not refresh, so this catches a missed restart).
 #    WARN when fewer than TOKEN_WARN_DAYS remain; FAIL when expired.
 #    SMOKE_NOW_EPOCH overrides "now" (for negative testing only).
-echo -e "\n${YELLOW}[8/9] Asserting Credential Expiry...${NC}"
+echo -e "\n${YELLOW}[8/10] Asserting Credential Expiry...${NC}"
 TOKEN_WARN_DAYS="${TOKEN_WARN_DAYS:-7}"
 NOW_EPOCH="${SMOKE_NOW_EPOCH:-$(date +%s)}"
 
@@ -223,7 +223,7 @@ fi
 # 9. End-to-end message flow per environment (Phase 3 B.7 pre-flight). Sends an order from the
 #    namespace's own cloud account and requires it on the dashboard: catches workers that run
 #    but cannot consume (missing/stale credentials, NetworkPolicy/moto subnet mismatch, ...).
-echo -e "\n${YELLOW}[9/9] Asserting End-to-End Order Flow...${NC}"
+echo -e "\n${YELLOW}[9/10] Asserting End-to-End Order Flow...${NC}"
 for triple in "k3d-spoke-nonprod:orders-dev:8081" "k3d-spoke-nonprod:orders-test:8081" "k3d-spoke-prod:orders-prod:8082"; do
   IFS=: read -r ctx ns port <<<"$triple"
   account=$(kubectl --context "$ctx" get namespace "$ns" -o jsonpath='{.metadata.annotations.services\.k8s\.aws/owner-account-id}' 2>/dev/null)
@@ -247,6 +247,45 @@ for triple in "k3d-spoke-nonprod:orders-dev:8081" "k3d-spoke-nonprod:orders-test
   echo -e "  ${ns}: order from account ${account} processed in $(( $(date +%s) - t0 ))s"
 done
 echo -e "${GREEN}✔ Orders flow end-to-end in every environment${NC}"
+
+echo -e "\n${YELLOW}[10/10] Asserting Single Sign-On (Keycloak, Argo CD, Headlamp)...${NC}"
+ISSUER="http://keycloak.localhost:8080/realms/lab"
+host_iss=$(curl -s "${ISSUER}/.well-known/openid-configuration" | jq -r .issuer 2>/dev/null || true)
+# In-cluster path (CoreDNS rewrite + Keycloak NetworkPolicy), from the argocd-server pod itself.
+pod_iss=$(kubectl --context k3d-hub-cluster -n argocd exec deploy/argo-cd-argocd-server -- bash -c \
+  'exec 3<>/dev/tcp/keycloak.localhost/8080; printf "GET /realms/lab/.well-known/openid-configuration HTTP/1.0\r\nHost: keycloak.localhost:8080\r\n\r\n" >&3; cat <&3' 2>/dev/null \
+  | grep -o '"issuer":"[^"]*"' | cut -d'"' -f4 || true)
+if [[ "$host_iss" != "$ISSUER" || "$pod_iss" != "$ISSUER" ]]; then
+  echo -e "${RED}✘ OIDC issuer mismatch: host='${host_iss}' argocd-server='${pod_iss}' expected='${ISSUER}'${NC}"
+  exit 1
+fi
+echo -e "${GREEN}✔ Issuer identical from host and from argocd-server: ${ISSUER}${NC}"
+settings=$(curl -s http://localhost:8080/api/v1/settings)
+if [[ "$(jq -r '.oidcConfig.issuer // ""' <<<"$settings")" != "$ISSUER" || "$(jq -r '.oidcConfig.enablePKCEAuthentication // false' <<<"$settings")" != "true" ]]; then
+  echo -e "${RED}✘ Argo CD does not advertise the Keycloak OIDC (PKCE) configuration${NC}"
+  exit 1
+fi
+echo -e "${GREEN}✔ Argo CD advertises Keycloak SSO (PKCE)${NC}"
+# Break-glass: the local platform-admin account must keep working (Phase 4 R-4).
+pw_file="${GITOPS_LAB_SECRET_DIR:-$HOME/.config/gitops-lab}/argocd-platform-admin.password"
+token=$(jq -n --rawfile p "$pw_file" '{username: "platform-admin", password: ($p | rtrimstr("\n"))}' \
+  | curl -s -H 'Content-Type: application/json' -d @- http://localhost:8080/api/v1/session | jq -r '.token // ""')
+if [[ -z "$token" ]]; then
+  echo -e "${RED}✘ Local break-glass login (platform-admin) failed${NC}"
+  exit 1
+fi
+unset token
+echo -e "${GREEN}✔ Local break-glass account platform-admin can log in${NC}"
+hl=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -H 'Origin: https://evil.example' http://headlamp.localhost:8080/clusters/k3d-spoke-prod/api/v1/namespaces)
+if [[ "$hl" != "302 ${ISSUER}/protocol/openid-connect/auth?"*"client_id=headlamp"* ]]; then
+  echo -e "${RED}✘ Unauthenticated Headlamp request is not redirected to Keycloak: ${hl:0:120}${NC}"
+  exit 1
+fi
+if curl -s -D - -o /dev/null -H 'Origin: https://evil.example' http://headlamp.localhost:8080/ | grep -qi '^access-control-allow-origin'; then
+  echo -e "${RED}✘ Headlamp answers cross-origin requests (P4-1 regression)${NC}"
+  exit 1
+fi
+echo -e "${GREEN}✔ Headlamp requires SSO (302 to Keycloak) and refuses cross-origin access${NC}"
 
 echo -e "\n${GREEN}============================================================${NC}"
 echo -e "${GREEN}  All Core Smoke Tests Passed!                             ${NC}"
