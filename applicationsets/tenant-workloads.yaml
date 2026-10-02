@@ -1,6 +1,6 @@
 # Phase 4 C.2 (L2-3): tenant self-registration. One ApplicationSet for all tenants and
 # environments, generated from data files in the tenant-workloads repository:
-#   tenants/<tenant>/apps/<app>-<env>.yaml   (tenant, app, env, port, valuesRevision)
+#   tenants/<tenant>/apps/<app>-<env>.yaml   (tenant, app, env, port, valuesRevision[, valuesFile])
 # A tenant onboards an app environment with a pull request in tenant-workloads; no change to
 # this control-plane repository is needed. Tenants supply data only; everything else is fixed
 # here and guarded by the tenant-workloads AppProject (namespaces orders-*, allowed kinds).
@@ -17,9 +17,6 @@ metadata:
 spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
-  syncPolicy:
-    # TEMPORARY (Phase 4 C.2 migration guard): never delete Applications while ownership moves.
-    applicationsSync: create-update
   generators:
     - git:
         repoURL: https://github.com/brunobml/tenant-workloads.git
@@ -37,8 +34,8 @@ spec:
         tier: "backend"
         framework: "kro-ack"
       annotations:
-        link.argocd.argoproj.io/external-link: "http://orders-{{ .env }}.localhost:{{ .port }}"
-        link.argocd.argoproj.io/dashboard: "http://orders-{{ .env }}.localhost:{{ .port }}"
+        link.argocd.argoproj.io/external-link: "http://{{ .app }}-{{ .env }}.localhost:{{ .port }}"
+        link.argocd.argoproj.io/dashboard: "http://{{ .app }}-{{ .env }}.localhost:{{ .port }}"
         link.argocd.argoproj.io/source-code: "https://github.com/brunobml/orders-processor"
         link.argocd.argoproj.io/platform-chart: "https://github.com/brunobml/platform-charts"
         description: "Orders processing microservice with AWS SQS & DynamoDB via Kro"
@@ -52,7 +49,7 @@ spec:
         - name: "Team"
           value: "E-Commerce Squad"
         - name: "Live Dashboard"
-          value: "http://orders-{{ .env }}.localhost:{{ .port }}"
+          value: "http://{{ .app }}-{{ .env }}.localhost:{{ .port }}"
         - name: "Source Code"
           value: "https://github.com/brunobml/orders-processor"
         - name: "Platform Golden Chart"
@@ -65,7 +62,8 @@ spec:
           targetRevision: 1.0.0
           helm:
             valueFiles:
-              - $values/deploy/values-{{ .env }}.yaml
+              # optional valuesFile in the registration; default deploy/values-<env>.yaml
+              - '$values/{{ dig "valuesFile" (printf "deploy/values-%s.yaml" .env) . }}'
         - repoURL: https://github.com/brunobml/orders-processor.git
           targetRevision: '{{ .valuesRevision }}'
           ref: values

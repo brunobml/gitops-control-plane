@@ -13,8 +13,6 @@ spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
   syncPolicy:
-    # TEMPORARY (Phase 4 C.1 migration guard): never delete Applications while templates change.
-    applicationsSync: create-update
     preserveResourcesOnDeletion: true
   generators:
     - clusters:
