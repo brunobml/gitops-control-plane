@@ -2,8 +2,15 @@ apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
   name: tenant-workloads-nonprod
+  annotations:
+    # Phase 4 C.2 migration step 1: never pruned by the root app; deleted by hand with
+    # --cascade=orphan so its Applications are adopted by the new tenant-workloads ApplicationSet.
+    argocd.argoproj.io/sync-options: Prune=false
   namespace: argocd
 spec:
+  # Migration step 1: this ApplicationSet may no longer update or delete Applications.
+  syncPolicy:
+    applicationsSync: create-only
   generators:
     - list:
         elements:
