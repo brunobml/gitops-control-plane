@@ -102,6 +102,8 @@ helm repo update argo
 kubectl --context "k3d-${HUB_CLUSTER}" create namespace argocd --dry-run=client -o yaml \
   | kubectl --context "k3d-${HUB_CLUSTER}" apply -f -
 bash "${SCRIPT_DIR}/setup-argocd-accounts.sh"
+# Phase 4 A.1: Keycloak / oauth2-proxy secrets (outside Git) for the SSO addons.
+bash "${SCRIPT_DIR}/setup-keycloak-secrets.sh"
 # Phase 3 B.4: bootstrap-only install. After `make bootstrap`, the argo-cd Application
 # (applicationsets/argo-cd.yaml) manages Argo CD from Git, so Helm's release record is removed
 # and an existing Argo CD is never reinstalled here. Break-glass: run this helm command by hand.

@@ -1,0 +1,12 @@
+# Split-horizon issuer (Phase 4 A.0/A.2): in-cluster lookups of keycloak.localhost go to the
+# Keycloak Service, so the issuer http://keycloak.localhost:8080 works inside and outside.
+# k3s CoreDNS imports this optional ConfigMap. Its `reload` plugin does not watch imported
+# files, so post-bootstrap.sh restarts CoreDNS when this content changes (review remark R-1).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  keycloak.override: |
+    rewrite name keycloak.localhost keycloak.keycloak.svc.cluster.local

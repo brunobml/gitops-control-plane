@@ -1,0 +1,80 @@
+# Stateless by design: the file DB lives on emptyDir and the realm is re-imported from Git on
+# every start (--import-realm), so Git is the only source of truth. User passwords and the
+# Headlamp client secret are ${ENV} placeholders filled from keycloak-realm-secrets, which
+# scripts/setup-keycloak-secrets.sh creates outside Git. A restart only ends active sessions.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/name: keycloak
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: keycloak
+          # 26.8.0, pinned by digest (Phase 4 F7)
+          image: quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc
+          args: ["start-dev", "--import-realm"]
+          env:
+            # Issuer must be identical for the browser and in-cluster clients (CoreDNS rewrite).
+            - name: KC_HOSTNAME
+              value: "http://keycloak.localhost:8080"
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+          envFrom:
+            - secretRef:
+                name: keycloak-bootstrap-admin
+            - secretRef:
+                name: keycloak-realm-secrets
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: management
+              containerPort: 9000
+          startupProbe:
+            httpGet: {path: /health/started, port: management}
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /health/ready, port: management}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health/live, port: management}
+            periodSeconds: 20
+          resources:
+            requests: {cpu: 250m, memory: 512Mi}
+            limits: {memory: 1Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /opt/keycloak/data
+            - name: realm
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: realm
+          configMap:
+            name: keycloak-realm

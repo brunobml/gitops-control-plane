@@ -1,0 +1,17 @@
+# Phase 4 A.2: Keycloak (lab IdP) on the hub, managed by the addon-keycloak Application.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - networkpolicy.yaml
+  - coredns-custom.yaml
+# Realm as code (A.3). The generated name carries a content hash, so a realm change in Git
+# rolls Keycloak, which re-imports the realm (the pod has no persistent state).
+configMapGenerator:
+  - name: keycloak-realm
+    namespace: keycloak
+    files:
+      - realm-lab.json

@@ -1,0 +1,118 @@
+{
+  "realm": "lab",
+  "displayName": "GitOps Lab",
+  "enabled": true,
+  "loginWithEmailAllowed": false,
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 10,
+  "maxFailureWaitSeconds": 900,
+  "passwordPolicy": "length(12)",
+  "ssoSessionIdleTimeout": 36000,
+  "ssoSessionMaxLifespan": 36000,
+  "accessTokenLifespan": 300,
+  "groups": [
+    { "name": "lab-platform-admins" },
+    { "name": "lab-tenant-a" }
+  ],
+  "users": [
+    {
+      "username": "platform-user",
+      "enabled": true,
+      "email": "platform-user@lab.local",
+      "emailVerified": true,
+      "firstName": "Platform",
+      "lastName": "User",
+      "groups": ["lab-platform-admins"],
+      "credentials": [
+        { "type": "password", "value": "${LAB_PLATFORM_USER_PASSWORD}", "temporary": false }
+      ]
+    },
+    {
+      "username": "tenant-a-user",
+      "enabled": true,
+      "email": "tenant-a-user@lab.local",
+      "emailVerified": true,
+      "firstName": "Tenant A",
+      "lastName": "User",
+      "groups": ["lab-tenant-a"],
+      "credentials": [
+        { "type": "password", "value": "${LAB_TENANT_A_USER_PASSWORD}", "temporary": false }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "argocd",
+      "name": "Argo CD",
+      "description": "Public client; PKCE S256. The UI runs the flow in the browser (/pkce/verify), the CLI on localhost:8085.",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "rootUrl": "http://localhost:8080",
+      "redirectUris": [
+        "http://localhost:8080/pkce/verify",
+        "http://argocd.localhost:8080/pkce/verify",
+        "http://localhost:8085/auth/callback"
+      ],
+      "webOrigins": ["http://localhost:8080", "http://argocd.localhost:8080"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:8080/*##http://argocd.localhost:8080/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "headlamp",
+      "name": "Headlamp (oauth2-proxy)",
+      "description": "Confidential client used by oauth2-proxy in front of Headlamp.",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "${LAB_HEADLAMP_CLIENT_SECRET}",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "rootUrl": "http://headlamp.localhost:8080",
+      "redirectUris": ["http://headlamp.localhost:8080/oauth2/callback"],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://headlamp.localhost:8080/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  namespace: keycloak
+spec:
+  selector:
+    app.kubernetes.io/name: keycloak
+  ports:
+    # Port 8080 on purpose: in-cluster clients reach http://keycloak.localhost:8080 through the
+    # CoreDNS rewrite, the browser through the hub load balancer on 127.0.0.1:8080.
+    - name: http
+      port: 8080
+      targetPort: http

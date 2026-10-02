@@ -1,0 +1,23 @@
+# Only Traefik (browser path), argocd-server and oauth2-proxy (in-cluster OIDC) reach Keycloak.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: keycloak-ingress
+  namespace: keycloak
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: traefik}
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: argocd}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: argocd-server}
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: oauth2-proxy}
+      ports:
+        - port: 8080

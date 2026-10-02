@@ -3,12 +3,14 @@
 # running lab it only acts where something is missing or stale.
 #
 #  1. Wait until Argo CD has created the tenant namespaces (with their CARM account annotation).
-#  2. Worker credentials: provision Secret <name>-<env>-aws in the namespace's owner account,
+#  2. SSO prerequisites: restart CoreDNS when the keycloak.localhost rewrite changed (its
+#     reload plugin ignores imported files), then wait for Keycloak.
+#  3. Worker credentials: provision Secret <name>-<env>-aws in the namespace's owner account,
 #     unless the existing Secret's key still authenticates to that account.
-#  3. Restart a worker only if its running key does not match its Secret (env is read at start).
-#  4. Adopt Argo CD itself: sync the manual-sync argo-cd Application if it is OutOfSync.
-#  5. Re-sync any Application that is not Synced/Healthy (bootstrap ordering can exhaust retries).
-#  6. Run the smoke test (includes an end-to-end order per environment).
+#  4. Restart a worker only if its running key does not match its Secret (env is read at start).
+#  5. Adopt Argo CD itself: sync the manual-sync argo-cd Application if it is OutOfSync.
+#  6. Re-sync any Application that is not Synced/Healthy (bootstrap ordering can exhaust retries).
+#  7. Run the smoke test (includes an end-to-end order per environment).
 #
 # Uses its own Argo CD CLI config, so the operator's CLI session is never read or changed.
 set -euo pipefail
@@ -27,7 +29,7 @@ argocd login localhost:8080 --plaintext --grpc-web --skip-test-tls --config "$AR
   --username platform-admin --password "$(cat "${SECRET_DIR}/argocd-platform-admin.password")" </dev/null >/dev/null
 A=(argocd --config "$ARGOCD_CFG")
 
-echo "[1/6] Waiting for tenant namespaces and their owner-account annotation..."
+echo "[1/7] Waiting for tenant namespaces and their owner-account annotation..."
 t0=$(date +%s)
 for w in "${WORKLOADS[@]}"; do
   IFS=: read -r spoke ns _ _ <<<"$w"
@@ -38,7 +40,31 @@ for w in "${WORKLOADS[@]}"; do
   echo "  ✔ ${spoke}/${ns}"
 done
 
-echo "[2/6] Worker credentials..."
+echo "[2/7] SSO prerequisites (CoreDNS rewrite, Keycloak)..."
+H=(kubectl --context k3d-hub-cluster)
+t0=$(date +%s)
+until "${H[@]}" -n kube-system get cm coredns-custom >/dev/null 2>&1; do
+  (( $(date +%s) - t0 > TIMEOUT_NS )) && { echo "✘ coredns-custom not created by addon-keycloak after ${TIMEOUT_NS}s" >&2; exit 1; }
+  sleep 5
+done
+want=$("${H[@]}" -n kube-system get cm coredns-custom -o json | jq -cS .data | sha256sum | cut -c1-16)
+have=$("${H[@]}" -n kube-system get deploy coredns -o jsonpath='{.spec.template.metadata.annotations.lab/coredns-custom-hash}')
+if [[ "$want" != "$have" ]]; then
+  "${H[@]}" -n kube-system patch deploy coredns --type merge \
+    -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"lab/coredns-custom-hash\":\"${want}\"}}}}}" >/dev/null
+  "${H[@]}" -n kube-system rollout status deploy/coredns --timeout=180s >/dev/null
+  echo "  ↻ CoreDNS restarted for coredns-custom ${want}"
+else
+  echo "  ✔ CoreDNS already serves coredns-custom ${want}"
+fi
+until "${H[@]}" -n keycloak get deploy keycloak >/dev/null 2>&1; do
+  (( $(date +%s) - t0 > TIMEOUT_NS )) && { echo "✘ Keycloak not deployed after ${TIMEOUT_NS}s" >&2; exit 1; }
+  sleep 5
+done
+"${H[@]}" -n keycloak rollout status deploy/keycloak --timeout=600s >/dev/null
+echo "  ✔ Keycloak Ready (issuer $(curl -s http://keycloak.localhost:8080/realms/lab/.well-known/openid-configuration | jq -r .issuer))"
+
+echo "[3/7] Worker credentials..."
 declare -A PROVISIONED=()
 for w in "${WORKLOADS[@]}"; do
   IFS=: read -r spoke ns name env <<<"$w"
@@ -60,7 +86,7 @@ for w in "${WORKLOADS[@]}"; do
   fi
 done
 
-echo "[3/6] Workers running with their Secret's key..."
+echo "[4/7] Workers running with their Secret's key..."
 for w in "${WORKLOADS[@]}"; do
   IFS=: read -r spoke ns name env <<<"$w"
   K=(kubectl --context "k3d-${spoke}" -n "$ns")
@@ -84,7 +110,7 @@ for w in "${WORKLOADS[@]}"; do
   unset want have
 done
 
-echo "[4/6] Argo CD self-management (argo-cd Application, manual sync by design)..."
+echo "[5/7] Argo CD self-management (argo-cd Application, manual sync by design)..."
 if [[ "$("${A[@]}" app get argo-cd -o json | jq -r .status.sync.status)" != "Synced" ]]; then
   "${A[@]}" app sync argo-cd --timeout 300 >/dev/null
   "${A[@]}" app wait argo-cd --health --sync --timeout 300 >/dev/null
@@ -93,7 +119,7 @@ else
   echo "  ✔ argo-cd already Synced"
 fi
 
-echo "[5/6] All Applications Synced/Healthy..."
+echo "[6/7] All Applications Synced/Healthy..."
 t0=$(date +%s)
 while :; do
   bad=$(kubectl --context k3d-hub-cluster -n argocd get applications -o json \
@@ -107,5 +133,5 @@ while :; do
   sleep 15
 done
 
-echo "[6/6] Smoke test..."
+echo "[7/7] Smoke test..."
 bash "${SCRIPT_DIR}/smoke-test-hub-spoke.sh"

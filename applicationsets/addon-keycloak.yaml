@@ -1,0 +1,33 @@
+# Phase 4 A.2: Keycloak, the lab identity provider (realm `lab`, issuer
+# http://keycloak.localhost:8080/realms/lab). Secrets come from scripts/setup-keycloak-secrets.sh.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: addon-keycloak
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/part-of: platform-control-plane
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: control-plane
+  source:
+    repoURL: https://github.com/brunobml/gitops-control-plane.git
+    targetRevision: main
+    path: addons/keycloak
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: keycloak
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
