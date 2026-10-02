@@ -30,6 +30,9 @@ dex:
 configs:
   params:
     server.insecure: true
+    # Phase 4 C.1/C.2: let an ApplicationSet restrict its own sync policy (create-only /
+    # create-update), so a template migration can never delete Applications (review remark R-3).
+    applicationsetcontroller.enable.policy.override: true
   repositories:
     ghcr-charts:
       type: helm
