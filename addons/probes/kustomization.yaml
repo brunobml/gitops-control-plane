@@ -3,7 +3,6 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: platform-probes
 resources:
-  - namespace-monitoring.yaml
   - probe.yaml
 configMapGenerator:
   - name: synthetic-order-probe

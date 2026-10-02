@@ -33,6 +33,11 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+    managedNamespaceMetadata:
+      labels:
+        # Phase 5 F.0: Pod Security restricted (all monitoring workloads verified with --dry-run=server)
+        pod-security.kubernetes.io/enforce: restricted
+        pod-security.kubernetes.io/enforce-version: latest
     retry:
       limit: 5
       backoff:
