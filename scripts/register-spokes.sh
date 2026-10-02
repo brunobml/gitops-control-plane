@@ -83,12 +83,30 @@ EOF
   echo "Verifying Argo CD cluster connectivity for ${spoke}..."
   status=""
   for i in {1..15}; do
-    status=$(argocd cluster list --grpc-web 2>/dev/null | awk -v name="$spoke" '$2 == name {print $4}' || true)
-    if [[ "$status" == "Successful" ]]; then
-      break
-    fi
+    status=$(argocd cluster get "$server_url" --grpc-web -o json 2>/dev/null | jq -r '.connectionState.status // ""' || true)
+    [[ "$status" == "Successful" || "$status" == "Failed" ]] && break
     sleep 1
   done
+
+  # On a fresh hub Argo CD reports "Unknown" (no applications, not monitored) until an app
+  # targets the cluster. Then verify the new token and CA directly against the spoke API.
+  if [[ "$status" == "Unknown" ]]; then
+    tmp_kc=$(mktemp)
+    api=$(kubectl config view -o jsonpath="{.clusters[?(@.name==\"${context}\")].cluster.server}")
+    cat > "$tmp_kc" <<KC
+apiVersion: v1
+kind: Config
+clusters: [{name: c, cluster: {server: "${api}", certificate-authority-data: "${ca_data}"}}]
+users: [{name: u, user: {token: "${token}"}}]
+contexts: [{name: c, context: {cluster: c, user: u}}]
+current-context: c
+KC
+    if [[ "$(kubectl --kubeconfig "$tmp_kc" auth can-i get namespaces 2>/dev/null)" == "yes" ]]; then
+      status="Successful"
+      echo "  (Argo CD not monitoring ${spoke} yet; token and CA verified directly against ${api})"
+    fi
+    rm -f "$tmp_kc"
+  fi
 
   if [[ "$status" == "Successful" ]]; then
     echo "Argo CD cluster connectivity for ${spoke}: Successful"

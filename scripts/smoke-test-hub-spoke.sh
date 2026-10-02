@@ -25,7 +25,8 @@ echo -e "\n${YELLOW}[2/9] Checking Hub Cluster & Argo CD...${NC}"
 kubectl --context k3d-hub-cluster get nodes > /dev/null
 echo -e "${GREEN}✔ Hub cluster API is reachable${NC}"
 
-ARGOCD_PODS=$(kubectl --context k3d-hub-cluster -n argocd get pods --no-headers | awk '{print $3}')
+# Completed hook/Job pods (phase Succeeded, e.g. redis-secret-init after an argo-cd sync) are expected.
+ARGOCD_PODS=$(kubectl --context k3d-hub-cluster -n argocd get pods --field-selector=status.phase!=Succeeded --no-headers | awk '{print $3}')
 if echo "$ARGOCD_PODS" | grep -qv "Running"; then
   echo -e "${RED}✘ Not all Argo CD pods are Running:${NC}"
   kubectl --context k3d-hub-cluster -n argocd get pods
