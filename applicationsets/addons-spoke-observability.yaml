@@ -1,0 +1,59 @@
+# Phase 5 A.3: Prometheus agent on spokes labelled observability=enabled (nonprod first, prod
+# after a platform-catalog tag; register-spokes.sh then labels both). Values from platform-catalog
+# at the cluster's blueprints-revision; the cluster name and the remote-write user come from here.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: addons-spoke-observability
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            addons-managed: "true"
+            observability: enabled
+  template:
+    metadata:
+      name: "addon-observability-{{ .name }}"
+      labels:
+        app.kubernetes.io/part-of: platform-addons
+        addon: observability
+    spec:
+      project: platform-addons
+      sources:
+        - chart: prometheus
+          repoURL: https://prometheus-community.github.io/helm-charts
+          targetRevision: "29.35.0"
+          helm:
+            releaseName: prometheus-agent
+            valueFiles:
+              - "$values/controllers/observability/values-agent.yaml"
+            parameters:
+              - name: server.global.external_labels.cluster
+                value: "{{ .name }}"
+              - name: server.remoteWrite[0].basic_auth.username
+                value: "{{ .name }}"
+        - repoURL: https://github.com/brunobml/platform-catalog.git
+          targetRevision: '{{ index .metadata.annotations "blueprints-revision" }}'
+          ref: values
+      destination:
+        server: "{{ .server }}"
+        namespace: monitoring
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m

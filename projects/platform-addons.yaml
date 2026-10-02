@@ -14,6 +14,7 @@ spec:
     - "registry.k8s.io/kro/charts"
     - "public.ecr.aws/aws-controllers-k8s"
     - "https://kyverno.github.io/kyverno/"   # Phase 4 B.3
+    - "https://prometheus-community.github.io/helm-charts"   # Phase 5 A.3
   destinations:
     - name: "spoke-nonprod"
       namespace: "kro"
@@ -39,6 +40,15 @@ spec:
       namespace: "kube-system"
     - server: "https://k3d-spoke-prod-server-0:6443"
       namespace: "kube-system"
+    # Phase 5 A.3: Prometheus agents
+    - name: "spoke-nonprod"
+      namespace: "monitoring"
+    - name: "spoke-prod"
+      namespace: "monitoring"
+    - server: "https://k3d-spoke-nonprod-server-0:6443"
+      namespace: "monitoring"
+    - server: "https://k3d-spoke-prod-server-0:6443"
+      namespace: "monitoring"
     # Phase 4 B.3: Kyverno
     - name: "spoke-nonprod"
       namespace: "kyverno"
