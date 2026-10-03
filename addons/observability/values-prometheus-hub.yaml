@@ -174,6 +174,15 @@ serverFiles:
             annotations:
               summary: "Argo CD cannot reach {{ $labels.server }}"
               runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-argoclusterunreachable
+          # 2026-10-03 Track B.1 (L2-3): an ApplicationSet that cannot render (malformed registration,
+          # template error, ownership conflict) keeps its Applications but stops updating them.
+          - alert: ApplicationSetNotUpToDate
+            expr: max by (name, resource_update_status) (argocd_appset_info{resource_update_status!="ApplicationSetUpToDate"})
+            for: 5m
+            labels: {severity: critical}
+            annotations:
+              summary: "ApplicationSet {{ $labels.name }} is not up to date ({{ $labels.resource_update_status }}): its Applications are no longer updated"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-applicationsetnotuptodate
       - name: lab.credentials
         rules:
           - alert: SpokeTokenExpiringSoon

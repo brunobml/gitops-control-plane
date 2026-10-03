@@ -189,4 +189,22 @@ tests:
             exp_annotations:
               summary: "CI status of the lab repositories is unknown (exporter down, no internet or GitHub rate limit)"
               runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-cifailingonmain--cistatusunknown
+  # 2026-10-03 Track B.1
+  - name: ApplicationSetNotUpToDate only for the failing ApplicationSet, after 5 minutes
+    interval: 1m
+    input_series:
+      - {series: 'argocd_appset_info{name="tenant-workloads-tenant-a",namespace="argocd",resource_update_status="ApplicationSetUpToDate",instance="x"}', values: '1x3 _x10'}
+      - {series: 'argocd_appset_info{name="tenant-workloads-tenant-a",namespace="argocd",resource_update_status="RenderTemplateParamsError",instance="x"}', values: '_x3 1x10'}
+      - {series: 'argocd_appset_info{name="kro-blueprints",namespace="argocd",resource_update_status="ApplicationSetUpToDate",instance="x"}', values: '1x13'}
+    alert_rule_test:
+      - eval_time: 7m
+        alertname: ApplicationSetNotUpToDate
+        exp_alerts: []
+      - eval_time: 9m
+        alertname: ApplicationSetNotUpToDate
+        exp_alerts:
+          - exp_labels: {severity: critical, name: tenant-workloads-tenant-a, resource_update_status: RenderTemplateParamsError}
+            exp_annotations:
+              summary: "ApplicationSet tenant-workloads-tenant-a is not up to date (RenderTemplateParamsError): its Applications are no longer updated"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-applicationsetnotuptodate
 

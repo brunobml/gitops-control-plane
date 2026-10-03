@@ -212,6 +212,12 @@ Argo CD cannot reach a spoke (`argocd_cluster_connection_status != 1`).
 1. Docker or host restart: see **Issue A/B**; agent cross-wired after an IP reshuffle: **Issue E**.
 2. Expired token: `make post-bootstrap` renews tokens automatically when < 7 days are left; force it with `make rotate-spoke-tokens`.
 
+### Alert: ApplicationSetNotUpToDate
+An ApplicationSet cannot render (`argocd_appset_info{resource_update_status!="ApplicationSetUpToDate"}`): a registration file with a missing or wrong field, a template error, or two ApplicationSets claiming the same Application. Its Applications **keep running but are no longer updated**. Since Track B.2 this affects only the tenant whose ApplicationSet (`tenant-workloads-<tenant>`) fails.
+1. See the reason: `kubectl -n argocd get applicationset <name> -o jsonpath='{.status.conditions}'`, or the ApplicationSet's events in Argo CD.
+2. Tenant registrations: the CI check `registration-checks` names the bad file (`make ci-tenants` locally). Fix or revert it through a pull request.
+3. *"already owned by another ApplicationSet"*: two ApplicationSets generate the same Application name (`<app>-<env>` must be unique across tenants).
+
 ### Alert: SpokeTokenExpiringSoon
 A spoke or Headlamp token expires within 7 days (`lab_credential_expiry_timestamp_seconds`).
 Run `make post-bootstrap` (renews automatically) or `make rotate-spoke-tokens`. For `credential="local-tls"` (the https://*.localhost certificate, Track I.4): `make local-tls` issues a new one. *CredentialExpiryUnknown* means the exporter or the `monitoring/credential-expiry` ConfigMap is missing: `make rotate-spoke-tokens` rewrites it.

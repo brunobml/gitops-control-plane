@@ -181,7 +181,7 @@ make status   # Applications, spoke controllers and moto queues
 * *Platform overview*: Application health, spoke connections, firing alerts, scrape targets, recent warning events.
 * *Logs & events*: Loki logs and Kubernetes events from all three clusters.
 
-The 19 alert rules are unit-tested with `make test-alert-rules` (and in CI, `make ci`).
+The 20 alert rules are unit-tested with `make test-alert-rules` (and in CI, `make ci`).
 
 **Guardrails you can try:**
 * Images from outside `ghcr.io/brunobml/` are denied in tenant namespaces.
