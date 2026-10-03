@@ -3,7 +3,7 @@
 
 > **Status: Current.** Active remediation record for the 2026-10-03 assessment.
 
-* **Plan Version:** 1.0 (initial submission)
+* **Plan Version:** 1.1. v1.0 is approved, and Tracks 0 and A are closed. **v1.1 adds Track I** (canonical URLs on ports 80/443, trusted local TLS) and **awaits review**
 * **Assessment:** [`../../assessments/2026-10-03-lab-assessment.md`](../../assessments/2026-10-03-lab-assessment.md) (maturity 8.0 / 10)
 * **Baseline:** Phases 1–5 of the 2026-09-30 assessment complete and accepted ([`../2026-09-30-lab-assessment/`](../2026-09-30-lab-assessment/)); last full rebuild 2026-10-03 (8 min 15 s)
 * **Target Repositories:** `gitops-control-plane`, `platform-catalog`, `platform-charts`, `orders-processor`, `tenant-workloads`
@@ -15,7 +15,7 @@
 
 | Field | Details |
 |---|---|
-| **Current Status** | 🟢 **TRACKS 0 & A COMPLETED & VALIDATED** (Track B Next) |
+| **Current Status** | 🟢 **TRACKS 0 & A COMPLETED & VALIDATED** (Track B Next) · 🟡 **v1.1 amendment (Track I) AWAITING PEER REVIEW** |
 | **Plan Version** | `v1.0` (commit [`c1c8a53`](https://github.com/brunobml/gitops-control-plane/commit/c1c8a53)) |
 | **Author** | Claude (Opus 5.5) |
 | **Reviewed By** | Antigravity (Advanced Agentic AI Peer Reviewer) |
@@ -60,6 +60,24 @@
 | **O-4** | Host leftovers outside lab | **Leave untouched / Report only** | **Endorsed.** Preserves strict scope isolation. External k3d/kind clusters belonging to other projects must not be modified or deleted by lab automation. |
 | **O-5** | Acceptance rebuild (Track H) | **Yes** | **Endorsed.** Essential to validate Track E (secrets encryption, audit logging) and Track F (spoke Traefik replacement), which modify immutable cluster creation flags in `setup-hub-spoke.sh`. |
 
+
+### v1.1 Amendment summary (2026-10-03)
+
+| | |
+|---|---|
+| **Trigger** | The owner opened Argo CD over HTTPS and got a certificate warning, then asked to *"move from port 8080 and just use port 80 and 443"*, citing the owner's other lab `jenkins-argo`. That lab maps its cluster 1:1 to host ports 80/443 *"so that the OIDC issuer URL is identical from the browser and from inside the cluster"* |
+| **Change** | New **Track I** (§10a): **canonical, portless URLs** on host ports 80/443; a general `*.localhost` → Traefik resolution inside the hub (replacing the Keycloak-only rewrite); a **trusted local certificate** with HTTPS redirected to HTTP; a CI guard that keeps all SSO URLs consistent |
+| **Not changed** | SSO stays on HTTP (moving the issuer and cookies to HTTPS is a larger, separate item, see §1.2). The spokes keep 8081/8082. Tracks 0–H, remarks R-0..R-8, owner decisions O-1..O-5 |
+| **New owner decisions** | O-6 (port model), O-7 (HTTPS behaviour), O-8 (coexistence with `jenkins-argo`'s `argolab`) |
+
+#### Owner decisions requested (v1.1)
+
+| ID | Question | Author's recommendation | Reviewer Endorsement |
+|---|---|---|:---:|
+| **O-6** | Port model for the hub | **(a) 1:1 on `127.0.0.1:80` / `:443`**; all hub URLs become portless (`http://argocd.localhost`, `http://grafana.localhost`, …). (b) Keep 8080/8443 | *pending* |
+| **O-7** | What HTTPS does | **(a) Trusted local certificate (mkcert, CA trusted on Windows once) as Traefik's default, and HTTPS answered with a redirect to the HTTP URL**: no warning, then the working HTTP/SSO path. (b) Redirect with Traefik's self-signed default cert (warning first, then redirect). (c) Do not publish 443 | *pending* |
+| **O-8** | `argolab` (k3d cluster of the owner's `jenkins-argo` lab, stopped; a host leftover under O-4) also binds 80/443 when started | **Document only** (O-4 unchanged): both labs cannot run on 80/443 at the same time; `jenkins-argo` would need `HTTP_PORT`/`HTTPS_PORT` overrides (its own script supports them; its SSO assumes 80) | *pending* |
+
 ---
 
 ## 1. Executive Summary & Scope
@@ -92,7 +110,7 @@ The 2026-10-03 assessment found the running platform strong. The gaps are in **t
 
 | Item | Reason |
 |---|---|
-| Keycloak production mode, TLS everywhere, separate per-signal telemetry credentials (L4-7, L4-8) | They belong to the EKS translation (Phase 6 roadmap: ACM/ALB, managed IdP or Keycloak with RDS). In the lab they are recorded residuals |
+| Keycloak production mode, TLS everywhere (v1.1 Track I only adds a trusted certificate and an HTTPS → HTTP redirect; SSO itself stays on HTTP), separate per-signal telemetry credentials (L4-7, L4-8) | They belong to the EKS translation (Phase 6 roadmap: ACM/ALB, managed IdP or Keycloak with RDS). In the lab they are recorded residuals |
 | Per-tenant log tenancy and Headlamp scoping (L4-9) | Accepted owner decisions (Phase 4 O-2, Phase 5 O-6) for a single-user lab |
 | Kyverno verification of upstream platform images (assessment rec. 14, second half) | High risk of locking the platform out of itself, for little lab value; reconsider on EKS with ECR pull-through and signed mirrors |
 | Argo CD HA | Lab scale |
@@ -113,6 +131,20 @@ The 2026-10-03 assessment found the running platform strong. The gaps are in **t
 | F8 | `k3s secrets-encrypt status` → *Disabled, no configuration file*; no `audit-*` API server flags on any cluster | node exec | E |
 | F9 | Spokes run k3s-bundled Traefik 3.6.13 in `kube-system` (hub: GitOps Traefik 3.7.13 in `traefik`, bundled one disabled with `--disable=traefik`) | pods, setup script | F |
 | F10 | README Quick Start omits `make post-bootstrap`; drills 2/6 are denied by Pod Security (not Kyverno); drill 5's registration format breaks the tenant render | README, dry runs | 0.4, 0.5 |
+
+### 2.1 Pre-flight facts for v1.1 (verified live on 2026-10-03 by the author)
+
+| # | Fact | Source |
+|---|---|---|
+| P1 | Hub load balancer publishes `127.0.0.1:8080→80` and `127.0.0.1:8443→443`; HTTPS answers with Traefik's self-signed **"TRAEFIK DEFAULT CERT"** | `docker ps`, `openssl s_client` |
+| P2 | Nothing listens on 80/443 on Windows (IIS service absent) and no container publishes them | `Get-NetTCPConnection`, `docker ps` |
+| P3 | k3d v5.9.0: `k3d cluster edit <lb> --port-add` and `--port-delete` (the latter marked experimental) change load-balancer ports **without recreating the cluster** | `k3d cluster edit --help` |
+| P4 | Public `:8080` URLs exist only in `gitops-control-plane` (75 lines in 18 files, comments included): Argo CD values (domain, url, additionalUrls, OIDC issuer/logout, Headlamp links), Keycloak (`KC_HOSTNAME`, realm `rootUrl`/redirect/post-logout URIs), oauth2-proxy, Grafana, blackbox target and regexp, alert `logs` links (and their expected values in `alert-rules.test.yaml`), `Makefile`, `setup-hub-spoke.sh`, `post-bootstrap.sh`, smoke test, ingress links. The `8080` occurrences in `platform-catalog` and `orders-processor` are **container ports** and do not change | `grep` inventory |
+| P5 | In-cluster OIDC today works only because the Keycloak Service also listens on 8080: CoreDNS rewrites `keycloak.localhost` → `keycloak.keycloak.svc` (`addons/keycloak/coredns-custom.yaml`). Other `*.localhost` names do not resolve in-cluster | CoreDNS ConfigMap, Service |
+| P6 | Keycloak runs `start-dev --import-realm` without a persistent DB, so the realm (including redirect URIs) is re-imported on every restart | `addons/keycloak/deployment.yaml` |
+| P7 | Traefik chart 41.6.1 supports `tlsStore.default.defaultCertificate.secretName` and entrypoint middlewares (`ports.websecure.http.middlewares`) | chart `values.yaml`, `templates/tlsstore.yaml` |
+| P8 | `jenkins-argo` proves the CoreDNS pattern on k3s: `template IN ANY localhost { match ".*\.localhost\.$"; answer "{{ .Name }} 60 IN CNAME traefik…svc.cluster.local." }`. It does **not** solve TLS (no certificate config; same default-cert warning on 443) and keeps OIDC secrets in Git (**not** adopted) | `jenkins-argo/bootstrap/` |
+| P9 | `mkcert` is installed neither on Windows nor in WSL | `Get-Command`, `command -v` |
 
 ---
 
@@ -327,6 +359,71 @@ Grouped weekly PRs. Track A CI is the gate; prod-relevant bumps follow the norma
 
 ---
 
+## 10a. Track I: Canonical URLs on Ports 80/443 and Trusted Local TLS (v1.1, owner request)
+
+Goal: the browser and every pod use **the same portless URL** for every hub UI and for the OIDC issuer. HTTPS opens without a warning and leads to that URL. SSO behaves exactly as today.
+
+### Step I.0: Spike (throwaway cluster, no change to the lab)
+* On a throwaway k3d cluster (O-4: never touch `argolab`), check three things:
+  1. `k3d cluster edit <lb> --port-add 127.0.0.1:80:80@loadbalancer` and `--port-delete` work on k3d 5.9 with Docker Desktop.
+  2. The CoreDNS `template` override resolves `x.localhost` to the Traefik Service from a pod.
+  3. A RedirectScheme middleware attached to the `websecure` entrypoint answers `https://h.localhost/p` with `302 http://h.localhost/p`.
+* Result recorded before I.1. If `--port-delete` misbehaves, the old mappings stay until the Track H rebuild (harmless; they would only serve the old URLs).
+
+### Step I.1: One name resolution path for `*.localhost` (hub)
+* Replace `addons/keycloak/coredns-custom.yaml` with a `localhost.override` template: every `*.localhost` name becomes a CNAME to `traefik.traefik.svc.cluster.local`.
+* Pods (Argo CD, Grafana, oauth2-proxy, blackbox, smoke) then reach `keycloak.localhost` (and any hub UI) **through Traefik on port 80, like the browser**.
+* `post-bootstrap` already restarts CoreDNS when that ConfigMap's hash changes (R-1, Phase 4).
+* Keycloak's NetworkPolicy is narrowed to **Traefik only**, since in-cluster clients no longer connect to the pod directly. The Keycloak Service port becomes an implementation detail.
+* Ships **in the same change set as I.2**: the Traefik Service has no port 8080, so `:8080` URLs would break in-cluster without I.2.
+
+### Step I.2: Portless URLs everywhere (one change set)
+* Every item in P4 moves from `http://<host>.localhost:8080` / `http://localhost:8080` to `http://<host>.localhost` / `http://localhost`:
+  * Argo CD (`global.domain`, `url`, `additionalUrls`, OIDC issuer, logout, Headlamp links);
+  * Keycloak (`KC_HOSTNAME`, realm `rootUrl`, redirect and post-logout URIs for `argocd`, `headlamp`, `grafana`);
+  * oauth2-proxy (issuer, endpoints, `redirect_url`, `whitelist_domains`);
+  * Grafana (`root_url`, auth/token/userinfo/signout);
+  * blackbox target and regexp;
+  * alert `logs` links;
+  * `Makefile`, `setup-hub-spoke.sh` (k3d `-p 127.0.0.1:80:80@loadbalancer -p 127.0.0.1:443:443@loadbalancer`, argocd CLI address), `post-bootstrap.sh`, the smoke test (including the in-pod `/dev/tcp/keycloak.localhost/80` check);
+  * README, runbooks, tutorial.
+* **New CI stage `sso-urls`** in `ci/check-control-plane.sh` (Track A toolkit). It fails if:
+  * the issuer differs between Argo CD, Grafana, oauth2-proxy and Keycloak `KC_HOSTNAME`;
+  * an app URL has no matching redirect URI in the realm;
+  * any public `:8080`/`:8443` URL remains.
+
+  A partial change, the main risk of this track, becomes a red check instead of a login outage.
+
+### Step I.3: Live cut-over (owner-announced window, about 15 min, hub only)
+1. `k3d cluster edit k3d-hub-cluster-serverlb --port-add 127.0.0.1:80:80@loadbalancer --port-add 127.0.0.1:443:443@loadbalancer`. Old and new ports now both work at the TCP level.
+2. Push I.1 + I.2 with CI green. Argo CD syncs Keycloak (realm re-import, P6), Grafana, oauth2-proxy and Headlamp. The `argo-cd` app gets its **manual sync** as `platform-admin` with its own CLI config (B.4 rule), over the new address.
+3. `make post-bootstrap`: CoreDNS restart (I.1), credentials, smoke test with the new URLs.
+4. Browser acceptance by the owner: Argo CD, Headlamp and Grafana log in and out for `platform-user` and `tenant-a-user`.
+5. `--port-delete` 8080/8443 (or leave them until H, per I.0).
+* **Rollback:** revert the I.1/I.2 commit and sync `argo-cd`. The 8080 mapping is still present until step 5, so the old URLs work again at once.
+* Everyone signs in again after the cut-over (new issuer string, so old tokens are invalid). Expected and harmless.
+
+### Step I.4: Trusted local TLS and HTTPS → HTTP (per O-7)
+* **Owner, once, on Windows:** install mkcert and run `mkcert -install` (adds a local CA to the Windows trust store used by Chrome/Edge). Then issue a certificate for `localhost`, `argocd.localhost`, `headlamp.localhost`, `grafana.localhost`, `keycloak.localhost` into `~/.config/gitops-lab/tls/` (mode 600). The CA key never leaves Windows; the lab only receives the leaf cert and key.
+* `scripts/setup-local-tls.sh` (idempotent, like the other `setup-*-secrets.sh`; values never printed):
+  * creates Secret `traefik/local-tls`, never in Git;
+  * records the certificate's `notAfter` in `monitoring/credential-expiry`, so the existing `SpokeTokenExpiringSoon` rule (generic over `lab_credential_expiry_timestamp_seconds`) warns 7 days before expiry.
+* `addon-traefik` values:
+  * `tlsStore.default.defaultCertificate.secretName: local-tls`;
+  * a `Middleware` `redirect-to-http` (RedirectScheme `http`, `permanent: false`) on `ports.websecure.http.middlewares`.
+
+  Every HTTPS request is answered with a trusted certificate and a 302 to the same URL over HTTP. While SSO is on HTTP, nothing is served over HTTPS itself.
+* Without the Secret, Traefik keeps its default certificate: option (b) behaviour, with no breakage. The script is called by `post-bootstrap` if the files exist.
+
+### Step I.5: Verify
+* `curl -sI http://argocd.localhost` → 200; `https://argocd.localhost` → 302 to `http://argocd.localhost/…`, with a certificate issued by the mkcert CA.
+* From a hub pod, `keycloak.localhost` resolves to the Traefik Service, and the issuer matches the browser's byte for byte.
+* Smoke 12/12 with the new URLs; impersonation audit; alert tests; `make ci` including `sso-urls`.
+* Owner browser acceptance (I.3 step 4). No certificate warning on any hub host.
+* The Track H rebuild later proves the result from scratch: `setup-hub-spoke.sh` creates the hub directly on 80/443.
+
+---
+
 ## 11. Track H: Acceptance
 
 ### Step H.1: Full rebuild (O-5)
@@ -336,6 +433,7 @@ Grouped weekly PRs. Track A CI is the gate; prod-relevant bumps follow the norma
   * smoke green, including the new assertions: allowlist negative case, namespace baseline, quota;
   * encryption at rest enabled and the audit log written on all three clusters;
   * one Traefik version everywhere;
+  * (v1.1) hub created directly on 80/443; portless URLs, SSO for all three UIs and the HTTPS → HTTP redirect work from scratch;
   * every new alert fired once during its track's tests.
 * Executed and validated by different parties.
 
@@ -363,6 +461,11 @@ Grouped weekly PRs. Track A CI is the gate; prod-relevant bumps follow the norma
 | Y16 | Signed chart | `cosign verify` on the chart version; CI rejects an unsigned version | pass / reject |
 | Y17 | New alerts | `ArgoCDSelfOutOfSync`, `AckReconcileErrors`, `ApplicationSetNotUpToDate` | unit tests pass; live fire where feasible |
 | Y18 | Rebuild | H.1 | all green; time recorded |
+| Y20 | Portless URLs (I.2) | `make ci` stage `sso-urls`; a deliberately mismatched redirect URI | green; red with the mismatch named |
+| Y21 | In-cluster resolution (I.1) | resolve `keycloak.localhost` / `grafana.localhost` from a hub pod; compare issuer in-pod vs browser | Traefik Service; identical issuer |
+| Y22 | Cut-over (I.3) | SSO login/logout in all three UIs for both users; rollback rehearsal on the throwaway cluster (I.0) | works; rollback restores the old URLs |
+| Y23 | HTTPS (I.4) | `https://<host>.localhost` for the five hosts | trusted cert (mkcert CA), 302 to `http://` |
+| Y24 | TLS expiry | `lab_credential_expiry_timestamp_seconds{credential="local-tls"}` present | value = cert `notAfter` |
 | Y19 | Regression | Phase 5 smoke 12/12, alert tests, impersonation audit | unchanged |
 
 ---
@@ -378,6 +481,9 @@ Grouped weekly PRs. Track A CI is the gate; prod-relevant bumps follow the norma
 | Audit log fills the host disk | Low | Med | Rotation flags (size, age, backups); log volume measured in E.0 |
 | Encryption-at-rest key lost on rebuild | Low | Low (lab) | Datastore is recreated on rebuild anyway; key lives with the cluster |
 | Spoke Traefik migration breaks tenant ingress | Med | Med | Only on the rebuild (no in-place switch); same chart and IngressClass name as the hub; smoke and synthetic probe gate the rebuild |
+| (v1.1) Partial URL change breaks SSO login | Med | High | Single change set (I.1+I.2); CI `sso-urls` guard; old port mapping kept until verified; revert + `argo-cd` sync restores it |
+| (v1.1) Port 80/443 taken on the host later (IIS, another lab such as `argolab`) | Low | Med | Pre-flight P2 repeated at cut-over and in `setup-hub-spoke.sh` (fail fast with a clear message); O-8 documents the `argolab` conflict |
+| (v1.1) Local CA trusted on the owner's machine | Low | Low | mkcert CA key stays on Windows; certificate names limited to `*.localhost` lab hosts; residual recorded |
 | CI false positives block merges | Med | Low | Run as advisory for one week on the "alarm" repos before relying on them |
 
 ---
@@ -392,6 +498,7 @@ Grouped weekly PRs. Track A CI is the gate; prod-relevant bumps follow the norma
 | 4 | B.1, B.2 | zero-diff gate for B.2 | M |
 | 5 | C.1 – C.3, D.1 – D.2 | nonprod first, then prod | M |
 | 6 | E.0 spike, F prepared, G.1 – G.3 | spikes recorded before implementation | M–L |
-| 7 | H.1 rebuild (applies E and F) | owner approval (O-5); other party validates | S (+ validation) |
+| 6b | (v1.1) I.0 spike → I.1 + I.2 → I.3 cut-over → I.4 (after the owner's mkcert step) → I.5 | v1.1 approval; owner decisions O-6..O-8; owner window for I.3 | M |
+| 7 | H.1 rebuild (applies E, F and proves I) | owner approval (O-5); other party validates | S (+ validation) |
 
-Tracks 0, A–D and G each get their own implementation report and independent validation. E and F are reported with H.
+Tracks 0, A–D, G and I each get their own implementation report and independent validation. E and F are reported with H.
