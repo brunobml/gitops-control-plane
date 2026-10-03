@@ -17,6 +17,9 @@ spec:
     helm:
       releaseName: headlamp
       valuesObject:
+        # 2026-10-03 Step 0.6 (L3-1): pinned by digest; bump together with targetRevision.
+        image:
+          tag: "v0.45.0@sha256:db3f0e0fc58d358d41daa3fe7fc852437552c7ee873c3645470f7b86a8e0db49"
         automountServiceAccountToken: false
         clusterRoleBinding:
           create: false

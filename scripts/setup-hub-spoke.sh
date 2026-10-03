@@ -86,6 +86,7 @@ helm repo update traefik
 if ! kubectl --context "k3d-${HUB_CLUSTER}" -n traefik get deployment traefik >/dev/null 2>&1; then
   helm --kube-context "k3d-${HUB_CLUSTER}" upgrade --install traefik traefik/traefik \
     --version 41.6.1 \
+    --set image.tag="v3.7.13@sha256:24841fe2de7304c149343d877d2923b4c8800a38ba015dea9174c23b20e344a0" \
     --namespace traefik \
     --create-namespace
   kubectl --context "k3d-${HUB_CLUSTER}" -n traefik delete secret -l owner=helm,name=traefik

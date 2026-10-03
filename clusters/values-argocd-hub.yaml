@@ -4,6 +4,11 @@
 # sync the argo-cd app as platform-admin. Do not `helm upgrade` except as break-glass.
 global:
   domain: localhost:8080
+  # 2026-10-03 Step 0.6 (L3-1): images pinned by digest (multi-arch index digest of the tag). Bump the
+  # tag and digest together, e.g. `docker buildx imagetools inspect quay.io/argoproj/argocd:<tag>`.
+  # The chart turns the tag into the label app.kubernetes.io/version "v3.5.3-sha256-…" (valid, cosmetic).
+  image:
+    tag: "v3.5.3@sha256:dd3f47d5a5e4da563a7a398506e892481b358a7cec50abdf320c71aa55904bfa"
 
 server:
   metrics:
@@ -253,3 +258,8 @@ configs:
           hs.status = "Progressing"
           hs.message = "Waiting for ACK resource sync"
           return hs
+
+# 2026-10-03 Step 0.6 (L3-1): Redis pinned by digest (same index digest as docker.io/library/redis).
+redis:
+  image:
+    tag: "8.6.4-alpine@sha256:2cc044fc5a07c9b701f8f1255a309ae9ad7856e694ac03513bf3648c01e40763"
