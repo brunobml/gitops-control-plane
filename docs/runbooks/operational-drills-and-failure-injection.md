@@ -233,6 +233,8 @@ The demo app's values live permanently in `orders-processor/deploy/values-orders
 > ⚠️ **The registration format is strict.** Use exactly these fields: `tenant`, `app` (must match `orders-*`), `env` (`dev`/`test`/`prod`), `port` (quoted), `valuesRevision` (a full 40-character SHA for `prod`), and optional `valuesFile`. The ApplicationSet uses `missingkey=error`, so a file with other field names makes the **whole `tenant-workloads` ApplicationSet stop rendering**, for every tenant, until it is fixed (assessment L2-3).
 
 ### Action: Register
+> Once Track A.4 is active (pull requests required on `tenant-workloads` `main`), replace each `git push origin main` below with a branch push and a pull request. The required check `registration-checks` must pass before merging. Then wait for the merge instead of the push. Before that, the commands work as shown.
+
 ```bash
 TW=${REPOS_DIR:-..}/tenant-workloads
 cat > "$TW/tenants/tenant-a/apps/orders-demo-dev.yaml" <<'EOF'

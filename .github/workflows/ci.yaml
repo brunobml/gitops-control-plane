@@ -16,7 +16,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # superseded PR runs are cancelled; every commit on main keeps its own verdict (post-push alarm)
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   control-plane-checks:
