@@ -2,7 +2,7 @@
 ## Hub-and-Spoke GitOps Control Plane (2026-10-02)
 
 * **Plan Version:** 1.1 (v1.0 approved and implemented for Tracks 0–D; **v1.1 adds Track F, log aggregation**)
-* **Assessment Reference:** [`../assessments/2026-09-30-lab-assessment.md`](../assessments/2026-09-30-lab-assessment.md)
+* **Assessment Reference:** [`../assessments/2026-09-30-lab-assessment.md`](../../assessments/2026-09-30-lab-assessment.md)
 * **Phase 4 Baseline:** [`2026-10-02-lab-remediation-plan-phase4-validation-05.md`](2026-10-02-lab-remediation-plan-phase4-validation-05.md) and [`…-phase4-crosscheck-05.md`](2026-10-02-lab-remediation-plan-phase4-crosscheck-05.md) (Phase 4 complete; full rebuild accepted)
 * **Target Repositories:** `gitops-control-plane`, `platform-catalog`, `tenant-workloads`
 * **Author:** Claude (Opus 5.5)

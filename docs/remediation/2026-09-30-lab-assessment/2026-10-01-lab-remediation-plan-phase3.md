@@ -2,7 +2,7 @@
 ## Hub-and-Spoke GitOps Control Plane (2026-10-01)
 
 * **Plan Version:** 1.0 (initial submission)
-* **Assessment Reference:** [`../assessments/2026-09-30-lab-assessment.md`](../assessments/2026-09-30-lab-assessment.md)
+* **Assessment Reference:** [`../assessments/2026-09-30-lab-assessment.md`](../../assessments/2026-09-30-lab-assessment.md)
 * **Phase 2 Baseline:** [`2026-09-30-lab-remediation-plan-phase2-validation-02.md`](2026-09-30-lab-remediation-plan-phase2-validation-02.md) (Phase 2 authorized scope closed; L4-1 *Mitigated*)
 * **Target Repositories:** `gitops-control-plane`, `platform-catalog`, `orders-processor`
 * **Author:** Claude (Opus 5.5)

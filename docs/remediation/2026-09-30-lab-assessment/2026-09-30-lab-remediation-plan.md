@@ -2,7 +2,7 @@
 ## Hub-and-Spoke GitOps Control Plane (2026-09-30)
 
 * **Plan Version:** 3.0 (Fully Authorized Version Incorporating Review Sign-Off)
-* **Assessment Reference:** [`../assessments/2026-09-30-lab-assessment.md`](../assessments/2026-09-30-lab-assessment.md)
+* **Assessment Reference:** [`../assessments/2026-09-30-lab-assessment.md`](../../assessments/2026-09-30-lab-assessment.md)
 * **Target Repositories:** `gitops-control-plane`, `platform-catalog`, `platform-charts`, `orders-processor`, `tenant-workloads`
 
 ---
@@ -13,7 +13,7 @@
 |---|---|
 | **Reviewed** | [`2026-09-30-lab-remediation-plan.md`](2026-09-30-lab-remediation-plan.md) **v3.0** (commit `9571f2f`) |
 | **Review History** | v1.0 → `cb60a30` · v2.0 → `af49e63` · v2.1 → `8f28867` (conditional; blockers B1/B2) · **v3.0 → Authorized** |
-| **Against** | [`../assessments/2026-09-30-lab-assessment.md`](../assessments/2026-09-30-lab-assessment.md), the live clusters, and the five lab repositories |
+| **Against** | [`../assessments/2026-09-30-lab-assessment.md`](../../assessments/2026-09-30-lab-assessment.md), the live clusters, and the five lab repositories |
 | **Authorization Decision** | ✅ **GREEN LIGHT** |
 
 ### Authorization Decision & Banner

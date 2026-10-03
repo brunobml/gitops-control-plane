@@ -85,9 +85,12 @@ flowchart TD
 │   ├── argocd-visual-design-and-naming-standards.md # UI/UX design standards, labels, deep links & naming conventions
 │   ├── aws-well-architected-production-guide.md # 6-Pillar AWS Well-Architected audit & production transition blueprint
 │   ├── lab-progression-and-next-steps.md # Advanced enterprise roadmap (KEDA, Rollouts, Kyverno, Chaos, Telemetry)
-│   ├── assessments/2026-09-30-lab-assessment.md # Comprehensive hub-spoke lab assessment & maturity audit
-│   ├── runbooks/host-reboot-and-cluster-lifecycle.md # Operational runbook for host reboots & lifecycle
-│   └── remediation/2026-09-30-lab-remediation-plan.md # Targeted remediation plan for low-severity findings
+│   ├── assessments/                  # Lab assessments (2026-09-30, 2026-10-03), one file per assessment
+│   ├── runbooks/                     # Host reboot & lifecycle runbook, failure-injection drills
+│   ├── roadmaps/                     # Phase 6: production parity on AWS EKS
+│   └── remediation/
+│       ├── 2026-09-30-lab-assessment/ # Plans, reports and validations for the 2026-09-30 assessment (Phases 1–5)
+│       └── 2026-10-03-lab-assessment/ # Remediation of the 2026-10-03 assessment
 ├── scripts/
 │   ├── setup-hub-spoke.sh            # Provisions Moto, k3d clusters, Traefik, Argo CD, Kro & ACK
 │   ├── register-spokes.sh            # Creates tokens and registers spokes in Hub Argo CD

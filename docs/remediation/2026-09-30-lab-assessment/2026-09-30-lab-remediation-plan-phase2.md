@@ -2,7 +2,7 @@
 ## Hub-and-Spoke GitOps Control Plane (2026-09-30)
 
 * **Plan Version:** 1.1 (Revised Version Addressing Review Blockers P2-B1–P2-B6 & Validation Run #01 Observations PV-1–PV-5)
-* **Assessment Reference:** [`../assessments/2026-09-30-lab-assessment.md`](../assessments/2026-09-30-lab-assessment.md)
+* **Assessment Reference:** [`../assessments/2026-09-30-lab-assessment.md`](../../assessments/2026-09-30-lab-assessment.md)
 * **Phase 1 Baseline:** [`2026-09-30-lab-remediation-plan-validation-03.md`](2026-09-30-lab-remediation-plan-validation-03.md) (All Low findings closed)
 * **Phase 2 Validation Baseline:** [`2026-09-30-lab-remediation-plan-phase2-validation-01.md`](2026-09-30-lab-remediation-plan-phase2-validation-01.md)
 * **Target Repositories:** `gitops-control-plane`, `platform-catalog`, `orders-processor`

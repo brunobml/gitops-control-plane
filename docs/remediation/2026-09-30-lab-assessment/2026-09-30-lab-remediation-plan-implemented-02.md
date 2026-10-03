@@ -7,7 +7,7 @@
 | **Review Reference** | [`2026-09-30-lab-remediation-plan.md#review--approval-sign-off`](2026-09-30-lab-remediation-plan.md#review--approval-sign-off) (Green Light Approval with C1–C3) |
 | **Validation Reference**| [`2026-09-30-lab-remediation-plan-validation-01.md`](2026-09-30-lab-remediation-plan-validation-01.md) (Validated with Observations V-1 to V-9) |
 | **Supercedes** | [`2026-09-30-lab-remediation-plan-implemented-01.md`](2026-09-30-lab-remediation-plan-implemented-01.md) |
-| **Assessment Target** | [`../assessments/2026-09-30-lab-assessment.md`](../assessments/2026-09-30-lab-assessment.md) |
+| **Assessment Target** | [`../assessments/2026-09-30-lab-assessment.md`](../../assessments/2026-09-30-lab-assessment.md) |
 | **Execution Date** | 2026-09-30 |
 | **Execution Status** | ✅ **FULLY VALIDATED & REMEDIATED — ALL OBSERVATIONS V-1 TO V-9 RESOLVED** |
 
