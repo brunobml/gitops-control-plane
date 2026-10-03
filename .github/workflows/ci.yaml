@@ -5,7 +5,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # ci-selftest/* branches run the checks without a pull request (negative tests of the CI itself)
+    branches: [main, "ci-selftest/**"]
   pull_request:
     branches: [main]
   workflow_dispatch:
