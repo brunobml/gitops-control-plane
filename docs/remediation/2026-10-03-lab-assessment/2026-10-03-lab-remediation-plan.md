@@ -3,7 +3,7 @@
 
 > **Status: Current.** Active remediation record for the 2026-10-03 assessment.
 
-* **Plan Version:** 1.1 (commit [`fc74d79`](https://github.com/brunobml/gitops-control-plane/commit/fc74d79)). Tracks 0 & A closed; **v1.1 amendment (Track I) approved**; Track B next in execution.
+* **Plan Version:** 1.1 (commit [`fc74d79`](https://github.com/brunobml/gitops-control-plane/commit/fc74d79)). Tracks 0, A, & I closed; Track B next in execution.
 * **Assessment:** [`../../assessments/2026-10-03-lab-assessment.md`](../../assessments/2026-10-03-lab-assessment.md) (maturity 8.0 / 10)
 * **Baseline:** Phases 1–5 of the 2026-09-30 assessment complete and accepted ([`../2026-09-30-lab-assessment/`](../2026-09-30-lab-assessment/)); last full rebuild 2026-10-03 (8 min 15 s)
 * **Target Repositories:** `gitops-control-plane`, `platform-catalog`, `platform-charts`, `orders-processor`, `tenant-workloads`
@@ -15,15 +15,15 @@
 
 | Field | Details |
 |---|---|
-| **Current Status** | 🟢 **TRACKS 0 & A COMPLETED & VALIDATED** (Track B Next) · 🟢 **v1.1 AMENDMENT (TRACK I) APPROVED** |
+| **Current Status** | 🟢 **TRACKS 0, A, & I COMPLETED & VALIDATED** (Track B Next) |
 | **Plan Version** | `v1.1` (commit [`fc74d79`](https://github.com/brunobml/gitops-control-plane/commit/fc74d79)) |
 | **Author** | Claude (Opus 5.5) |
 | **Reviewed By** | Antigravity (Advanced Agentic AI Peer Reviewer) |
-| **Review Date** | 2026-10-03 (v1.1 Track I Amendment Review) |
-| **Authorization Decision** | ✅ **GREEN LIGHT** — Full plan approved; **Tracks 0 & A 100% Validated & Closed**; **v1.1 Track I Approved**. |
+| **Review Date** | 2026-10-03 (v1.1 Track I Amendment Review & Validation) |
+| **Authorization Decision** | ✅ **GREEN LIGHT** — Full plan approved; **Tracks 0, A, & I 100% Validated & Closed**. |
 | **Track 0 Status** | 🟢 **CLOSED**: Validated in [`validation-01.md`](2026-10-03-lab-remediation-plan-validation-01.md), [`validation-02.md`](2026-10-03-lab-remediation-plan-validation-02.md), and [`validation-03.md`](2026-10-03-lab-remediation-plan-validation-03.md) across all steps (0.1–0.7). |
 | **Track A Status** | 🟢 **CLOSED**: Validated in [`validation-04.md`](2026-10-03-lab-remediation-plan-validation-04.md) across all steps (A.1–A.4, V-9). |
-| **Track I Status** | 🟡 **APPROVED & SCHEDULED**: Authorized to execute per schedule (Spike I.0 early validation permitted; cut-over window coordinated with owner). |
+| **Track I Status** | 🟢 **CLOSED**: Validated in [`validation-05.md`](2026-10-03-lab-remediation-plan-validation-05.md) across all steps (I.0–I.5, R-9..R-12, O-6..O-8). |
 | **Execution / validation split** | The party that executes a step writes `…-implemented-NN.md`; the other party writes `…-validation-NN.md` |
 
 ### Reviewer Decision & Feedback
