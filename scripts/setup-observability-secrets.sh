@@ -11,7 +11,6 @@
 # - Never prints a value. Values reach kubectl through files, not process arguments.
 set -euo pipefail
 
-SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SECRET_DIR="${GITOPS_LAB_SECRET_DIR:-$HOME/.config/gitops-lab}"
 SPOKES=("spoke-nonprod" "spoke-prod")
 H=(kubectl --context k3d-hub-cluster)

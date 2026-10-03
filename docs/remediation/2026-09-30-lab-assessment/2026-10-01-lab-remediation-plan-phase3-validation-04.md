@@ -53,9 +53,9 @@
    - Tested live STS caller identity using the credentials stored inside each Secret:
      | Environment | Secret Key ID | Authenticated Account | Caller ARN |
      |---|---|:---:|---|
-     | `orders-dev` | `AKIARTXV5AHDT67M5ZG3` | `111111111111` | `arn:aws:iam::111111111111:user/orders-dev-worker` |
-     | `orders-test` | `AKIARTXV5AHDQZNFOJHN` | `111111111111` | `arn:aws:iam::111111111111:user/orders-test-worker` |
-     | `orders-prod` | `AKIATHPL2AOHJ7TUROMG` | `222222222222` | `arn:aws:iam::222222222222:user/orders-prod-worker` |
+     | `orders-dev` | `AKIARTXV… (masked 2026-10-03, A.1 secret scan)` | `111111111111` | `arn:aws:iam::111111111111:user/orders-dev-worker` |
+     | `orders-test` | `AKIARTXV… (masked 2026-10-03, A.1 secret scan)` | `111111111111` | `arn:aws:iam::111111111111:user/orders-test-worker` |
+     | `orders-prod` | `AKIATHPL… (masked 2026-10-03, A.1 secret scan)` | `222222222222` | `arn:aws:iam::222222222222:user/orders-prod-worker` |
 
 ---
 
