@@ -1,0 +1,11 @@
+# CODEOWNERS for gitops-control-plane
+# Core control plane configurations, AppProjects, ApplicationSets, and cluster baselines
+
+# Global repository owner
+* @brunobml
+
+# Production-relevant control plane definitions
+/projects/ @brunobml
+/applicationsets/ @brunobml
+/clusters/ @brunobml
+/bootstrap/ @brunobml
