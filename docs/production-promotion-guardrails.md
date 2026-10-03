@@ -273,7 +273,7 @@ jobs:
 ## Summary Recommendation for our Multi-Cluster Lab
 
 1. **Short Term (Current Setup)**:
-   * Disable `automated` sync in [applicationsets/tenant-workloads-prod.yaml](../applicationsets/tenant-workloads-prod.yaml).
+   * Disable `automated` sync for prod Applications in [applicationsets/tenant-workloads.yaml](../applicationsets/tenant-workloads.yaml) (pre-Phase-4: `tenant-workloads-prod.yaml`).
    * Result: Changes to `values-prod.yaml` will flag the application as `OutOfSync`, requiring a manual review and sync command.
 2. **Long Term (Target Production Architecture)**:
    * Combine **Pattern 2 (Protected `prod` branch / release tags)** with **Pattern 5 (GitHub Actions environment approval gates)**.
