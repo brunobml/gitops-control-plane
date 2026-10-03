@@ -311,15 +311,22 @@ for target in "k3d-spoke-nonprod:orders-dev" "k3d-spoke-nonprod:orders-test" "k3
   fi
   running=$(kubectl --context "$ctx" -n "$ns" get pods -o jsonpath='{.items[0].spec.containers[0].image}')
   overrides='{"spec":{"securityContext":{"runAsNonRoot":true,"runAsUser":10001,"seccompProfile":{"type":"RuntimeDefault"}},"containers":[{"name":"probe","image":"IMG","securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}}]}}'
-  if kubectl --context "$ctx" -n "$ns" run smoke-unsigned-probe --image="$UNSIGNED" --restart=Never --dry-run=server \
-       --overrides="${overrides/IMG/$UNSIGNED}" -o name >/dev/null 2>&1; then
+  # Each probe must be denied by the control it targets, not by any other one (2026-10-03 validation-01 V-6).
+  if out=$(kubectl --context "$ctx" -n "$ns" run smoke-unsigned-probe --image="$UNSIGNED" --restart=Never --dry-run=server \
+       --overrides="${overrides/IMG/$UNSIGNED}" -o name 2>&1); then
     echo -e "${RED}✘ ${ns}: an unsigned orders-processor image was admitted${NC}"
+    exit 1
+  elif [[ "$out" != *"Policy tenant-images-signed failed"* ]]; then
+    echo -e "${RED}✘ ${ns}: the unsigned image was denied, but not by Kyverno policy tenant-images-signed: ${out:0:200}${NC}"
     exit 1
   fi
   # Step 0.3 (L4-2, O-2): arbitrary public image (alpine:latest) must be denied by native VAP
-  if kubectl --context "$ctx" -n "$ns" run smoke-alpine-probe --image="alpine:latest" --restart=Never --dry-run=server \
-       --overrides="${overrides/IMG/alpine:latest}" -o name >/dev/null 2>&1; then
+  if out=$(kubectl --context "$ctx" -n "$ns" run smoke-alpine-probe --image="alpine:latest" --restart=Never --dry-run=server \
+       --overrides="${overrides/IMG/alpine:latest}" -o name 2>&1); then
     echo -e "${RED}✘ ${ns}: an unallowlisted image (alpine:latest) was admitted (VAP allowlist bypass)${NC}"
+    exit 1
+  elif [[ "$out" != *"ValidatingAdmissionPolicy 'tenant-image-registry-allowlist'"* ]]; then
+    echo -e "${RED}✘ ${ns}: alpine:latest was denied, but not by the VAP tenant-image-registry-allowlist: ${out:0:200}${NC}"
     exit 1
   fi
   if ! kubectl --context "$ctx" -n "$ns" run smoke-signed-probe --image="$running" --restart=Never --dry-run=server \
@@ -327,7 +334,7 @@ for target in "k3d-spoke-nonprod:orders-dev" "k3d-spoke-nonprod:orders-test" "k3
     echo -e "${RED}✘ ${ns}: the running (signed) image ${running} is not admitted${NC}"
     exit 1
   fi
-  echo -e "  ${ns}: unsigned image & unallowlisted alpine denied, running image admitted (${running##*:})"
+  echo -e "  ${ns}: unsigned image denied by Kyverno, alpine denied by the allowlist VAP, running image admitted (${running##*:})"
 done
 echo -e "${GREEN}✔ Image registry allowlist (VAP) and CI signature/SBOM policies (Kyverno) enforced in tenant namespaces${NC}"
 
