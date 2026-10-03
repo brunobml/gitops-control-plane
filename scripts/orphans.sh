@@ -5,7 +5,7 @@
 #   - worker IAM user <name>-<env>-worker (moto, accounts 111111111111 / 222222222222) with no
 #     registration -> keys, policies and user deleted
 #   - DynamoDB table <name>-<env>-history with no registration -> reported; deleted only with PRUNE_DATA=1
-# Registrations = Applications owned by the tenant-workloads ApplicationSet. Nothing registered is
+# Registrations = Applications owned by the tenant-workloads-<tenant> ApplicationSets (Track B.2). Nothing registered is
 # ever touched; with no registrations at all the script refuses to run.
 # usage: orphans.sh [--dry-run]     (make orphans = --dry-run)
 set -euo pipefail
@@ -18,7 +18,7 @@ run() { if (( DRY )); then return 0; fi; "$@" >/dev/null; }
 # reported unless PRUNE_DATA=1. Runs only after discovery found registrations; registered names are
 # never touched.
 targets=$(kubectl --context k3d-hub-cluster -n argocd get applications -o json | jq -r \
-  '[.items[] | select(any(.metadata.ownerReferences[]?; .name=="tenant-workloads")) | "\(.spec.destination.name):\(.spec.destination.namespace)"] | join(" ")')
+  '[.items[] | select(any(.metadata.ownerReferences[]?; .kind=="ApplicationSet" and (.name|startswith("tenant-workloads")))) | "\(.spec.destination.name):\(.spec.destination.namespace)"] | join(" ")')
 [[ -n "$targets" ]] || { echo "✘ no tenant-workloads registrations found; refusing to compute orphans" >&2; exit 1; }
 declare -A REG_NS=() REG_NAME=()
 for t in $targets; do

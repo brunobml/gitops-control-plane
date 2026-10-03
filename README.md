@@ -77,7 +77,7 @@ flowchart TD
 │                                     #   addons-spoke-*  spoke add-ons (kro, ACK SQS, Kyverno, agents, logging, platform config)
 │                                     #   argo-cd         Argo CD manages itself (manual sync)
 │                                     #   kro-blueprints  platform-catalog blueprints per spoke (revision from clusters/)
-│                                     #   tenant-workloads one Application per tenant registration file
+│                                     #   tenant-workloads-<tenant> one per tenant (scripts/tenant-appset.sh); one Application per registration file
 │                                     #   platform-projects AppProjects
 ├── ci/                              # Track A CI toolkit: offline render, kubeconform, CEL, secret scan (`make ci*`)
 ├── bootstrap/                        # Root App-of-Apps and the hub deployer identity

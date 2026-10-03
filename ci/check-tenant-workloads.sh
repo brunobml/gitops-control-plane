@@ -4,7 +4,8 @@
 #
 #   registrations  JSON Schema (tenant-workloads/schema/registration.schema.json), file naming,
 #                  uniqueness, values file present at valuesRevision (ci/check-registrations.py)
-#   render         the tenant-workloads ApplicationSet of gitops-control-plane rendered with these
+#   tenant-appsets every tenants/<tenant>/ has applicationsets/tenant-workloads-<tenant>.yaml (B.2)
+#   render         the tenant ApplicationSets of gitops-control-plane rendered with these
 #                  registrations (same template guards, missingkey=error), then the golden chart
 #                  rendered with each app's values
 #   schemas        kubeconform of the rendered QueueBackedServices (kro-generated CRD schema)
@@ -23,8 +24,14 @@ if stage registrations "Registration files"; then
   python3 "${CI_DIR}/check-registrations.py" "$TW" || fail "registrations"
 fi
 
-if stage render "Render the tenant-workloads ApplicationSet with these registrations"; then
-  if labci appsets -repo "${GH}/tenant-workloads.git=${TW}" "$REPO/applicationsets/tenant-workloads.yaml" > "$OUT/apps.yaml" \
+if stage tenant-appsets "Every tenant directory has its ApplicationSet (Track B.2)"; then
+  python3 "${CI_DIR}/check-tenant-appsets.py" "$REPO" "$TW" || fail "tenant ApplicationSets"
+fi
+
+if stage render "Render the tenant ApplicationSets with these registrations"; then
+  # every tenant's ApplicationSet (Track B.2) rendered together, so a duplicate <app>-<env>
+  # across tenants is also caught
+  if labci appsets -repo "${GH}/tenant-workloads.git=${TW}" "$REPO"/applicationsets/tenant-workloads*.yaml > "$OUT/apps.yaml" \
      && python3 "${CI_DIR}/render.py" "$OUT/apps.yaml" --out "$OUT/manifests"; then
     ok "tenant Applications render"
   else

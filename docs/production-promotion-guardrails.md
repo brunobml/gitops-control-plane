@@ -4,7 +4,7 @@
 
 > **Current implementation (Phase 4 C.2, 2026-10-02):** tenant environments are registered in the
 > `tenant-workloads` repository (`tenants/<tenant>/apps/<app>-<env>.yaml`) and rendered by one
-> ApplicationSet, `applicationsets/tenant-workloads.yaml`. Production promotion = a reviewed pull
+> ApplicationSet, `applicationsets/tenant-workloads-<tenant>.yaml` (one per tenant since 2026-10-03 Track B.2). Production promotion = a reviewed pull
 > request in `tenant-workloads` that sets `valuesRevision` in `orders-prod.yaml` to a full commit SHA;
 > the template refuses anything else for `prod`. Images must also be CI-signed (Kyverno, Phase 4 B.4).
 > The `tenant-workloads-nonprod/prod.yaml` files named below are the pre-Phase-4 design examples.
@@ -273,7 +273,7 @@ jobs:
 ## Summary Recommendation for our Multi-Cluster Lab
 
 1. **Short Term (Current Setup)**:
-   * Disable `automated` sync for prod Applications in [applicationsets/tenant-workloads.yaml](../applicationsets/tenant-workloads.yaml) (pre-Phase-4: `tenant-workloads-prod.yaml`).
+   * Disable `automated` sync for prod Applications in [applicationsets/tenant-workloads-tenant-a.yaml](../applicationsets/tenant-workloads-tenant-a.yaml) (pre-Phase-4: `tenant-workloads-prod.yaml`).
    * Result: Changes to `values-prod.yaml` will flag the application as `OutOfSync`, requiring a manual review and sync command.
 2. **Long Term (Target Production Architecture)**:
    * Combine **Pattern 2 (Protected `prod` branch / release tags)** with **Pattern 5 (GitHub Actions environment approval gates)**.

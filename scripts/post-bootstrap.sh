@@ -3,7 +3,7 @@
 # running lab it only acts where something is missing or stale.
 #
 #  0. Renew spoke/Headlamp tokens with fewer than 7 days left (Phase 5 D.2).
-#  1. Discover tenant workloads from the tenant-workloads ApplicationSet (Phase 4 C.2) and wait
+#  1. Discover tenant workloads from the tenant-workloads-<tenant> ApplicationSets (B.2) and wait
 #     for their namespaces (CARM account annotation) and QueueBackedServices.
 #  2. SSO prerequisites: restart CoreDNS when the keycloak.localhost rewrite changed (its
 #     reload plugin ignores imported files), then wait for Keycloak.
@@ -47,12 +47,12 @@ fi
 
 echo "[2/9] Discovering tenant workloads (tenant-workloads registrations) and waiting for their namespaces..."
 # Phase 4 C.2: workloads are whatever tenants registered, not a fixed list. Each Application of
-# the tenant-workloads ApplicationSet names a spoke and namespace; the namespace's
+# a tenant-workloads-<tenant> ApplicationSet names a spoke and namespace; the namespace's
 # QueueBackedService gives the app name and environment (Secret <name>-<env>-aws).
 t0=$(date +%s); targets=""; stable=0
 while :; do
   now=$(kubectl --context k3d-hub-cluster -n argocd get applications -o json | jq -r \
-    '[.items[] | select(any(.metadata.ownerReferences[]?; .name=="tenant-workloads")) | "\(.spec.destination.name):\(.spec.destination.namespace)"] | sort | join(" ")')
+    '[.items[] | select(any(.metadata.ownerReferences[]?; .kind=="ApplicationSet" and (.name|startswith("tenant-workloads")))) | "\(.spec.destination.name):\(.spec.destination.namespace)"] | sort | join(" ")')
   if [[ -n "$now" && "$now" == "$targets" ]]; then stable=$((stable + 1)); else stable=0; targets=$now; fi
   (( stable >= 2 )) && break
   (( $(date +%s) - t0 > TIMEOUT_NS )) && { echo "✘ no tenant-workloads Applications after ${TIMEOUT_NS}s" >&2; exit 1; }

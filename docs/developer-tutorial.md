@@ -65,7 +65,7 @@ deploy/
 └── values-prod.yaml     # Deployed to spoke-prod (namespace: orders-prod)
 ```
 
-Each environment is **registered by the tenant** with one small file in the `tenant-workloads` repository (Phase 4 C.2); the platform's [`applicationsets/tenant-workloads.yaml`](../applicationsets/tenant-workloads.yaml) turns every file into an Argo CD Application:
+Each environment is **registered by the tenant** with one small file in the `tenant-workloads` repository (Phase 4 C.2); the platform's per-tenant ApplicationSet ([`applicationsets/tenant-workloads-tenant-a.yaml`](../applicationsets/tenant-workloads-tenant-a.yaml), Track B.2) turns every file into an Argo CD Application:
 
 ```yaml
 # tenant-workloads/tenants/tenant-a/apps/orders-dev.yaml

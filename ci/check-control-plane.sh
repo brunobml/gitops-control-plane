@@ -11,6 +11,7 @@
 #   alert-rules  promtool check + unit tests on the rendered hub alert rules
 #   dashboards   Grafana dashboard JSON (valid, unique uid/title, referenced by the kustomization)
 #   alloy        hub Alloy config parses
+#   tenant-appsets tenant-workloads-<tenant>.yaml files equal scripts/tenant-appset.sh output (B.2)
 #   sso-urls     one OIDC issuer everywhere, every relying-party URL registered in the realm, no
 #                old 8080/8443 hub URLs (Track I, review remark R-10; ci/check-sso-urls.py)
 #
@@ -113,6 +114,10 @@ print(f"✔ {len(uids)} dashboards checked", file=sys.stderr)
 sys.exit(1 if errs else 0)
 EOF
   then ok "dashboards valid"; else fail "dashboards"; fi
+fi
+
+if stage tenant-appsets "Tenant ApplicationSets match scripts/tenant-appset.sh (Track B.2)"; then
+  python3 "${CI_DIR}/check-tenant-appsets.py" "$REPO" || fail "tenant ApplicationSets"
 fi
 
 if stage sso-urls "SSO URL consistency (Keycloak, Argo CD, oauth2-proxy, Grafana)"; then
