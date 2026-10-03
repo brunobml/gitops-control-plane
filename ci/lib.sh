@@ -11,6 +11,22 @@ export LAB_CI_CACHE="${LAB_CI_CACHE:-$HOME/.cache/lab-ci}"
 mkdir -p "${LAB_CI_CACHE}/kubeconform" "${LAB_CI_CACHE}/helm"
 GH=https://github.com/brunobml
 
+# In GitHub Actions, every failure line also becomes an ::error:: annotation, so the reason of a red
+# check is visible on the PR / commit without opening the (authenticated) job log.
+if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
+  annotate() {
+    local line plain
+    while IFS= read -r line; do
+      printf '%s\n' "$line"
+      plain=$(printf '%s' "$line" | sed 's/\x1b\[[0-9;]*m//g')
+      if [[ "$plain" == *"✘ "* || "$plain" == *" is invalid: "* || "$plain" == *" failed validation: "* ]]; then
+        printf '::error::%s\n' "${plain#*✘ }"
+      fi
+    done
+  }
+  exec > >(annotate) 2> >(annotate >&2)
+fi
+
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 STAGES=("$@")
 FAILED=0
