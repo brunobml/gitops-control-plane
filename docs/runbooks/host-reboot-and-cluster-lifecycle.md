@@ -239,3 +239,11 @@ Logs are not being collected or stored (Phase 5 Track F). Metrics and alerts kee
 A container restarted because it exceeded its memory limit (Kubernetes emits no event for this; the reason comes from kube-state-metrics). Example: Grafana at 384 Mi on 2026-10-02.
 1. Grafana → *Logs & events* (the alert's `logs` link): the container's last lines before the kill, and the *Containers OOM-killed* table.
 2. Raise the limit in the component's values (Git) if the usage is legitimate; otherwise investigate the leak.
+
+### Alert: CIFailingOnMain / CIStatusUnknown
+*CIFailingOnMain*: the latest CI run of a workflow on `main` of a lab repository failed (2026-10-03 Track A). On `gitops-control-plane`, `platform-catalog` and `orders-processor`, CI is a post-push alarm (O-1), so the change is already on `main`. For the catalog, nonprod already follows it.
+1. Open the `link` annotation. The failure reasons are shown as annotations on the run.
+2. Reproduce locally: `make ci`, `make ci-catalog`, `make ci-tenants` or `make ci-charts` from `gitops-control-plane` (see `ci/README.md`).
+3. Fix forward with a new commit, or revert. Do not promote a catalog revision to prod while its CI is red.
+
+*CIStatusUnknown*: the ci-status exporter (`monitoring/ci-status-exporter`) could not read the GitHub API for 30 min. Causes: no internet from the hub; GitHub's unauthenticated limit of 60 calls/hour, shared with everything on the host (see `lab_ci_github_rate_limit_remaining`); or the exporter is down.

@@ -190,6 +190,24 @@ serverFiles:
             annotations:
               summary: "No credential expiry data (exporter down or ConfigMap missing)"
               runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spoketokenexpiringsoon
+      # 2026-10-03 Track A.4 (O-1 post-push alarms, O-3 lab-local delivery): CI result on main.
+      - name: lab.ci
+        rules:
+          - alert: CIFailingOnMain
+            expr: max by (repo, workflow) (lab_ci_run_success) == 0
+            for: 5m
+            labels: {severity: warning}
+            annotations:
+              summary: "CI {{ $labels.workflow }} is failing on main of {{ $labels.repo }}"
+              link: "https://github.com/brunobml/{{ $labels.repo }}/actions?query=branch%3Amain"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-cifailingonmain--cistatusunknown
+          - alert: CIStatusUnknown
+            expr: absent(lab_ci_poll_timestamp_seconds) or (time() - max(lab_ci_poll_timestamp_seconds) > 3600) or max(lab_ci_poll_success) == 0
+            for: 30m
+            labels: {severity: warning}
+            annotations:
+              summary: "CI status of the lab repositories is unknown (exporter down, no internet or GitHub rate limit)"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-cifailingonmain--cistatusunknown
       - name: lab.spokes
         rules:
           - alert: SpokeAgentDown

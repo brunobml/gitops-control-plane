@@ -154,3 +154,39 @@ tests:
         exp_alerts:
           - exp_labels: {severity: warning, cluster: spoke-nonprod, namespace: x, pod: p, container: c}
             exp_annotations: {summary: "x/p container c was OOM-killed on spoke-nonprod", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-containeroomkilled", logs: "http://grafana.localhost:8080/d/lab-logs?var-cluster=spoke-nonprod&var-namespace=x"}
+  # 2026-10-03 Track A.4
+  - name: CIFailingOnMain only for the red workflow, across a new commit (sha label)
+    interval: 1m
+    input_series:
+      - {series: 'lab_ci_run_success{repo="platform-catalog",workflow="CI",sha="aaaaaaa",instance="x"}', values: '0x3 _x10'}
+      - {series: 'lab_ci_run_success{repo="platform-catalog",workflow="CI",sha="bbbbbbb",instance="x"}', values: '_x3 0x10'}
+      - {series: 'lab_ci_run_success{repo="tenant-workloads",workflow="CI",sha="ccccccc",instance="x"}', values: '1x13'}
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: CIFailingOnMain
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: CIFailingOnMain
+        exp_alerts:
+          - exp_labels: {severity: warning, repo: platform-catalog, workflow: CI}
+            exp_annotations:
+              summary: "CI CI is failing on main of platform-catalog"
+              link: "https://github.com/brunobml/platform-catalog/actions?query=branch%3Amain"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-cifailingonmain--cistatusunknown
+  - name: CIStatusUnknown when polling fails
+    interval: 1m
+    input_series:
+      - {series: 'lab_ci_poll_timestamp_seconds{instance="x"}', values: '0+60x40'}
+      - {series: 'lab_ci_poll_success{instance="x"}', values: '0x40'}
+    alert_rule_test:
+      - eval_time: 29m
+        alertname: CIStatusUnknown
+        exp_alerts: []
+      - eval_time: 31m
+        alertname: CIStatusUnknown
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "CI status of the lab repositories is unknown (exporter down, no internet or GitHub rate limit)"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-cifailingonmain--cistatusunknown
+

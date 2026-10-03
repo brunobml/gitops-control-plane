@@ -4,7 +4,11 @@ kind: Kustomization
 namespace: monitoring
 resources:
   - credential-expiry.yaml
+  - ci-status.yaml          # 2026-10-03 Track A.4
 configMapGenerator:
   - name: credential-expiry-exporter
     files:
       - credential_expiry_exporter.py
+  - name: ci-status-exporter
+    files:
+      - ci_status_exporter.py
