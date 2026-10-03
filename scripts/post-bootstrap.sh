@@ -26,7 +26,7 @@ RENEW_DAYS=7
 
 ARGOCD_CFG=$(mktemp)
 trap 'rm -f "$ARGOCD_CFG"' EXIT
-argocd login localhost:8080 --plaintext --grpc-web --skip-test-tls --config "$ARGOCD_CFG" \
+argocd login localhost --plaintext --grpc-web --skip-test-tls --config "$ARGOCD_CFG" \
   --username platform-admin --password "$(cat "${SECRET_DIR}/argocd-platform-admin.password")" </dev/null >/dev/null
 A=(argocd --config "$ARGOCD_CFG")
 
@@ -72,7 +72,7 @@ for t in $targets; do
   done < <(kubectl --context "k3d-${spoke}" -n "$ns" get queuebackedservice -o json | jq -r '.items[] | "\(.spec.name) \(.spec.environment)"')
 done
 
-echo "[3/9] SSO prerequisites (CoreDNS rewrite, Keycloak)..."
+echo "[3/9] SSO prerequisites (CoreDNS *.localhost, Keycloak, lab TLS certificate)..."
 H=(kubectl --context k3d-hub-cluster)
 t0=$(date +%s)
 until "${H[@]}" -n kube-system get cm coredns-custom >/dev/null 2>&1; do
@@ -94,7 +94,10 @@ until "${H[@]}" -n keycloak get deploy keycloak >/dev/null 2>&1; do
   sleep 5
 done
 "${H[@]}" -n keycloak rollout status deploy/keycloak --timeout=600s >/dev/null
-echo "  ✔ Keycloak Ready (issuer $(curl -s http://keycloak.localhost:8080/realms/lab/.well-known/openid-configuration | jq -r .issuer))"
+echo "  ✔ Keycloak Ready (issuer $(curl -s http://keycloak.localhost/realms/lab/.well-known/openid-configuration | jq -r .issuer))"
+# Track I.4: lab certificate for https://*.localhost (mkcert if available, else self-signed;
+# renewed when fewer than 30 days are left).
+bash "${SCRIPT_DIR}/setup-local-tls.sh" | sed 's/^/  /'
 
 echo "[4/9] Worker credentials..."
 declare -A PROVISIONED=()

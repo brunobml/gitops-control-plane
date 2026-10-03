@@ -86,7 +86,7 @@ valuesRevision: main # prod must pin a full 40-character commit SHA
 ## 🚀 5-Minute Quickstart
 
 ### Step 1: Open Your Dashboards
-- **Hub Argo CD UI**: [http://localhost:8080](http://localhost:8080)
+- **Hub Argo CD UI**: [http://localhost](http://localhost)
   - Click **Log in via Keycloak** and sign in as `tenant-a-user` (developer access: view tenant apps, sync `orders-dev` / `orders-test`)
   - Password: run `make password` to see where it is stored (it is never kept in Git)
   - Here you will see all your tenant applications: `orders-dev`, `orders-test`, `orders-prod`. Production syncs only through a reviewed `valuesRevision` change, so `tenant-a-user` cannot sync `orders-prod`.
@@ -232,5 +232,5 @@ Want to scale `orders-dev` from 1 replica to 3 replicas?
 | **View Worker Logs** | `kubectl --context k3d-spoke-nonprod -n orders-dev logs -l app=orders-dev-worker -f` |
 | **List AWS Queues** | `AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs list-queues` |
 | **Send Test Message** | `AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs send-message --queue-url <URL> --message-body '{"test": true}'` |
-| **Argo CD UI** | [http://localhost:8080](http://localhost:8080) |
+| **Argo CD UI** | [http://localhost](http://localhost) |
 | **Moto Cloud API** | [http://localhost:5000/moto-api/](http://localhost:5000/moto-api/) |

@@ -1,5 +1,9 @@
-# Split-horizon issuer (Phase 4 A.0/A.2): in-cluster lookups of keycloak.localhost go to the
-# Keycloak Service, so the issuer http://keycloak.localhost:8080 works inside and outside.
+# One resolution path for every hub UI host (2026-10-03 Track I.1, pattern from the jenkins-argo
+# lab): inside the hub, every *.localhost name is a CNAME to the Traefik Service, so pods reach
+# http://keycloak.localhost (the OIDC issuer), http://grafana.localhost, ... through the same
+# ingress and port (80) as the browser. Replaces the Phase 4 Keycloak-only rewrite.
+# Review remark R-9: the template matches only names ending in ".localhost." and falls through
+# for everything else (cluster-internal service discovery and external names are untouched).
 # k3s CoreDNS imports this optional ConfigMap. Its `reload` plugin does not watch imported
 # files, so post-bootstrap.sh restarts CoreDNS when this content changes (review remark R-1).
 apiVersion: v1
@@ -8,5 +12,9 @@ metadata:
   name: coredns-custom
   namespace: kube-system
 data:
-  keycloak.override: |
-    rewrite name keycloak.localhost keycloak.keycloak.svc.cluster.local
+  localhost.override: |
+    template IN ANY localhost {
+      match "^.*\.localhost\.$"
+      answer "{{ .Name }} 60 IN CNAME traefik.traefik.svc.cluster.local."
+      fallthrough
+    }

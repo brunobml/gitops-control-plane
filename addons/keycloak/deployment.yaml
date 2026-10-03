@@ -34,7 +34,7 @@ spec:
           env:
             # Issuer must be identical for the browser and in-cluster clients (CoreDNS rewrite).
             - name: KC_HOSTNAME
-              value: "http://keycloak.localhost:8080"
+              value: "http://keycloak.localhost"
             - name: KC_HTTP_ENABLED
               value: "true"
             - name: KC_HEALTH_ENABLED

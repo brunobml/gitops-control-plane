@@ -4,7 +4,7 @@ metadata:
   name: keycloak
   namespace: keycloak
   annotations:
-    link.argocd.argoproj.io/external-link: "http://keycloak.localhost:8080/admin/master/console/"
+    link.argocd.argoproj.io/external-link: "http://keycloak.localhost/admin/master/console/"
 spec:
   ingressClassName: traefik
   rules:

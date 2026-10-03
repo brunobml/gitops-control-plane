@@ -63,7 +63,7 @@ moto111() {  # credentials for moto account 111111111111 (nonprod), as the smoke
 make test        # 12/12 smoke stages
 alerts           # nothing firing
 ```
-In Grafana (http://grafana.localhost:8080, Keycloak user `platform-user`), open *Dashboards → Platform overview* and *Logs & events*.
+In Grafana (http://grafana.localhost, Keycloak user `platform-user`), open *Dashboards → Platform overview* and *Logs & events*.
 
 Expected baseline:
 * 12/12 smoke stages pass;

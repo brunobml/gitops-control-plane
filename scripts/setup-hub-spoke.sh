@@ -46,13 +46,20 @@ docker run -d --name moto-cloud \
 # 3. Create k3d Clusters
 echo -e "\n${YELLOW}[3/6] Creating k3d clusters (Hub, Spoke Non-Prod, Spoke Prod)...${NC}"
 if ! k3d cluster list | grep -q "${HUB_CLUSTER}"; then
+  # Track I (O-6): the hub owns host ports 80/443. Fail fast if another container holds them,
+  # e.g. the jenkins-argo lab's argolab cluster (O-8): stop it first or start it on other ports.
+  busy=$(docker ps --format '{{.Names}} {{.Ports}}' | grep -E '(127\.0\.0\.1|0\.0\.0\.0|\[::\]):(80|443)->' | cut -d' ' -f1 | sort -u | tr '\n' ' ')
+  if [[ -n "$busy" ]]; then
+    echo -e "${RED}✘ Host port 80/443 is already published by: ${busy}- stop it before creating the hub.${NC}" >&2
+    exit 1
+  fi
   k3d cluster create "${HUB_CLUSTER}" \
     --network "${NETWORK_NAME}" \
     --servers 1 --agents 0 \
     --image rancher/k3s:v1.35.5-k3s1 \
     --api-port 127.0.0.1:6550 \
-    --port "127.0.0.1:8080:80@loadbalancer" \
-    --port "127.0.0.1:8443:443@loadbalancer" \
+    --port "127.0.0.1:80:80@loadbalancer" \
+    --port "127.0.0.1:443:443@loadbalancer" \
     --k3s-arg "--disable=traefik@server:*"
 fi
 
@@ -91,6 +98,8 @@ if ! kubectl --context "k3d-${HUB_CLUSTER}" -n traefik get deployment traefik >/
   kubectl --context "k3d-${HUB_CLUSTER}" -n traefik delete secret -l owner=helm,name=traefik
 fi
 kubectl --context "k3d-${HUB_CLUSTER}" wait --for=condition=ready --timeout=120s pod -l app.kubernetes.io/name=traefik -n traefik
+# Track I.4: the certificate Secret exists before addon-traefik's TLSStore refers to it (R-12).
+bash "${SCRIPT_DIR}/setup-local-tls.sh"
 
 # 4b. Install Argo CD on Hub
 echo -e "\n${YELLOW}[4b/7] Deploying Argo CD on ${HUB_CLUSTER}...${NC}"
@@ -120,7 +129,7 @@ kubectl --context "k3d-${HUB_CLUSTER}" wait --for=condition=ready --timeout=120s
 # Log the CLI in as platform-admin: register-spokes.sh verifies connectivity with `argocd cluster list`.
 # Retry: the server can be Ready slightly before the Traefik route serves it.
 for attempt in $(seq 1 30); do
-  if argocd login localhost:8080 --plaintext --grpc-web --skip-test-tls \
+  if argocd login localhost --plaintext --grpc-web --skip-test-tls \
       --username platform-admin \
       --password "$(cat "${GITOPS_LAB_SECRET_DIR:-$HOME/.config/gitops-lab}/argocd-platform-admin.password")" </dev/null >/dev/null 2>&1; then
     echo "✔ argocd CLI logged in as platform-admin"
@@ -155,8 +164,8 @@ kubectl --context "k3d-${HUB_CLUSTER}" -n argocd delete secret argocd-initial-ad
 echo -e "\n${GREEN}============================================================${NC}"
 echo -e "${GREEN}  Hub-and-Spoke Environment Ready!                         ${NC}"
 echo -e "${GREEN}============================================================${NC}"
-echo -e "  Hub Argo CD UI:     http://localhost:8080 (or http://argocd.localhost:8080; accounts: run 'make password')"
-echo -e "  Hub Headlamp UI:    http://headlamp.localhost:8080 (Single Pane of Glass Dashboard)"
+echo -e "  Hub Argo CD UI:     http://localhost (or http://argocd.localhost; accounts: run 'make password')"
+echo -e "  Hub Headlamp UI:    http://headlamp.localhost (Single Pane of Glass Dashboard)"
 echo -e "  Central Moto Cloud: http://localhost:5000/moto-api/"
 echo -e "  Spoke Non-Prod:     k3d-spoke-nonprod (Traefik Ingress on port 8081)"
 echo -e "    - Dev Orders:     http://orders-dev.localhost:8081"

@@ -132,7 +132,7 @@ docker port k3d-spoke-nonprod-serverlb
 docker port k3d-spoke-prod-serverlb
 docker port moto-cloud
 ```
-All published ports (`8080`, `8443`, `8081`, `8082`, `5000`) must show `127.0.0.1:<port>`.
+All published ports (`80`, `443`, `8081`, `8082`, `5000`) must show `127.0.0.1:<port>`.
 
 ### Issue E: Spoke Agent Node `NotReady` with `not authorized` (cross-wired after IP reshuffle)
 **Seen on 2026-10-01 after a host reboot** (`k3d-spoke-nonprod-agent-0`).
@@ -172,6 +172,12 @@ make post-bootstrap
 ```
 Run it after every `make start`.
 
+### Issue H: Hub URLs or HTTPS (ports 80/443, Track I)
+**Symptoms:** `make setup` stops with "Host port 80/443 is already published by: …"; or `https://<host>.localhost` shows a certificate warning.
+* **Port in use:** another container holds 80/443, typically the `argolab` cluster of the `jenkins-argo` lab (owner decision O-8). Stop it (`k3d cluster stop argolab`), or start that lab on other ports with its `HTTP_PORT`/`HTTPS_PORT` overrides. Both labs cannot use 80/443 at the same time.
+* **Certificate warning:** the lab uses a self-signed fallback until mkcert is set up. On Windows: `winget install FiloSottile.mkcert`, then `mkcert -install`. Then run `make local-tls`. HTTPS only redirects to the HTTP URL; SSO stays on HTTP.
+* **Do not** remove ports with `k3d cluster edit … --port-delete` on the hub. When two mappings share a container port, k3d drops that port from the load balancer completely (I.0 spike). Recovery: `docker start k3d-hub-cluster-serverlb`, then `k3d cluster edit hub-cluster --port-add <free host port>:80@loadbalancer` (and the same for 443) to restore the proxy entries.
+
 ### Issue G: Single Sign-On Unavailable (Keycloak down or misconfigured)
 **Symptoms:** "Log in via Keycloak" in Argo CD fails or loops; Headlamp redirects to a Keycloak error page; smoke stage 10 fails.
 
@@ -180,7 +186,7 @@ Run it after every `make start`.
 **Diagnose:**
 ```bash
 kubectl --context k3d-hub-cluster -n keycloak get pods
-curl -s http://keycloak.localhost:8080/realms/lab/.well-known/openid-configuration | jq -r .issuer
+curl -s http://keycloak.localhost/realms/lab/.well-known/openid-configuration | jq -r .issuer
 kubectl --context k3d-hub-cluster -n kube-system get cm coredns-custom -o yaml   # keycloak.localhost rewrite
 kubectl --context k3d-hub-cluster -n oauth2-proxy logs deploy/oauth2-proxy --tail=20
 ```
@@ -193,7 +199,7 @@ kubectl --context k3d-hub-cluster -n oauth2-proxy logs deploy/oauth2-proxy --tai
 ---
 
 ## Alerts (Phase 5)
-Alerts are shown in **Grafana** (`http://grafana.localhost:8080`, Keycloak SSO; dashboard *GitOps Lab → Platform overview*, Alertmanager data source). They stay lab-local (owner decision O-1). Each alert's `runbook` annotation points to a section below.
+Alerts are shown in **Grafana** (`http://grafana.localhost`, Keycloak SSO; dashboard *GitOps Lab → Platform overview*, Alertmanager data source). They stay lab-local (owner decision O-1). Each alert's `runbook` annotation points to a section below.
 
 ### Alert: ArgoAppDegraded / ArgoAppOutOfSync
 An Application is not Healthy for 10 min, or not Synced for 30 min (`argo-cd` itself is excluded: it is manual-sync by design).
@@ -208,7 +214,7 @@ Argo CD cannot reach a spoke (`argocd_cluster_connection_status != 1`).
 
 ### Alert: SpokeTokenExpiringSoon
 A spoke or Headlamp token expires within 7 days (`lab_credential_expiry_timestamp_seconds`).
-Run `make post-bootstrap` (renews automatically) or `make rotate-spoke-tokens`. *CredentialExpiryUnknown* means the exporter or the `monitoring/credential-expiry` ConfigMap is missing: `make rotate-spoke-tokens` rewrites it.
+Run `make post-bootstrap` (renews automatically) or `make rotate-spoke-tokens`. For `credential="local-tls"` (the https://*.localhost certificate, Track I.4): `make local-tls` issues a new one. *CredentialExpiryUnknown* means the exporter or the `monitoring/credential-expiry` ConfigMap is missing: `make rotate-spoke-tokens` rewrites it.
 
 ### Alert: SpokeAgentDown / SpokeControllerDown
 No metrics from a spoke's Prometheus agent, or kro / ACK is not running there.

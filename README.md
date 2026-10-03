@@ -16,9 +16,9 @@ flowchart TD
         OP["orders-processor<br/>(app code, signed image, env values)"]
     end
 
-    subgraph Hub["Hub cluster (k3d-hub-cluster), http://*.localhost:8080"]
+    subgraph Hub["Hub cluster (k3d-hub-cluster), http://*.localhost"]
         Traefik["Traefik ingress"]
-        ArgoCD["Argo CD (self-managed)<br/>localhost:8080"]
+        ArgoCD["Argo CD (self-managed)<br/>localhost"]
         KC["Keycloak (SSO, realm lab)<br/>keycloak.localhost"]
         HL["Headlamp + oauth2-proxy<br/>headlamp.localhost"]
         Obs["Prometheus + Alertmanager, Loki,<br/>Grafana (grafana.localhost), blackbox, exporters"]
@@ -163,11 +163,13 @@ make status   # Applications, spoke controllers and moto queues
 
 | What | Where | Sign in |
 |---|---|---|
-| **Argo CD** (desired state, all clusters) | http://localhost:8080 or http://argocd.localhost:8080 | "Log in via Keycloak", or the local break-glass `platform-admin` |
-| **Headlamp** (runtime state, all clusters) | http://headlamp.localhost:8080 | Keycloak (via oauth2-proxy) |
-| **Grafana** (metrics, logs, alerts) | http://grafana.localhost:8080 | Keycloak: `platform-user` = Admin, `tenant-a-user` = Viewer |
-| **Keycloak admin** | http://keycloak.localhost:8080/admin/ | `kc-admin` |
+| **Argo CD** (desired state, all clusters) | http://localhost or http://argocd.localhost | "Log in via Keycloak", or the local break-glass `platform-admin` |
+| **Headlamp** (runtime state, all clusters) | http://headlamp.localhost | Keycloak (via oauth2-proxy) |
+| **Grafana** (metrics, logs, alerts) | http://grafana.localhost | Keycloak: `platform-user` = Admin, `tenant-a-user` = Viewer |
+| **Keycloak admin** | http://keycloak.localhost/admin/ | `kc-admin` |
 | **Orders dashboards** | `make open-dev` / `open-test` / `open-prod` (port-forward) | — |
+
+**HTTPS:** `https://<host>.localhost` redirects to the HTTP URL above, which is the path SSO uses. For no certificate warning, do this once on Windows: `winget install FiloSottile.mkcert`, then `mkcert -install`. After that, run `make local-tls`. Without mkcert, the lab uses a self-signed certificate, and the browser warns once before redirecting.
 
 **SSO users** (Keycloak realm `lab`):
 * `platform-user`: platform administrator.

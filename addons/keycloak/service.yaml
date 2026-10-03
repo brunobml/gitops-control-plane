@@ -7,8 +7,8 @@ spec:
   selector:
     app.kubernetes.io/name: keycloak
   ports:
-    # Port 8080 on purpose: in-cluster clients reach http://keycloak.localhost:8080 through the
-    # CoreDNS rewrite, the browser through the hub load balancer on 127.0.0.1:8080.
+    # Only Traefik uses this Service (Track I.1): browser and in-cluster clients both reach
+    # http://keycloak.localhost through the ingress on port 80.
     - name: http
       port: 8080
       targetPort: http

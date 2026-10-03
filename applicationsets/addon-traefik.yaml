@@ -23,6 +23,29 @@ spec:
       valuesObject:
         image:
           tag: "v3.7.13@sha256:24841fe2de7304c149343d877d2923b4c8800a38ba015dea9174c23b20e344a0"
+        # 2026-10-03 Track I.4 (O-7): HTTPS presents the lab certificate (Secret traefik/local-tls,
+        # created outside Git by scripts/setup-local-tls.sh: mkcert-issued, or a self-signed
+        # fallback) and answers every request with a redirect to the same URL over HTTP, the path
+        # SSO uses. Nothing is served over HTTPS itself until SSO moves to HTTPS.
+        tlsStore:
+          default:
+            defaultCertificate:
+              secretName: local-tls
+        ports:
+          websecure:
+            http:
+              middlewares:
+                - traefik-redirect-to-http@kubernetescrd
+        extraObjects:
+          - apiVersion: traefik.io/v1alpha1
+            kind: Middleware
+            metadata:
+              name: redirect-to-http
+              namespace: traefik
+            spec:
+              redirectScheme:
+                scheme: http
+                permanent: false
   destination:
     server: https://kubernetes.default.svc
     namespace: traefik

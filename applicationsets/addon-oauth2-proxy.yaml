@@ -29,16 +29,16 @@ spec:
           existingSecret: oauth2-proxy-credentials
           configFile: |
             provider = "keycloak-oidc"
-            oidc_issuer_url = "http://keycloak.localhost:8080/realms/lab"
+            oidc_issuer_url = "http://keycloak.localhost/realms/lab"
             # Endpoints given explicitly: no OIDC discovery at startup, so oauth2-proxy starts even
             # while Keycloak is still coming up (cold rebuild) or a new pod's NetworkPolicy access is
             # not programmed yet. Signing keys are fetched from the JWKS URL when first needed.
             skip_oidc_discovery = true
-            login_url = "http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/auth"
-            redeem_url = "http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/token"
-            oidc_jwks_url = "http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/certs"
-            profile_url = "http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/userinfo"
-            redirect_url = "http://headlamp.localhost:8080/oauth2/callback"
+            login_url = "http://keycloak.localhost/realms/lab/protocol/openid-connect/auth"
+            redeem_url = "http://keycloak.localhost/realms/lab/protocol/openid-connect/token"
+            oidc_jwks_url = "http://keycloak.localhost/realms/lab/protocol/openid-connect/certs"
+            profile_url = "http://keycloak.localhost/realms/lab/protocol/openid-connect/userinfo"
+            redirect_url = "http://headlamp.localhost/oauth2/callback"
             code_challenge_method = "S256"
             # The groups claim comes from the client's group mapper; the realm has no "groups" scope.
             scope = "openid email profile"
@@ -48,7 +48,7 @@ spec:
             upstreams = ["static://202"]
             reverse_proxy = true
             skip_provider_button = true
-            whitelist_domains = ["headlamp.localhost:8080"]
+            whitelist_domains = ["headlamp.localhost"]
             cookie_domains = ["headlamp.localhost"]
             cookie_samesite = "lax"
             cookie_expire = "10h"
@@ -58,7 +58,7 @@ spec:
             cookie_refresh = "1m"
             set_xauthrequest = true
             # /oauth2/sign_out also ends the Keycloak session (called server-side with the ID token).
-            backend_logout_url = "http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/logout?id_token_hint={id_token}"
+            backend_logout_url = "http://keycloak.localhost/realms/lab/protocol/openid-connect/logout?id_token_hint={id_token}"
         # Single replica in the lab; a PDB with minAvailable 1 would block node drains.
         podDisruptionBudget:
           enabled: false

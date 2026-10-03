@@ -249,18 +249,18 @@ done
 echo -e "${GREEN}✔ Orders flow end-to-end in every environment${NC}"
 
 echo -e "\n${YELLOW}[10/12] Asserting Single Sign-On (Keycloak, Argo CD, Headlamp)...${NC}"
-ISSUER="http://keycloak.localhost:8080/realms/lab"
+ISSUER="http://keycloak.localhost/realms/lab"
 host_iss=$(curl -s "${ISSUER}/.well-known/openid-configuration" | jq -r .issuer 2>/dev/null || true)
-# In-cluster path (CoreDNS rewrite + Keycloak NetworkPolicy), from the argocd-server pod itself.
+# In-cluster path (CoreDNS *.localhost -> Traefik, Track I.1), from the argocd-server pod itself.
 pod_iss=$(kubectl --context k3d-hub-cluster -n argocd exec deploy/argo-cd-argocd-server -- bash -c \
-  'exec 3<>/dev/tcp/keycloak.localhost/8080; printf "GET /realms/lab/.well-known/openid-configuration HTTP/1.0\r\nHost: keycloak.localhost:8080\r\n\r\n" >&3; cat <&3' 2>/dev/null \
+  'exec 3<>/dev/tcp/keycloak.localhost/80; printf "GET /realms/lab/.well-known/openid-configuration HTTP/1.0\r\nHost: keycloak.localhost\r\n\r\n" >&3; cat <&3' 2>/dev/null \
   | grep -o '"issuer":"[^"]*"' | cut -d'"' -f4 || true)
 if [[ "$host_iss" != "$ISSUER" || "$pod_iss" != "$ISSUER" ]]; then
   echo -e "${RED}✘ OIDC issuer mismatch: host='${host_iss}' argocd-server='${pod_iss}' expected='${ISSUER}'${NC}"
   exit 1
 fi
 echo -e "${GREEN}✔ Issuer identical from host and from argocd-server: ${ISSUER}${NC}"
-settings=$(curl -s http://localhost:8080/api/v1/settings)
+settings=$(curl -s http://localhost/api/v1/settings)
 if [[ "$(jq -r '.oidcConfig.issuer // ""' <<<"$settings")" != "$ISSUER" || "$(jq -r '.oidcConfig.enablePKCEAuthentication // false' <<<"$settings")" != "true" ]]; then
   echo -e "${RED}✘ Argo CD does not advertise the Keycloak OIDC (PKCE) configuration${NC}"
   exit 1
@@ -268,9 +268,9 @@ fi
 echo -e "${GREEN}✔ Argo CD advertises Keycloak SSO (PKCE)${NC}"
 # Every SSO entry point must reach Keycloak's login form, not an error page: this catches
 # unregistered redirect URIs and hosts Argo CD does not accept (no password is used).
-for start in "http://localhost:8080/auth/login?return_url=http%3A%2F%2Flocalhost%3A8080%2Fapplications" \
-             "http://argocd.localhost:8080/auth/login?return_url=http%3A%2F%2Fargocd.localhost%3A8080%2Fapplications" \
-             "http://headlamp.localhost:8080/"; do
+for start in "http://localhost/auth/login?return_url=http%3A%2F%2Flocalhost%2Fapplications" \
+             "http://argocd.localhost/auth/login?return_url=http%3A%2F%2Fargocd.localhost%2Fapplications" \
+             "http://headlamp.localhost/"; do
   kc_url=$(curl -s -o /dev/null -w '%{redirect_url}' "$start")
   if [[ "$kc_url" != "${ISSUER}/protocol/openid-connect/auth?"* ]] || ! curl -s "$kc_url" | grep -q 'id="kc-form-login"'; then
     echo -e "${RED}✘ SSO entry point does not reach the Keycloak login form: ${start%%\?*}${NC}"
@@ -281,19 +281,19 @@ echo -e "${GREEN}✔ Argo CD (localhost, argocd.localhost) and Headlamp reach th
 # Break-glass: the local platform-admin account must keep working (Phase 4 R-4).
 pw_file="${GITOPS_LAB_SECRET_DIR:-$HOME/.config/gitops-lab}/argocd-platform-admin.password"
 token=$(jq -n --rawfile p "$pw_file" '{username: "platform-admin", password: ($p | rtrimstr("\n"))}' \
-  | curl -s -H 'Content-Type: application/json' -d @- http://localhost:8080/api/v1/session | jq -r '.token // ""')
+  | curl -s -H 'Content-Type: application/json' -d @- http://localhost/api/v1/session | jq -r '.token // ""')
 if [[ -z "$token" ]]; then
   echo -e "${RED}✘ Local break-glass login (platform-admin) failed${NC}"
   exit 1
 fi
 unset token
 echo -e "${GREEN}✔ Local break-glass account platform-admin can log in${NC}"
-hl=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -H 'Origin: https://evil.example' http://headlamp.localhost:8080/clusters/k3d-spoke-prod/api/v1/namespaces)
+hl=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -H 'Origin: https://evil.example' http://headlamp.localhost/clusters/k3d-spoke-prod/api/v1/namespaces)
 if [[ "$hl" != "302 ${ISSUER}/protocol/openid-connect/auth?"*"client_id=headlamp"* ]]; then
   echo -e "${RED}✘ Unauthenticated Headlamp request is not redirected to Keycloak: ${hl:0:120}${NC}"
   exit 1
 fi
-if curl -s -D - -o /dev/null -H 'Origin: https://evil.example' http://headlamp.localhost:8080/ | grep -qi '^access-control-allow-origin'; then
+if curl -s -D - -o /dev/null -H 'Origin: https://evil.example' http://headlamp.localhost/ | grep -qi '^access-control-allow-origin'; then
   echo -e "${RED}✘ Headlamp answers cross-origin requests (P4-1 regression)${NC}"
   exit 1
 fi
@@ -367,7 +367,7 @@ old=$(jq -r --argjson now "$(date +%s)" '[.data.alerts[] | select(.state=="firin
 new=$(jq -r '[.data.alerts[] | select(.state=="firing") | .labels.alertname] | unique | join(",")' <<<"$alerts")
 if [[ -n "$old" ]]; then echo -e "${RED}✘ Alerts firing for more than 20 min: ${old}${NC}"; exit 1; fi
 if [[ -n "$new" ]]; then echo -e "${YELLOW}! recently firing alerts: ${new}${NC}"; else echo -e "${GREEN}✔ No firing alerts${NC}"; fi
-kc=$(curl -s -o /dev/null -w '%{redirect_url}' http://grafana.localhost:8080/login/generic_oauth)
+kc=$(curl -s -o /dev/null -w '%{redirect_url}' http://grafana.localhost/login/generic_oauth)
 if [[ "$kc" != "${ISSUER}/protocol/openid-connect/auth?"* ]] || ! curl -s "$kc" | grep -q 'id="kc-form-login"'; then
   echo -e "${RED}✘ Grafana SSO entry point does not reach the Keycloak login form${NC}"; exit 1
 fi

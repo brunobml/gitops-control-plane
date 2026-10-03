@@ -71,16 +71,16 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "rootUrl": "http://localhost:8080",
+      "rootUrl": "http://localhost",
       "redirectUris": [
-        "http://localhost:8080/auth/callback",
-        "http://argocd.localhost:8080/auth/callback",
+        "http://localhost/auth/callback",
+        "http://argocd.localhost/auth/callback",
         "http://localhost:8085/auth/callback"
       ],
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:8080##http://localhost:8080/*##http://argocd.localhost:8080##http://argocd.localhost:8080/*"
+        "post.logout.redirect.uris": "http://localhost##http://localhost/*##http://argocd.localhost##http://argocd.localhost/*"
       },
       "protocolMappers": [
         {
@@ -108,14 +108,14 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "rootUrl": "http://headlamp.localhost:8080",
+      "rootUrl": "http://headlamp.localhost",
       "redirectUris": [
-        "http://headlamp.localhost:8080/oauth2/callback"
+        "http://headlamp.localhost/oauth2/callback"
       ],
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://headlamp.localhost:8080##http://headlamp.localhost:8080/*"
+        "post.logout.redirect.uris": "http://headlamp.localhost##http://headlamp.localhost/*"
       },
       "protocolMappers": [
         {
@@ -143,14 +143,14 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "rootUrl": "http://grafana.localhost:8080",
+      "rootUrl": "http://grafana.localhost",
       "redirectUris": [
-        "http://grafana.localhost:8080/login/generic_oauth"
+        "http://grafana.localhost/login/generic_oauth"
       ],
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://grafana.localhost:8080##http://grafana.localhost:8080/*"
+        "post.logout.redirect.uris": "http://grafana.localhost##http://grafana.localhost/*"
       },
       "protocolMappers": [
         {

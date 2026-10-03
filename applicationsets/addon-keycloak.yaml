@@ -1,5 +1,5 @@
 # Phase 4 A.2: Keycloak, the lab identity provider (realm `lab`, issuer
-# http://keycloak.localhost:8080/realms/lab). Secrets come from scripts/setup-keycloak-secrets.sh.
+# http://keycloak.localhost/realms/lab). Secrets come from scripts/setup-keycloak-secrets.sh.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

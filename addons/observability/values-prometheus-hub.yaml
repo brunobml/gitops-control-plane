@@ -123,7 +123,7 @@ extraScrapeConfigs: |
         labels: {module: grafana, probe: grafana-ui}
       - targets: ["http://traefik.traefik.svc/"]
         labels: {module: headlamp_requires_sso, probe: headlamp-sso}
-      - targets: ["http://keycloak.localhost:8080/realms/lab/.well-known/openid-configuration"]
+      - targets: ["http://keycloak.localhost/realms/lab/.well-known/openid-configuration"]
         labels: {module: http_2xx, probe: keycloak-oidc}
       - targets: ["http://moto-cloud:5000/moto-api/"]
         labels: {module: http_2xx, probe: moto}
@@ -158,7 +158,7 @@ serverFiles:
             annotations:
               summary: "Application {{ $labels.name }} is {{ $labels.health_status }}"
               runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-argoappdegraded--argoappoutofsync
-              logs: "http://grafana.localhost:8080/d/lab-logs?var-namespace={{ $labels.dest_namespace }}"
+              logs: "http://grafana.localhost/d/lab-logs?var-namespace={{ $labels.dest_namespace }}"
           - alert: ArgoAppOutOfSync
             # argo-cd itself is manual-sync by design (Phase 3 D-32)
             expr: argocd_app_info{sync_status!="Synced", name!="argo-cd"}
@@ -226,7 +226,7 @@ serverFiles:
             annotations:
               summary: "Kyverno is not running on {{ $labels.cluster }}: image verification is not enforced"
               runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-kyvernodown
-              logs: "http://grafana.localhost:8080/d/lab-logs?var-cluster={{ $labels.cluster }}&var-namespace=kyverno"
+              logs: "http://grafana.localhost/d/lab-logs?var-cluster={{ $labels.cluster }}&var-namespace=kyverno"
           - alert: KyvernoSlowAdmission
             expr: histogram_quantile(0.95, sum by (le, cluster) (rate(kyverno_admission_review_duration_seconds_bucket[5m]))) > 15
             for: 5m
@@ -241,7 +241,7 @@ serverFiles:
             annotations:
               summary: "kro or ACK controller not running on {{ $labels.cluster }}"
               runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spokeagentdown--spokecontrollerdown
-              logs: "http://grafana.localhost:8080/d/lab-logs?var-cluster={{ $labels.cluster }}&var-namespace=kro&var-namespace=ack-system"
+              logs: "http://grafana.localhost/d/lab-logs?var-cluster={{ $labels.cluster }}&var-namespace=kro&var-namespace=ack-system"
       - name: lab.logs
         rules:
           - alert: ContainerOOMKilled
@@ -252,7 +252,7 @@ serverFiles:
             annotations:
               summary: "{{ $labels.namespace }}/{{ $labels.pod }} container {{ $labels.container }} was OOM-killed{{ with $labels.cluster }} on {{ . }}{{ end }}"
               runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-containeroomkilled
-              logs: "http://grafana.localhost:8080/d/lab-logs?var-cluster={{ $labels.cluster }}&var-namespace={{ $labels.namespace }}"
+              logs: "http://grafana.localhost/d/lab-logs?var-cluster={{ $labels.cluster }}&var-namespace={{ $labels.namespace }}"
           - alert: LokiDown
             expr: up{job="loki"} == 0 or absent(up{job="loki"})
             for: 5m
@@ -292,7 +292,7 @@ serverFiles:
             annotations:
               summary: "Synthetic order not processed in {{ $labels.namespace }} on {{ $labels.cluster }}"
               runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-ordersnotprocessed
-              logs: "http://grafana.localhost:8080/d/lab-logs?var-cluster={{ $labels.cluster }}&var-namespace={{ $labels.namespace }}"
+              logs: "http://grafana.localhost/d/lab-logs?var-cluster={{ $labels.cluster }}&var-namespace={{ $labels.namespace }}"
           - alert: SyntheticProbeStale
             expr: time() - lab_order_e2e_last_run_timestamp_seconds > 900
             for: 5m

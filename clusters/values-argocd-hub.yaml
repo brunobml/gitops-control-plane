@@ -3,7 +3,7 @@
 # (applicationsets/argo-cd.yaml, manual sync by design). To change Argo CD: commit here, then
 # sync the argo-cd app as platform-admin. Do not `helm upgrade` except as break-glass.
 global:
-  domain: localhost:8080
+  domain: localhost
   # 2026-10-03 Step 0.6 (L3-1): images pinned by digest (multi-arch index digest of the tag). Bump the
   # tag and digest together, e.g. `docker buildx imagetools inspect quay.io/argoproj/argocd:<tag>`.
   # The chart turns the tag into the label app.kubernetes.io/version "v3.5.3-sha256-…" (valid, cosmetic).
@@ -117,11 +117,11 @@ configs:
       g, lab-platform-admins, role:admin
       g, lab-tenant-a, role:tenant-a
   cm:
-    url: http://localhost:8080
+    url: http://localhost
     # Phase 4 A.4 fix: the UI is also served on argocd.localhost; Argo CD accepts SSO return and
     # callback URLs only for url + additionalUrls.
     additionalUrls: |
-      - http://argocd.localhost:8080
+      - http://argocd.localhost
     # Local account (Phase 3 A.2): platform-admin only, as break-glass and for automation. The local
     # tenant-a account was retired after SSO acceptance (Phase 4 O-1); tenants log in via Keycloak.
     # Passwords are set via kubectl and never stored in Git.
@@ -133,13 +133,13 @@ configs:
     # as break-glass and for automation (review remark R-4).
     oidc.config: |
       name: Keycloak
-      issuer: http://keycloak.localhost:8080/realms/lab
+      issuer: http://keycloak.localhost/realms/lab
       clientID: argocd
       enablePKCEAuthentication: true
       requestedScopes: ["openid", "profile", "email"]
       # Logging out of Argo CD also ends the Keycloak session (RP-initiated logout); otherwise the
       # next "Log in via Keycloak" silently signs the same user back in and users cannot switch.
-      logoutURL: http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/logout?id_token_hint={{token}}&post_logout_redirect_uri={{logoutRedirectURL}}
+      logoutURL: http://keycloak.localhost/realms/lab/protocol/openid-connect/logout?id_token_hint={{token}}&post_logout_redirect_uri={{logoutRedirectURL}}
     # Phase 3 C.2: every sync runs as the destinationServiceAccounts identity of its AppProject
     # (see scripts/audit-impersonation.sh; rollback: scripts/rollback-argocd-impersonation.sh).
     application.sync.impersonation.enabled: "true"
@@ -147,7 +147,7 @@ configs:
     ui.bannercontent: "GitOps hub-and-spoke lab: Argo CD manages itself from Git (Phase 3 B.4)"
     application.links: |
       - title: "Headlamp Cluster Explorer"
-        url: "http://headlamp.localhost:8080"
+        url: "http://headlamp.localhost"
         description: "Open Multi-Cluster Kubernetes Dashboard"
         icon.class: "fa-th"
       - title: "Live Orders Dashboard (Dev)"
@@ -182,7 +182,7 @@ configs:
         if: "app.spec.project == \"tenant-workloads\""
     resource.links: |
       - title: "Headlamp Cluster Explorer"
-        url: "http://headlamp.localhost:8080"
+        url: "http://headlamp.localhost"
         description: "Open Multi-Cluster Kubernetes Dashboard"
         icon.class: "fa-th"
       - title: "Live Orders Dashboard (Dev)"

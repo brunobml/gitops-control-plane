@@ -63,7 +63,7 @@ We adopt **Convention 1: `<app>-<env>`** as the standard application naming stra
 1. **Natural Alphabetical Sorting**: All lifecycle stages for a microservice (`orders-dev`, `orders-prod`, `orders-test`) sit side-by-side in the dashboard.
 2. **Instant Search**: Typing `orders` immediately filters down to all stages of the orders microservice.
 3. **Clean Kubernetes Parity**: Kubernetes namespaces mirror the application name (`orders-dev`, `orders-prod`), eliminating mapping confusion.
-4. **Readable Deep Link URLs**: Directly browse to `http://localhost:8080/applications/orders-dev`.
+4. **Readable Deep Link URLs**: Directly browse to `http://localhost/applications/orders-dev`.
 
 ---
 

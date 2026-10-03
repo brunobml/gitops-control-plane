@@ -36,11 +36,11 @@ ingress:
   ingressClassName: traefik
   hosts: [grafana.localhost]
   annotations:
-    link.argocd.argoproj.io/external-link: "http://grafana.localhost:8080"
+    link.argocd.argoproj.io/external-link: "http://grafana.localhost"
 
 grafana.ini:
   server:
-    root_url: http://grafana.localhost:8080
+    root_url: http://grafana.localhost
   analytics:
     reporting_enabled: false
     check_for_updates: false
@@ -49,7 +49,7 @@ grafana.ini:
     disable_login_form: false        # local admin stays available (break-glass)
     oauth_auto_login: false
     # Logout ends the Keycloak session too, so another user can sign in (Phase 4 lesson).
-    signout_redirect_url: http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/logout?client_id=grafana&post_logout_redirect_uri=http%3A%2F%2Fgrafana.localhost%3A8080%2Flogin
+    signout_redirect_url: http://keycloak.localhost/realms/lab/protocol/openid-connect/logout?client_id=grafana&post_logout_redirect_uri=http%3A%2F%2Fgrafana.localhost%2Flogin
   auth.generic_oauth:
     enabled: true
     name: Keycloak
@@ -58,9 +58,9 @@ grafana.ini:
     scopes: openid email profile
     use_pkce: true
     # Browser-facing URL and in-cluster URLs are identical thanks to the CoreDNS rewrite (Phase 4 A.0).
-    auth_url: http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/auth
-    token_url: http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/token
-    api_url: http://keycloak.localhost:8080/realms/lab/protocol/openid-connect/userinfo
+    auth_url: http://keycloak.localhost/realms/lab/protocol/openid-connect/auth
+    token_url: http://keycloak.localhost/realms/lab/protocol/openid-connect/token
+    api_url: http://keycloak.localhost/realms/lab/protocol/openid-connect/userinfo
     login_attribute_path: preferred_username
     email_attribute_path: email
     groups_attribute_path: groups

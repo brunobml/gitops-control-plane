@@ -33,4 +33,4 @@ config:
         headers: {Host: headlamp.localhost}
         fail_if_header_not_matches:
           - header: Location
-            regexp: '^http://keycloak\.localhost:8080/realms/lab/'
+            regexp: '^http://keycloak\.localhost/realms/lab/'

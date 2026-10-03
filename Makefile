@@ -1,4 +1,4 @@
-.PHONY: ci ci-tenants ci-catalog ci-charts ci-schemas test-alert-rules orphans all setup start stop push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints help
+.PHONY: local-tls ci ci-tenants ci-catalog ci-charts ci-schemas test-alert-rules orphans all setup start stop push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints help
 
 ROOT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 REPOS_DIR ?= $(abspath $(ROOT_DIR)/..)
@@ -15,6 +15,7 @@ help:
 	@echo "  make bootstrap           - Apply root-control-plane Argo CD application to Hub"
 	@echo "  make post-bootstrap      - After bootstrap: worker credentials, adopt argo-cd, resync, smoke test"
 	@echo "  make test-alert-rules      - promtool unit tests for the hub alert rules"
+	@echo "  make local-tls            - (Re)issue the https://*.localhost certificate (mkcert if installed) and load it into Traefik"
 	@echo "  make ci                   - Track A CI for this repo: offline render of all Applications, kubeconform, promtool, shellcheck, secret scan"
 	@echo "  make ci-tenants / ci-catalog / ci-charts - Same checks the other repos run in GitHub (uses ../<repo>)"
 	@echo "  make ci-schemas           - Regenerate ci/schemas/ (CRD JSON schemas) from the lab clusters after an upgrade"
@@ -22,8 +23,8 @@ help:
 	@echo "  make rotate-spoke-tokens - Rotate 30-day TokenRequest tokens for Argo CD spokes and Headlamp"
 	@echo "  make promote-blueprints  - Annotate spoke cluster secrets with revisions from clusters/blueprint-revisions.env"
 	@echo "  make password            - Print Argo CD web UI admin password"
-	@echo "  make open-argocd         - Open Argo CD Web UI (http://localhost:8080)"
-	@echo "  make open-headlamp       - Open Headlamp Multi-Cluster Dashboard (http://headlamp.localhost:8080)"
+	@echo "  make open-argocd         - Open Argo CD Web UI (http://localhost)"
+	@echo "  make open-headlamp       - Open Headlamp Multi-Cluster Dashboard (http://headlamp.localhost)"
 	@echo "  make open-dev            - Port-forward Orders DEV web dashboard to http://localhost:8001"
 	@echo "  make open-test           - Port-forward Orders TEST web dashboard to http://localhost:8002"
 	@echo "  make open-prod           - Port-forward Orders PROD web dashboard to http://localhost:8003"
@@ -46,12 +47,12 @@ promote-blueprints:
 	@bash $(ROOT_DIR)/scripts/promote-blueprints.sh
 
 open-argocd:
-	@echo "🌐 Opening Argo CD Web UI at http://localhost:8080..."
-	@xdg-open http://localhost:8080 2>/dev/null || sensible-browser http://localhost:8080 2>/dev/null || echo "Open http://localhost:8080 in your browser"
+	@echo "🌐 Opening Argo CD Web UI at http://localhost..."
+	@xdg-open http://localhost 2>/dev/null || sensible-browser http://localhost 2>/dev/null || echo "Open http://localhost in your browser"
 
 open-headlamp:
-	@echo "🌐 Opening Headlamp Kubernetes Dashboard at http://headlamp.localhost:8080..."
-	@xdg-open http://headlamp.localhost:8080 2>/dev/null || sensible-browser http://headlamp.localhost:8080 2>/dev/null || echo "Open http://headlamp.localhost:8080 in your browser"
+	@echo "🌐 Opening Headlamp Kubernetes Dashboard at http://headlamp.localhost..."
+	@xdg-open http://headlamp.localhost 2>/dev/null || sensible-browser http://headlamp.localhost 2>/dev/null || echo "Open http://headlamp.localhost in your browser"
 
 open-dev:
 	@echo "🌐 Exposing DEV Orders Dashboard on http://localhost:8001..."
@@ -76,8 +77,8 @@ password:
 	@echo "  platform-user  : group lab-platform-admins (Argo CD admin, Headlamp)"
 	@echo "  tenant-a-user  : group lab-tenant-a (Argo CD tenant-a role, Headlamp)"
 	@echo "  passwords      : $${GITOPS_LAB_SECRET_DIR:-$$HOME/.config/gitops-lab}/keycloak-<user>.password"
-	@echo "  Keycloak admin : http://keycloak.localhost:8080/admin/ (user kc-admin, keycloak-admin.password)"
-	@echo "  Switch user    : Argo CD 'Log out' ends the Keycloak session; Headlamp: open http://headlamp.localhost:8080/oauth2/sign_out"
+	@echo "  Keycloak admin : http://keycloak.localhost/admin/ (user kc-admin, keycloak-admin.password)"
+	@echo "  Switch user    : Argo CD 'Log out' ends the Keycloak session; Headlamp: open http://headlamp.localhost/oauth2/sign_out"
 	@echo "  Break-glass    : the local platform-admin account above works even when Keycloak is down"
 
 push:
@@ -147,3 +148,6 @@ ci-charts:
 
 ci-schemas:
 	@python3 $(ROOT_DIR)/ci/update-crd-schemas.py
+
+local-tls:
+	@bash $(ROOT_DIR)/scripts/setup-local-tls.sh

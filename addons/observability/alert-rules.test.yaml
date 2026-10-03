@@ -17,7 +17,7 @@ tests:
         alertname: KyvernoDown
         exp_alerts:
           - exp_labels: {severity: critical, cluster: spoke-nonprod}
-            exp_annotations: {summary: "Kyverno is not running on spoke-nonprod: image verification is not enforced", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-kyvernodown", logs: "http://grafana.localhost:8080/d/lab-logs?var-cluster=spoke-nonprod&var-namespace=kyverno"}
+            exp_annotations: {summary: "Kyverno is not running on spoke-nonprod: image verification is not enforced", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-kyvernodown", logs: "http://grafana.localhost/d/lab-logs?var-cluster=spoke-nonprod&var-namespace=kyverno"}
   - name: SpokeControllerDown for kro, not for a healthy ACK
     interval: 30s
     input_series:
@@ -29,7 +29,7 @@ tests:
         alertname: SpokeControllerDown
         exp_alerts:
           - exp_labels: {severity: critical, cluster: spoke-prod}
-            exp_annotations: {summary: "kro or ACK controller not running on spoke-prod", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spokeagentdown--spokecontrollerdown", logs: "http://grafana.localhost:8080/d/lab-logs?var-cluster=spoke-prod&var-namespace=kro&var-namespace=ack-system"}
+            exp_annotations: {summary: "kro or ACK controller not running on spoke-prod", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spokeagentdown--spokecontrollerdown", logs: "http://grafana.localhost/d/lab-logs?var-cluster=spoke-prod&var-namespace=kro&var-namespace=ack-system"}
   - name: SpokeAgentDown when a spoke stops sending
     interval: 30s
     input_series:
@@ -74,7 +74,7 @@ tests:
         alertname: OrdersNotProcessed
         exp_alerts:
           - exp_labels: {severity: critical, cluster: spoke-nonprod, namespace: orders-dev}
-            exp_annotations: {summary: "Synthetic order not processed in orders-dev on spoke-nonprod", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-ordersnotprocessed", logs: "http://grafana.localhost:8080/d/lab-logs?var-cluster=spoke-nonprod&var-namespace=orders-dev"}
+            exp_annotations: {summary: "Synthetic order not processed in orders-dev on spoke-nonprod", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-ordersnotprocessed", logs: "http://grafana.localhost/d/lab-logs?var-cluster=spoke-nonprod&var-namespace=orders-dev"}
       - eval_time: 21m
         alertname: SyntheticProbeStale
         exp_alerts:
@@ -153,7 +153,7 @@ tests:
         alertname: ContainerOOMKilled
         exp_alerts:
           - exp_labels: {severity: warning, cluster: spoke-nonprod, namespace: x, pod: p, container: c}
-            exp_annotations: {summary: "x/p container c was OOM-killed on spoke-nonprod", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-containeroomkilled", logs: "http://grafana.localhost:8080/d/lab-logs?var-cluster=spoke-nonprod&var-namespace=x"}
+            exp_annotations: {summary: "x/p container c was OOM-killed on spoke-nonprod", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-containeroomkilled", logs: "http://grafana.localhost/d/lab-logs?var-cluster=spoke-nonprod&var-namespace=x"}
   # 2026-10-03 Track A.4
   - name: CIFailingOnMain only for the red workflow, across a new commit (sha label)
     interval: 1m

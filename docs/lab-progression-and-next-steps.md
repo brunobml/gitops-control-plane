@@ -13,10 +13,10 @@ Before advancing, ensure you understand what is currently deployed and running i
 
 ```mermaid
 flowchart TD
-    subgraph Hub["Hub Management Cluster (k3d-hub-cluster : 8080)"]
-        Traefik["Traefik Ingress Router\n(Port 8080)"]
-        ArgoCD["Argo CD Control Plane\n(App-of-Apps + ApplicationSets)\nhttp://localhost:8080"]
-        Headlamp["Headlamp Multi-Cluster UI\n(Single Pane of Glass)\nhttp://headlamp.localhost:8080"]
+    subgraph Hub["Hub Management Cluster (k3d-hub-cluster : 80)"]
+        Traefik["Traefik Ingress Router\n(Port 80)"]
+        ArgoCD["Argo CD Control Plane\n(App-of-Apps + ApplicationSets)\nhttp://localhost"]
+        Headlamp["Headlamp Multi-Cluster UI\n(Single Pane of Glass)\nhttp://headlamp.localhost"]
         MultiKubeconfig["Multi-Cluster Kubeconfig Secret\n(Hub + Spoke Tokens)"]
     end
 
@@ -109,7 +109,7 @@ sequenceDiagram
 3. **Generate KEDA ScaledObject**:
    Kro generates both the `Deployment` and the KEDA `ScaledObject` referencing the ACK SQS Queue URL.
 4. **Traffic Generation Script (`make test-traffic`)**:
-   A script that writes 500 mock orders to the SQS queue and watches pod scaling live in Headlamp (`http://headlamp.localhost:8080`).
+   A script that writes 500 mock orders to the SQS queue and watches pod scaling live in Headlamp (`http://headlamp.localhost`).
 
 ---
 

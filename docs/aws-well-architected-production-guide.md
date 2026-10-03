@@ -24,7 +24,7 @@ flowchart TD
     end
 
     subgraph HubCluster ["Hub Cluster (k3d-hub-cluster)"]
-        ArgoCD["Argo CD Control Plane\nWeb UI: http://localhost:8080"]
+        ArgoCD["Argo CD Control Plane\nWeb UI: http://localhost"]
         AppSetBlueprints["ApplicationSet: kro-blueprints"]
         AppSetWorkloads["ApplicationSets: tenant-workloads (nonprod & prod)"]
     end

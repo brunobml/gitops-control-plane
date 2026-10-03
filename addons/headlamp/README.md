@@ -8,7 +8,7 @@ In this enterprise GitOps control plane architecture, Headlamp runs on the **Hub
 
 ## 🧭 Why Headlamp + Argo CD?
 
-| Capability | Argo CD (`http://localhost:8080`) | Headlamp (`http://headlamp.localhost:8080`) |
+| Capability | Argo CD (`http://localhost`) | Headlamp (`http://headlamp.localhost`) |
 | :--- | :--- | :--- |
 | **Primary Role** | **GitOps Desired State** Engine | **Live Runtime** Single Pane of Glass |
 | **Focus** | Declarative sync, drift detection, Git commits, rollback | Cluster health, pods, real-time logs, pod exec, events |
@@ -23,16 +23,16 @@ Together, they form a complete enterprise management stack:
 
 ## 🏗️ Architecture & Traffic Flow
 
-Both **Argo CD** and **Headlamp** share the Hub's host port `8080`. Traefik acts as the Hub Ingress Controller, routing incoming HTTP traffic based on standard `.localhost` subdomains (compliant with [RFC 6761](https://tools.ietf.org/html/rfc6761), which automatically resolve to `127.0.0.1` in modern browsers and OS resolvers):
+Both **Argo CD** and **Headlamp** share the hub's host port `80`. Traefik acts as the Hub Ingress Controller, routing incoming HTTP traffic based on standard `.localhost` subdomains (compliant with [RFC 6761](https://tools.ietf.org/html/rfc6761), which automatically resolve to `127.0.0.1` in modern browsers and OS resolvers):
 
 ```mermaid
 flowchart TD
     subgraph Host["Developer Machine / Browser"]
-        U1["http://localhost:8080\n(or http://argocd.localhost:8080)"]
-        U2["http://headlamp.localhost:8080"]
+        U1["http://localhost\n(or http://argocd.localhost)"]
+        U2["http://headlamp.localhost"]
     end
 
-    subgraph Hub["k3d-hub-cluster (Port 8080:80)"]
+    subgraph Hub["k3d-hub-cluster (Port 80:80)"]
         T["Traefik Ingress Controller\n(service/traefik:80)"]
         
         subgraph ArgocdNs["Namespace: argocd"]
@@ -67,7 +67,7 @@ flowchart TD
 
 1. Open your browser and navigate to:
    ```text
-   http://headlamp.localhost:8080
+   http://headlamp.localhost
    ```
 2. **No login prompt**: Headlamp is bound to `127.0.0.1` only, so it is reachable from your machine alone. It shows all three clusters **read-only**: it can list resources (including nodes) and read pod logs, but cannot read Secrets, write, or exec into pods. *(A basic-auth login was tried in Phase 3 and removed by owner decision: for a single-user lab it added repeated prompts for little protection, since the local kubeconfig is already cluster-admin. Production would use OIDC SSO, planned for Phase 4.)*
 
@@ -155,7 +155,7 @@ spec:
           ingressClassName: traefik
           annotations:
             argocd.argoproj.io/ignore-default-links: "true"
-            link.argocd.argoproj.io/external-link: "http://headlamp.localhost:8080"
+            link.argocd.argoproj.io/external-link: "http://headlamp.localhost"
           hosts:
             - host: headlamp.localhost
               paths:
@@ -187,7 +187,7 @@ When a container launches in Kubernetes, the `kubelet` initiates configured live
 
 ## 🌐 Deep-Dive: CORS & The `-dev` Flag
 
-When accessing Headlamp at `http://headlamp.localhost:8080`, the React client runs directly in the browser and dispatches asynchronous requests (`credentials: "include"`) to the backend `/config` and `/clusters/...` endpoints.
+When accessing Headlamp at `http://headlamp.localhost`, the React client runs directly in the browser and dispatches asynchronous requests (`credentials: "include"`) to the backend `/config` and `/clusters/...` endpoints.
 
 * Without the `-dev` flag, `headlamp-server` enforces strict default origin checks, omitting `Access-Control-Allow-Origin` and `Access-Control-Allow-Credentials` headers on responses and serving `index.html` for HTTP `OPTIONS` preflight requests.
 * Modern browsers block the `/config` fetch under CORS security policies if these headers are missing. In the frontend bundle, when the cluster list is `null`, the UI displays an indefinite loading spinner (`yo` component) under the "All Clusters" tab.
@@ -205,7 +205,7 @@ kubectl --context k3d-hub-cluster -n headlamp rollout restart deployment headlam
 ```
 
 ### Accessing via Argo CD Deep Links
-Inside Argo CD (`http://localhost:8080`), you can click the **Headlamp Cluster Explorer** external link icon directly on the `addon-headlamp` application card or resource views to jump straight to Headlamp.
+Inside Argo CD (`http://localhost`), you can click the **Headlamp Cluster Explorer** external link icon directly on the `addon-headlamp` application card or resource views to jump straight to Headlamp.
 
 ### Troubleshooting Quick Reference
 
@@ -214,5 +214,5 @@ Inside Argo CD (`http://localhost:8080`), you can click the **Headlamp Cluster E
 | **Blue spinner under "All Clusters"** | Browser cached a failed `/config` or CORS preflight rejected | Ensure `-dev` is set in `extraArgs`, then hard-refresh browser (`Ctrl+Shift+R` or `Cmd+Shift+R`). |
 | **`Readiness probe failed: connect refused`** | Probe fired at $t=0$ before server bound to `:4466` | Set `initialDelaySeconds: 5` in `probes.readinessProbe` and `probes.livenessProbe`. |
 | **`Connect` button shown next to cluster** | Cluster has not yet been connected in current browser session | Click **Connect** (or click the cluster name directly); status will transition to `Active` and display the live Kubernetes version. |
-| **404 when accessing `headlamp.localhost:8080`** | Traefik ingress missing or host header not matching | Verify Traefik is running on Hub port 8080 and ingress host is `headlamp.localhost`. |
+| **404 when accessing `headlamp.localhost`** | Traefik ingress missing or host header not matching | Verify Traefik is running on hub port 80 and ingress host is `headlamp.localhost`. |
 

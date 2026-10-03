@@ -1,6 +1,6 @@
 # Headlamp Values for Hub-and-Spoke GitOps Management Control Plane
 # Deployed on: k3d-hub-cluster
-# Access URL: http://headlamp.localhost:8080
+# Access URL: http://headlamp.localhost
 
 automountServiceAccountToken: false
 
@@ -40,7 +40,7 @@ volumes:
     secret:
       secretName: headlamp-kubeconfig
 
-# Traefik Ingress configuration on Hub port 8080
+# Traefik Ingress configuration on the hub (host port 80, Track I)
 ingress:
   enabled: true
   ingressClassName: traefik
@@ -48,7 +48,7 @@ ingress:
     argocd.argoproj.io/ignore-default-links: "true"
     # Phase 4 A.5: SSO via oauth2-proxy (addon-oauth2-proxy owns this Middleware).
     traefik.ingress.kubernetes.io/router.middlewares: headlamp-oauth2-forward-auth@kubernetescrd
-    link.argocd.argoproj.io/external-link: "http://headlamp.localhost:8080"
+    link.argocd.argoproj.io/external-link: "http://headlamp.localhost"
   hosts:
     - host: headlamp.localhost
       paths:

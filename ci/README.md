@@ -30,10 +30,11 @@ The other repos' workflows check out this repository's `main` for the toolkit an
 * **kubeconform** validates against the pinned upstream schemas for Kubernetes 1.35, plus [`schemas/`](schemas/): CRD schemas generated from the lab by [`update-crd-schemas.py`](update-crd-schemas.py) (`make ci-schemas` after upgrading Argo CD, Traefik, kro, Kyverno or ACK; review remark R-3). Missing schemas are errors, except for `CustomResourceDefinition` objects themselves.
 * **[`secret-scan.py`](secret-scan.py)** looks for credential patterns in tracked files and never prints the match. Mark a deliberate placeholder line with `lab-ci: not-a-secret`.
 * **[`check-rgd-schema.py`](check-rgd-schema.py)**: an RGD spec field changed or removed against the revision prod runs fails the check. kro refuses such changes (Phase 3 D-14).
+* **[`check-sso-urls.py`](check-sso-urls.py)** (Track I, R-10): one OIDC issuer across Keycloak, Argo CD, oauth2-proxy, Grafana, the probe and the smoke test; every relying-party URL registered in the realm; no old 8080/8443 hub URLs.
 * **[`check-registrations.py`](check-registrations.py)** checks tenant registrations against `tenant-workloads/schema/registration.schema.json`, plus file naming, uniqueness and that the values file exists at `valuesRevision`.
 
 ## Running a single stage
 ```bash
-ci/check-control-plane.sh render schemas     # stages: shell secrets fixtures render schemas alert-rules dashboards alloy
+ci/check-control-plane.sh render schemas     # stages: shell secrets fixtures render schemas alert-rules dashboards sso-urls alloy
 LAB_CI_OUT=/tmp/ci make ci                   # keep the rendered manifests for inspection
 ```
