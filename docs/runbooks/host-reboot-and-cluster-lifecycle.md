@@ -35,6 +35,7 @@ sudo systemctl start docker
 Run the automated resume command from the repository root:
 ```bash
 make start
+make post-bootstrap   # mandatory after every start (see Issue F)
 ```
 *Equivalent manual commands:*
 ```bash

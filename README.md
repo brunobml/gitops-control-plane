@@ -8,96 +8,109 @@ This repository serves as the central GitOps control plane for a multi-cluster *
 
 ```mermaid
 flowchart TD
-    subgraph Repos["GitHub Repositories (github.com/brunobml)"]
-        GCP["gitops-control-plane<br/>(Root Apps & AppSets)"]
-        PC["platform-catalog<br/>(Kro Blueprints & ACK Configs)"]
-        TW["tenant-workloads<br/>(Tenant-A Dev, Test, Prod Specs)"]
+    subgraph Repos["GitHub repositories (github.com/brunobml)"]
+        GCP["gitops-control-plane<br/>(ApplicationSets, addons, projects)"]
+        PC["platform-catalog<br/>(kro blueprints, admission policies, controllers)"]
+        PCH["platform-charts<br/>(golden chart, OCI on GHCR)"]
+        TW["tenant-workloads<br/>(one registration file per app and env)"]
+        OP["orders-processor<br/>(app code, signed image, env values)"]
     end
 
-    subgraph Hub["Hub Cluster (k3d-hub-cluster)"]
-        Traefik["Traefik Ingress Router<br/>Port 8080"]
-        ArgoCD["Argo CD Control Plane<br/>Web UI: http://localhost:8080"]
-        Headlamp["Headlamp Single Pane of Glass<br/>Web UI: http://headlamp.localhost:8080"]
-        AppSetBlueprints["ApplicationSet: kro-blueprints"]
-        AppSetTenants["ApplicationSet: tenant-workloads"]
-        AppAddons["Platform Addon: addon-headlamp"]
+    subgraph Hub["Hub cluster (k3d-hub-cluster), http://*.localhost:8080"]
+        Traefik["Traefik ingress"]
+        ArgoCD["Argo CD (self-managed)<br/>localhost:8080"]
+        KC["Keycloak (SSO, realm lab)<br/>keycloak.localhost"]
+        HL["Headlamp + oauth2-proxy<br/>headlamp.localhost"]
+        Obs["Prometheus + Alertmanager, Loki,<br/>Grafana (grafana.localhost), blackbox, exporters"]
+        AlloyH["Alloy (hub logs + events)"]
     end
 
-    subgraph SpokeNonProd["Spoke Non-Production (k3d-spoke-nonprod)"]
-        KroNP["Kro Controller"]
-        AckNP["ACK SQS Controller"]
-        Dev["orders-dev<br/>(1 replica, dev-queue)"]
-        Test["orders-test<br/>(1 replica, test-queue)"]
+    subgraph Spokes["Spokes: k3d-spoke-nonprod (orders-dev, orders-test) / k3d-spoke-prod (orders-prod)"]
+        Kro["kro (QueueBackedService RGD)"]
+        Ack["ACK SQS controller (CARM)"]
+        Kyv["Kyverno (cosign signature check)<br/>+ native admission policies"]
+        Agent["Prometheus agent + Alloy"]
+        Orders["orders api + worker<br/>(per environment)"]
     end
 
-    subgraph SpokeProd["Spoke Production (k3d-spoke-prod)"]
-        KroP["Kro Controller"]
-        AckP["ACK SQS Controller"]
-        Prod["orders-prod<br/>(2 replicas, prod-queue)"]
-    end
-
-    subgraph Cloud["Central Mock Cloud (Docker)"]
-        Moto["moto-cloud:5000<br/>Mock AWS SQS Service"]
+    subgraph Cloud["Mock AWS (Docker)"]
+        Moto["moto :5000<br/>SQS, accounts 111111111111 (nonprod) / 222222222222 (prod)"]
     end
 
     GCP --> ArgoCD
-    ArgoCD --> AppSetBlueprints
-    ArgoCD --> AppSetTenants
-    PC --> AppSetBlueprints
-    TW --> AppSetTenants
-
-    AppSetBlueprints -->|Distributes Blueprints| KroNP
-    AppSetBlueprints -->|Distributes Blueprints| KroP
-
-    AppSetTenants -->|Deploys Dev & Test| SpokeNonProd
-    AppSetTenants -->|Deploys Prod| SpokeProd
-
-    AckNP -->|Creates SQS Queues| Moto
-    AckP -->|Creates SQS Queues| Moto
+    PC --> ArgoCD
+    TW --> ArgoCD
+    PCH -->|Helm OCI| ArgoCD
+    OP -->|values per env| ArgoCD
+    ArgoCD -->|addons, blueprints, tenant apps| Spokes
+    KC -.->|OIDC| ArgoCD
+    KC -.->|OIDC| HL
+    KC -.->|OIDC| Obs
+    Traefik --> ArgoCD & HL & Obs & KC
+    Kro --> Orders
+    Kro --> Ack
+    Ack -->|creates queues| Moto
+    Orders -->|send / receive| Moto
+    Agent -->|remote_write + log push, basic auth| Traefik
+    AlloyH --> Obs
 ```
+
+* **Argo CD on the hub** deploys everything, to itself and to both spokes. Changes reach the clusters only through Git.
+* **Platform catalog:** prod follows a release tag, nonprod follows `main` (`clusters/blueprint-revisions.env`, then `make promote-blueprints`).
+* **Tenant apps:** one file per app and environment in `tenant-workloads`. A prod change is a commit there that sets a full commit SHA.
+* **Supply chain:** tenant images must come from `ghcr.io/brunobml/`, and the `orders-processor` images must be cosign-signed.
 
 ---
 
 ## 📂 Repository Structure
 
 ```
-├── addons/
-│   └── headlamp/                     # 🧭 Single Pane of Glass multi-cluster dashboard
-│       ├── README.md                 # Architecture, routing, and exploration guide
-│       ├── values.yaml               # Headlamp Helm values (Ingress, resources, mounts)
-│       └── setup-credentials.sh      # Assembles multi-cluster kubeconfig secret
-├── applicationsets/
-│   ├── addon-headlamp.yaml           # Deploys Headlamp dashboard to Hub cluster (Project: control-plane)
-│   ├── kro-blueprints.yaml           # Distributes ResourceGraphDefinitions to all spoke clusters (Project: platform-catalog)
-│   └── tenant-workloads.yaml         # One Application per tenant registration file in the tenant-workloads repo
-│                                     #   (tenants/<tenant>/apps/<app>-<env>.yaml; env decides spoke + AWS account)
-├── bootstrap/
-│   └── root-app.yaml                 # App-of-Apps root application for Hub Argo CD (Project: control-plane)
+├── .github/CODEOWNERS                # Review owners for prod-relevant paths
+├── addons/                           # Hub add-ons deployed by the addon-* ApplicationSets
+│   ├── headlamp/                     # 🧭 Multi-cluster dashboard (values, kubeconfig secret script, README)
+│   ├── keycloak/                     # 🔐 Keycloak SSO: realm "lab", ingress, NetworkPolicy, CoreDNS rewrite
+│   ├── observability/                # 📈 Prometheus, Loki, Alloy, Grafana, blackbox values; alert rules + tests;
+│   │                                 #    dashboards; credential-expiry exporter
+│   └── probes/                       # Synthetic end-to-end order probe (runs on the spokes)
+├── applicationsets/                  # Everything Argo CD deploys:
+│                                     #   addon-*         hub add-ons (Traefik, Keycloak, Headlamp, oauth2-proxy, observability)
+│                                     #   addons-spoke-*  spoke add-ons (kro, ACK SQS, Kyverno, agents, logging, platform config)
+│                                     #   argo-cd         Argo CD manages itself (manual sync)
+│                                     #   kro-blueprints  platform-catalog blueprints per spoke (revision from clusters/)
+│                                     #   tenant-workloads one Application per tenant registration file
+│                                     #   platform-projects AppProjects
+├── bootstrap/                        # Root App-of-Apps and the hub deployer identity
 ├── clusters/
-│   └── values-argocd-hub.yaml        # Argo CD Helm values with Lua health checks for Kro & ACK
-├── projects/                         # 🛡️ Enterprise AppProject boundaries & security guardrails
-│   ├── control-plane.yaml            # Control plane machinery isolation
-│   ├── platform-catalog.yaml         # Platform engineering blueprint distribution
-│   └── tenant-workloads.yaml         # Multi-tenant workload isolation and cluster guardrails
+│   ├── blueprint-revisions.env       # Catalog revision per spoke (prod = release tag)
+│   ├── platform-config/<spoke>/      # Per-spoke platform settings
+│   └── values-argocd-hub.yaml        # Argo CD Helm values (OIDC, RBAC, health checks)
+├── projects/                         # 🛡️ AppProject boundaries
 ├── docs/
-│   ├── developer-tutorial.md         # Comprehensive developer onboarding guide
-│   ├── production-promotion-guardrails.md # Enterprise production promotion patterns & guardrails
-│   ├── argocd-visual-design-and-naming-standards.md # UI/UX design standards, labels, deep links & naming conventions
-│   ├── aws-well-architected-production-guide.md # 6-Pillar AWS Well-Architected audit & production transition blueprint
-│   ├── lab-progression-and-next-steps.md # Advanced enterprise roadmap (KEDA, Rollouts, Kyverno, Chaos, Telemetry)
+│   ├── developer-tutorial.md         # Developer onboarding guide
+│   ├── production-promotion-guardrails.md # Promotion patterns and guardrails
+│   ├── argocd-visual-design-and-naming-standards.md # UI standards, labels, deep links, naming
+│   ├── aws-well-architected-production-guide.md # Well-Architected review and production transition
+│   ├── lab-progression-and-next-steps.md # Roadmap ideas
+│   ├── ai-prompts/                   # Prompt for the AI-assisted lab assessment
 │   ├── assessments/                  # Lab assessments (2026-09-30, 2026-10-03), one file per assessment
-│   ├── runbooks/                     # Host reboot & lifecycle runbook, failure-injection drills
+│   ├── runbooks/                     # Host reboot & lifecycle runbook, operational drills
 │   ├── roadmaps/                     # Phase 6: production parity on AWS EKS
 │   └── remediation/
 │       ├── 2026-09-30-lab-assessment/ # Plans, reports and validations for the 2026-09-30 assessment (Phases 1–5)
 │       └── 2026-10-03-lab-assessment/ # Remediation of the 2026-10-03 assessment
 ├── scripts/
-│   ├── setup-hub-spoke.sh            # Provisions Moto, k3d clusters, Traefik, Argo CD, Kro & ACK
-│   ├── register-spokes.sh            # Creates tokens and registers spokes in Hub Argo CD
-│   ├── smoke-test-hub-spoke.sh       # Verifies connectivity, controllers, and queues
-│   ├── push-all.sh                   # Pushes all 3 local repos to GitHub
-│   └── teardown-hub-spoke.sh         # Cleans up clusters, containers, and network
-├── Makefile                          # Developer workflow automation
+│   ├── setup-hub-spoke.sh            # Docker network, moto, 3 k3d clusters, Argo CD; registers the spokes
+│   ├── register-spokes.sh            # Spoke tokens and Argo CD cluster secrets
+│   ├── post-bootstrap.sh             # Mandatory after bootstrap and after every start (credentials, SSO, sync, smoke test)
+│   ├── smoke-test-hub-spoke.sh       # End-to-end checks (12 stages)
+│   ├── promote-blueprints.sh         # Applies clusters/blueprint-revisions.env
+│   ├── audit-impersonation.sh        # Checks that every Application syncs as its project's identity
+│   ├── orphans.sh                    # Lists objects no Application owns
+│   ├── setup-*-secrets.sh, setup-argocd-accounts.sh # Secrets generated into ~/.config/gitops-lab (never in Git)
+│   ├── start-hub-spoke.sh / stop-hub-spoke.sh # Host reboot lifecycle
+│   ├── push-all.sh                   # Pushes all 5 lab repos to GitHub
+│   └── teardown-hub-spoke.sh         # Removes clusters, containers and network
+├── Makefile                          # Developer workflow automation (`make help`)
 └── README.md
 ```
 
@@ -106,55 +119,74 @@ flowchart TD
 ## 🚀 Quick Start Guide
 
 ### 1. Provision Multi-Cluster Environment
-Run the automated setup to create the Docker network, Moto cloud, 3 k3d clusters, install Traefik, Argo CD, Headlamp, register the spokes, and install the Kro and ACK controllers:
+Create the Docker network, the moto mock cloud, the three k3d clusters and Argo CD, and register the spokes:
 
 ```bash
 make setup
 ```
 
-Access Web Dashboards on Port 8080:
-* **Argo CD UI (Desired State)**: [http://localhost:8080](http://localhost:8080) (or `http://argocd.localhost:8080`; "Log in via Keycloak" as `platform-user` or `tenant-a-user`; break-glass: local `platform-admin`; passwords via `make password`)
-* **Headlamp UI (Runtime State)**: [http://headlamp.localhost:8080](http://headlamp.localhost:8080) (Single Pane of Glass across Hub, Non-Prod, and Prod clusters)
-
 ### 2. Push Repositories to GitHub
-Make sure your 5 GitHub repositories are created under `https://github.com/brunobml`:
+The lab reads five repositories under `https://github.com/brunobml`, checked out side by side:
 - `gitops-control-plane`
 - `platform-catalog`
+- `platform-charts`
 - `tenant-workloads`
 - `orders-processor`
-- `helm-charts`
-
-Push all repositories to GitHub using the helper script or push from each repository:
 
 ```bash
-# Push all local lab repositories
+# Push all five local lab repositories
 make push
 ```
 
 ### 3. Bootstrap the Control Plane
-Deploy the root application onto the Hub cluster:
-
 ```bash
-make bootstrap
+make bootstrap        # AppProjects + root application; Argo CD deploys everything else from Git
+make post-bootstrap   # Mandatory: worker cloud credentials, SSO prerequisites, Argo CD self-management,
+                      # re-sync of anything stuck, then the smoke test
 ```
 
-Argo CD will automatically discover the ApplicationSets and synchronize:
-1. `kro-blueprints` to `spoke-nonprod` and `spoke-prod`.
-2. `orders-dev` and `orders-test` workloads to `spoke-nonprod`.
-3. `orders-prod` workloads to `spoke-prod`.
+Without `make post-bootstrap` the lab is not complete:
+* the workers have no SQS credentials;
+* the `argo-cd` Application stays OutOfSync;
+* smoke stages 9 and 12 fail.
 
 ### 4. Verify & Test
-Run the end-to-end smoke test suite:
-
 ```bash
-make test
+make test     # End-to-end smoke test (12 stages; post-bootstrap already ran it once)
+make status   # Applications, spoke controllers and moto queues
 ```
 
-Check resource statuses across all clusters and Moto SQS queues:
+---
 
-```bash
-make status
-```
+## 🎁 What you get
+
+| What | Where | Sign in |
+|---|---|---|
+| **Argo CD** (desired state, all clusters) | http://localhost:8080 or http://argocd.localhost:8080 | "Log in via Keycloak", or the local break-glass `platform-admin` |
+| **Headlamp** (runtime state, all clusters) | http://headlamp.localhost:8080 | Keycloak (via oauth2-proxy) |
+| **Grafana** (metrics, logs, alerts) | http://grafana.localhost:8080 | Keycloak: `platform-user` = Admin, `tenant-a-user` = Viewer |
+| **Keycloak admin** | http://keycloak.localhost:8080/admin/ | `kc-admin` |
+| **Orders dashboards** | `make open-dev` / `open-test` / `open-prod` (port-forward) | — |
+
+**SSO users** (Keycloak realm `lab`):
+* `platform-user`: platform administrator.
+* `tenant-a-user`: tenant role in Argo CD, Viewer in Grafana.
+
+`make password` prints where every password is stored. Passwords are generated into `~/.config/gitops-lab` (mode 600) and are never committed.
+
+**Grafana dashboards:**
+* *Platform overview*: Application health, spoke connections, firing alerts, scrape targets, recent warning events.
+* *Logs & events*: Loki logs and Kubernetes events from all three clusters.
+
+The 17 alert rules are unit-tested with `make test-alert-rules`.
+
+**Guardrails you can try:**
+* Images from outside `ghcr.io/brunobml/` are denied in tenant namespaces.
+* Unsigned `orders-processor` images are denied.
+* QueueBackedService objects that break the contract are denied.
+* Drift is reverted by Argo CD and ACK.
+
+See the [operational drills](docs/runbooks/operational-drills-and-failure-injection.md).
 
 ---
 
@@ -168,6 +200,7 @@ make stop
 
 # Resume clusters and Moto after host reboot
 make start
+make post-bootstrap   # Mandatory after every start: moto restarts empty, so worker credentials are re-provisioned
 ```
 
 For troubleshooting hanging Docker daemons, spoke connection errors, or token rotation, see the [Host Reboot & Lab Lifecycle Runbook](docs/runbooks/host-reboot-and-cluster-lifecycle.md).
@@ -188,4 +221,4 @@ This repository includes a carefully crafted prompt that lets an AI agent (with 
 
 The agent evaluates architecture, GitOps maturity, security posture, production parity with a real EKS hub-spoke design, and how easy the lab is for new engineers to understand and extend.
 
-→ See [`docs/ai-agent-lab-assessment-prompt.md`](docs/ai-prompts/ai-agent-lab-assessment-prompt.md)
+→ See [`docs/ai-prompts/ai-agent-lab-assessment-prompt.md`](docs/ai-prompts/ai-agent-lab-assessment-prompt.md)
