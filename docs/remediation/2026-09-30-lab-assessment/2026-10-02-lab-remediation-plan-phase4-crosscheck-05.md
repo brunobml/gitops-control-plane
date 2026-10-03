@@ -1,5 +1,7 @@
 # Phase 4 — Independent Cross-Check of Run #05 (Track D full rebuild) (2026-10-02)
 
+> **Status: Historical.** Record of the 2026-09-30 assessment and its remediation (Phases 1–5, closed 2026-10-03). Kept as evidence and not updated. For the lab as it is today, see the [README](../../../README.md) and the [2026-10-03 assessment](../../assessments/2026-10-03-lab-assessment.md).
+
 | | |
 |---|---|
 | **Cross-checks** | [Implemented-05](2026-10-02-lab-remediation-plan-phase4-implemented-05.md) and [Validation-05](2026-10-02-lab-remediation-plan-phase4-validation-05.md) (published together in `09bfff4`) |

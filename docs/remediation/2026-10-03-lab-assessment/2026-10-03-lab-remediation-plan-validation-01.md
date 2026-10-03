@@ -1,5 +1,7 @@
 # Validation Report 01 — Track 0: Steps 0.1–0.3 (2026-10-03)
 
+> **Status: Current.** Active remediation record for the 2026-10-03 assessment.
+
 | | |
 |---|---|
 | **Validates** | [`2026-10-03-lab-remediation-plan-implemented-01.md`](2026-10-03-lab-remediation-plan-implemented-01.md) |

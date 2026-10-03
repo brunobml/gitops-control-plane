@@ -1,6 +1,8 @@
 # Implementation Report 01 — Track 0: Steps 0.1–0.3 (Early Authorization)
 ## Production Gate Integrity, Chart Immutability & Image Allowlist
 
+> **Status: Current.** Active remediation record for the 2026-10-03 assessment.
+
 * **Remediation Plan:** [`2026-10-03-lab-remediation-plan.md`](2026-10-03-lab-remediation-plan.md) (v1.0)
 * **Assessment Reference:** [`../../assessments/2026-10-03-lab-assessment.md`](../../assessments/2026-10-03-lab-assessment.md) (Findings L2-1, L2-2, L4-1, L4-2)
 * **Date:** 2026-10-02 / 2026-10-03

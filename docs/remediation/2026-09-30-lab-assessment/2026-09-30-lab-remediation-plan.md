@@ -1,6 +1,8 @@
 # Lab Remediation Plan: Low-Severity Findings & Hardening
 ## Hub-and-Spoke GitOps Control Plane (2026-09-30)
 
+> **Status: Historical.** Record of the 2026-09-30 assessment and its remediation (Phases 1–5, closed 2026-10-03). Kept as evidence and not updated. For the lab as it is today, see the [README](../../../README.md) and the [2026-10-03 assessment](../../assessments/2026-10-03-lab-assessment.md).
+
 * **Plan Version:** 3.0 (Fully Authorized Version Incorporating Review Sign-Off)
 * **Assessment Reference:** [`../assessments/2026-09-30-lab-assessment.md`](../../assessments/2026-09-30-lab-assessment.md)
 * **Target Repositories:** `gitops-control-plane`, `platform-catalog`, `platform-charts`, `orders-processor`, `tenant-workloads`

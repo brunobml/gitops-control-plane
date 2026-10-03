@@ -1,6 +1,8 @@
 # Architecture & Engineering Roadmap: Phase 6 — Production Parity & AWS EKS Translation
 ## Translating the Local Multi-Cluster GitOps Control Plane to Real Cloud Infrastructure
 
+> **Status: Design reference.** Design rationale and target state. Examples and names may differ from what is deployed. For the running lab, see the [README](../../README.md) and the [runbooks](../runbooks/).
+
 * **Document Version:** 1.0
 * **Status:** Draft / Strategic Roadmap
 * **Target Audience:** Principal Platform Engineers, Cloud Architects, and Enterprise Leadership

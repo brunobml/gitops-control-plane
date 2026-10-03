@@ -1,5 +1,7 @@
 # AWS Well-Architected Framework & Enterprise GitOps Reference Guide
 
+> **Status: Design reference.** Design rationale and target state. Examples and names may differ from what is deployed. For the running lab, see the [README](../README.md) and the [runbooks](runbooks/).
+
 ## 1. Executive Summary
 
 This reference guide documents the production-grade architecture of our multi-cluster **Argo CD + Kro + AWS Controllers for Kubernetes (ACK)** platform. 

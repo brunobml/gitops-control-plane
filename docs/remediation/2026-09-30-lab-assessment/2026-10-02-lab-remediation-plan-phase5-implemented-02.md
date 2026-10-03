@@ -1,5 +1,7 @@
 # Phase 5 Implementation Report — Run #02: Track B (alerts for known failure modes) (2026-10-02)
 
+> **Status: Historical.** Record of the 2026-09-30 assessment and its remediation (Phases 1–5, closed 2026-10-03). Kept as evidence and not updated. For the lab as it is today, see the [README](../../../README.md) and the [2026-10-03 assessment](../../assessments/2026-10-03-lab-assessment.md).
+
 | | |
 |---|---|
 | **Plan** | Phase 5 v1.0 (GREEN LIGHT; remark **R-3** governs B.2) |

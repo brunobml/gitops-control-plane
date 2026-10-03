@@ -1,5 +1,7 @@
 # Argo CD Visual Design, UI/UX Standards & Naming Best Practices
 
+> **Status: Design reference.** Design rationale and target state. Examples and names may differ from what is deployed. For the running lab, see the [README](../README.md) and the [runbooks](runbooks/).
+
 ## Executive Summary
 
 As a Kubernetes platform scales to dozens of development teams and hundreds of microservices, the **GitOps User Experience (DevEx)** becomes critical. When engineers, SREs, or on-call operators log into the Argo CD web dashboard, they need to answer three fundamental questions within seconds:
@@ -149,15 +151,15 @@ spec:
     - name: "Application"
       value: "Orders Processor"
     - name: "Environment"
-      value: "{{env}}"
+      value: "{{ .env }}"
     - name: "Team"
       value: "E-Commerce Squad"
     - name: "Live Dashboard"
-      value: "http://orders-{{env}}.localhost:{{port}}"
+      value: "http://{{ .app }}-{{ .env }}.localhost:{{ .port }}"
     - name: "Source Code"
       value: "https://github.com/brunobml/orders-processor"
     - name: "Platform Golden Chart"
-      value: "ghcr.io/brunobml/charts/message-processor:1.0.0"
+      value: "ghcr.io/brunobml/charts/queue-backed-service:1.0.0"
     - name: "Central Moto Cloud"
       value: "http://localhost:5000/moto-api/"
 ```
@@ -165,7 +167,7 @@ spec:
 ---
 
 ### Pillar 4: Custom Resource Health Visualizations (Lua Scripts)
-By default, custom resources from Kro (`ResourceGraphDefinition`, `MessageProcessor`) and AWS ACK (`services.k8s.aws/*`) appear with `Unknown` health in Argo CD.
+By default, custom resources from Kro (`ResourceGraphDefinition`, `QueueBackedService`) and AWS ACK (`services.k8s.aws/*`) appear with `Unknown` health in Argo CD.
 
 We inject custom Lua health scripts in `clusters/values-argocd-hub.yaml` under `resource.customizations`:
 * **Kro Blueprints**: Evaluates `status.state == "Active"` and condition `Ready == True` to report **Healthy** or **Progressing**.
@@ -175,87 +177,67 @@ We inject custom Lua health scripts in `clusters/values-argocd-hub.yaml` under `
 
 ## 4. Complete ApplicationSet Reference Specification
 
-Here is the production-ready ApplicationSet pattern implementing these standards:
+The live implementation is [`applicationsets/tenant-workloads.yaml`](../applicationsets/tenant-workloads.yaml). It is a single ApplicationSet (Phase 4 C.2) with goTemplate and `missingkey=error`. A **Git files generator** reads one registration file per app and environment, `tenant-workloads/tenants/<tenant>/apps/<app>-<env>.yaml`:
 
 ```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
-metadata:
-  name: tenant-workloads-nonprod
-  namespace: argocd
+tenant: tenant-a
+app: orders
+env: dev            # dev | test | prod -> spoke (nonprod / prod) and AWS account (111111111111 / 222222222222)
+port: "8081"
+valuesRevision: main   # prod: a full 40-character commit SHA
+# valuesFile: deploy/values-orders-demo-dev.yaml   (optional; default deploy/values-<env>.yaml)
+```
+
+Abridged template, showing how the four pillars appear in it:
+
+```yaml
 spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
   generators:
-    - list:
-        elements:
-          - app: orders
-            env: dev
-            port: "8081"
-          - app: orders
-            env: test
-            port: "8081"
+    - git:
+        repoURL: https://github.com/brunobml/tenant-workloads.git
+        files:
+          - path: "tenants/*/apps/*.yaml"
   template:
     metadata:
-      # 1. Convention 1 Naming
-      name: "{{app}}-{{env}}"
-      # 2. Filterable Labels
-      labels:
-        app.kubernetes.io/name: "{{app}}"
-        app: "{{app}}"
-        environment: "{{env}}"
+      name: "{{ .app }}-{{ .env }}"                         # Convention 1 (the real template also validates env and the prod SHA)
+      labels:                                               # Pillar 1
+        app.kubernetes.io/name: "{{ .app }}"
+        environment: "{{ .env }}"
         team: "e-commerce"
-        tier: "backend"
-        framework: "kro-ack"
-      # 3. Deep Link Annotations
-      annotations:
-        link.argocd.argoproj.io/external-link: "http://orders-{{env}}.localhost:{{port}}"
+      annotations:                                          # Pillar 2
+        link.argocd.argoproj.io/external-link: "http://{{ .app }}-{{ .env }}.localhost:{{ .port }}"
         link.argocd.argoproj.io/source-code: "https://github.com/brunobml/orders-processor"
         link.argocd.argoproj.io/platform-chart: "https://github.com/brunobml/platform-charts"
-        description: "Orders processing microservice with AWS SQS & DynamoDB via Kro"
     spec:
       project: tenant-workloads
-      # 4. Info Metadata Table
-      info:
-        - name: "Application"
-          value: "Orders Processor"
-        - name: "Environment"
-          value: "{{env}}"
-        - name: "Team"
-          value: "E-Commerce Squad"
-        - name: "Live Dashboard"
-          value: "http://orders-{{env}}.localhost:{{port}}"
-        - name: "Source Code"
-          value: "https://github.com/brunobml/orders-processor"
+      info:                                                 # Pillar 3
         - name: "Platform Golden Chart"
-          value: "ghcr.io/brunobml/charts/message-processor:1.0.0"
+          value: "ghcr.io/brunobml/charts/queue-backed-service:1.0.0"
       sources:
-        - chart: message-processor
+        - chart: queue-backed-service
           repoURL: ghcr.io/brunobml/charts
           targetRevision: 1.0.0
           helm:
             valueFiles:
-              - $values/deploy/values-{{env}}.yaml
+              - '$values/{{ dig "valuesFile" (printf "deploy/values-%s.yaml" .env) . }}'
         - repoURL: https://github.com/brunobml/orders-processor.git
-          targetRevision: main
+          targetRevision: "{{ .valuesRevision }}"
           ref: values
       destination:
-        name: spoke-nonprod
-        namespace: "{{app}}-{{env}}"
-      syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
-        syncOptions:
-          - CreateNamespace=true
+        name: '{{ if eq .env "prod" }}spoke-prod{{ else }}spoke-nonprod{{ end }}'
+        namespace: "{{ .app }}-{{ .env }}"
 ```
 
 ---
 
 ## 5. Summary Checklist for New Microservices
 
-When onboarding a new microservice to the platform:
-- [ ] Name application following `<app>-<env>` (e.g. `billing-dev`, `billing-prod`).
-- [ ] Deploy into matching namespace `<app>-<env>`.
-- [ ] Add `team`, `tier`, `environment`, and `app` labels.
-- [ ] Provide `link.argocd.argoproj.io/external-link` pointing to its ingress URL.
-- [ ] Provide `source-code` and `platform-chart` annotations.
-- [ ] Fill out `spec.info` key-value pairs so any team member can immediately discover relevant dashboards and repositories.
+The ApplicationSet template already applies the naming, labels, links and info panel. A new microservice needs:
+- [ ] An app name matching `orders-*` or `tenant-*` (AppProject `tenant-workloads` destinations), giving Application and namespace `<app>-<env>`.
+- [ ] One registration file per environment in `tenant-workloads/tenants/<tenant>/apps/<app>-<env>.yaml`, using exactly the fields shown above.
+- [ ] A values file per environment in the app repository (`deploy/values-<env>.yaml`, or the registration's `valuesFile`).
+- [ ] An image from `ghcr.io/brunobml/` (allowlist VAP). `orders-processor` images must also carry its CI signature (Kyverno `tenant-images-signed`).
+- [ ] For prod, a full commit SHA in `valuesRevision`, changed through a reviewed commit.
+- [ ] `make post-bootstrap` once after the first sync, to provision the worker's cloud credentials.

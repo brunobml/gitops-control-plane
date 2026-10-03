@@ -1,5 +1,7 @@
 # Production Promotion Guardrails & Enterprise GitOps Patterns
 
+> **Status: Design reference.** Design rationale and target state. Examples and names may differ from what is deployed. For the running lab, see the [README](../README.md) and the [runbooks](runbooks/).
+
 > **Current implementation (Phase 4 C.2, 2026-10-02):** tenant environments are registered in the
 > `tenant-workloads` repository (`tenants/<tenant>/apps/<app>-<env>.yaml`) and rendered by one
 > ApplicationSet, `applicationsets/tenant-workloads.yaml`. Production promotion = a reviewed pull

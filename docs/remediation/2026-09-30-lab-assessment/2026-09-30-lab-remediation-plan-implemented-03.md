@@ -1,5 +1,7 @@
 # Lab Remediation Implementation Report — 2026-09-30 (Run #03)
 
+> **Status: Historical.** Record of the 2026-09-30 assessment and its remediation (Phases 1–5, closed 2026-10-03). Kept as evidence and not updated. For the lab as it is today, see the [README](../../../README.md) and the [2026-10-03 assessment](../../assessments/2026-10-03-lab-assessment.md).
+
 | Metadata | Details |
 |---|---|
 | **Document** | `docs/remediation/2026-09-30-lab-remediation-plan-implemented-03.md` |

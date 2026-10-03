@@ -9,3 +9,7 @@ Thumbs.db
 
 # Lab local secrets (if created in repo tree)
 *.password
+
+# Python bytecode (2026-10-03 Step 0.7)
+__pycache__/
+*.pyc

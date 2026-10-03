@@ -1,6 +1,8 @@
 # Lab Progression & Advanced Enterprise Roadmap
 ## GitOps Control Plane + Platform Engineering with Kro, ACK, Argo CD & Headlamp
 
+> **Status: Design reference.** Design rationale and target state. Examples and names may differ from what is deployed. For the running lab, see the [README](../README.md) and the [runbooks](runbooks/).
+
 This document outlines recommended progression tracks to take this local multi-cluster lab from a functional foundation to a **production-grade enterprise platform engineering showcase**.
 
 ---

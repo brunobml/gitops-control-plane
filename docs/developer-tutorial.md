@@ -1,5 +1,7 @@
 # Developer Tutorial: Building Cloud Apps on the Multi-Cluster Platform
 
+> **Status: Current.** Describes the lab as it is today (reviewed 2026-10-03).
+
 Welcome! This tutorial guides you through using our enterprise **Multi-Cluster Hub-and-Spoke** platform as an **application developer**.
 
 As a developer, you don't need real AWS cloud accounts, complex IAM policies, or direct Kubernetes cluster-admin access. You define what your application needs in a simple YAML file, push it to GitHub, and the GitOps platform takes care of:

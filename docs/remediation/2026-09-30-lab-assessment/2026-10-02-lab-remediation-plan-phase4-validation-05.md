@@ -1,5 +1,7 @@
 # Phase 4 Remediation Validation — Run #05: Track D, Full Rebuild Acceptance (2026-10-02)
 
+> **Status: Historical.** Record of the 2026-09-30 assessment and its remediation (Phases 1–5, closed 2026-10-03). Kept as evidence and not updated. For the lab as it is today, see the [README](../../../README.md) and the [2026-10-03 assessment](../../assessments/2026-10-03-lab-assessment.md).
+
 | | |
 |---|---|
 | **Validates** | [`2026-10-02-lab-remediation-plan-phase4-implemented-05.md`](2026-10-02-lab-remediation-plan-phase4-implemented-05.md) |

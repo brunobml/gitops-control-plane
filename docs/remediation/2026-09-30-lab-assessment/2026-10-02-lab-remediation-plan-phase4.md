@@ -1,6 +1,8 @@
 # Lab Remediation Plan: Phase 4 — Single Sign-On, Supply-Chain Trust & ApplicationSet Modernization
 ## Hub-and-Spoke GitOps Control Plane (2026-10-02)
 
+> **Status: Historical.** Record of the 2026-09-30 assessment and its remediation (Phases 1–5, closed 2026-10-03). Kept as evidence and not updated. For the lab as it is today, see the [README](../../../README.md) and the [2026-10-03 assessment](../../assessments/2026-10-03-lab-assessment.md).
+
 * **Plan Version:** 1.0 (initial submission)
 * **Assessment Reference:** [`../assessments/2026-09-30-lab-assessment.md`](../../assessments/2026-09-30-lab-assessment.md)
 * **Phase 3 Baseline:** [`2026-10-01-lab-remediation-plan-phase3-validation-07.md`](2026-10-01-lab-remediation-plan-phase3-validation-07.md) (Phase 3 complete; B.7 full rebuild accepted; V1–V17 PASS)

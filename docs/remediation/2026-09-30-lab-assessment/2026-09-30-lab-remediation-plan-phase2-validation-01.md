@@ -1,5 +1,7 @@
 # Phase 2 Remediation Validation — Run #01 (2026-09-30)
 
+> **Status: Historical.** Record of the 2026-09-30 assessment and its remediation (Phases 1–5, closed 2026-10-03). Kept as evidence and not updated. For the lab as it is today, see the [README](../../../README.md) and the [2026-10-03 assessment](../../assessments/2026-10-03-lab-assessment.md).
+
 | | |
 |---|---|
 | **Validates** | [`2026-09-30-lab-remediation-plan-phase2-implemented-01.md`](2026-09-30-lab-remediation-plan-phase2-implemented-01.md) (commit `bf98391`). Related commits: `orders-processor@8f5e0b6` (tag `v1.3.0`), `platform-catalog@c0f8779` |

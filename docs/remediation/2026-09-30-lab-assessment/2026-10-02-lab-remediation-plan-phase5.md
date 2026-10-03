@@ -1,6 +1,8 @@
 # Lab Remediation Plan: Phase 5 — Observability, Self-Healing Operations & Residual-Risk Closure
 ## Hub-and-Spoke GitOps Control Plane (2026-10-02)
 
+> **Status: Historical.** Record of the 2026-09-30 assessment and its remediation (Phases 1–5, closed 2026-10-03). Kept as evidence and not updated. For the lab as it is today, see the [README](../../../README.md) and the [2026-10-03 assessment](../../assessments/2026-10-03-lab-assessment.md).
+
 * **Plan Version:** 1.1 (v1.0 approved and implemented for Tracks 0–D; **v1.1 adds Track F, log aggregation**)
 * **Assessment Reference:** [`../assessments/2026-09-30-lab-assessment.md`](../../assessments/2026-09-30-lab-assessment.md)
 * **Phase 4 Baseline:** [`2026-10-02-lab-remediation-plan-phase4-validation-05.md`](2026-10-02-lab-remediation-plan-phase4-validation-05.md) and [`…-phase4-crosscheck-05.md`](2026-10-02-lab-remediation-plan-phase4-crosscheck-05.md) (Phase 4 complete; full rebuild accepted)

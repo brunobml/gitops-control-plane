@@ -1,5 +1,7 @@
 # Implementation Report 02 — Validation-01 Fixes V-1, V-2, V-3 (2026-10-03)
 
+> **Status: Current.** Active remediation record for the 2026-10-03 assessment.
+
 | | |
 |---|---|
 | **Fixes** | [`2026-10-03-lab-remediation-plan-validation-01.md`](2026-10-03-lab-remediation-plan-validation-01.md) findings **V-1** (High), **V-2** (Medium), **V-3** (Medium), plus the required real-run proof **Y3** |

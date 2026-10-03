@@ -1,6 +1,8 @@
 # Lab Remediation Plan — 2026-10-03 Assessment: Integrity of the GitOps Inputs, Platform Baseline & Production Hygiene
 ## Hub-and-Spoke GitOps Control Plane (2026-10-03)
 
+> **Status: Current.** Active remediation record for the 2026-10-03 assessment.
+
 * **Plan Version:** 1.0 (initial submission)
 * **Assessment:** [`../../assessments/2026-10-03-lab-assessment.md`](../../assessments/2026-10-03-lab-assessment.md) (maturity 8.0 / 10)
 * **Baseline:** Phases 1–5 of the 2026-09-30 assessment complete and accepted ([`../2026-09-30-lab-assessment/`](../2026-09-30-lab-assessment/)); last full rebuild 2026-10-03 (8 min 15 s)

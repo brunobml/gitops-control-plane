@@ -1,6 +1,8 @@
 # Lab Remediation Plan: Phase 3 — Identity, Platform-as-GitOps, Least Privilege & Cloud Isolation
 ## Hub-and-Spoke GitOps Control Plane (2026-10-01)
 
+> **Status: Historical.** Record of the 2026-09-30 assessment and its remediation (Phases 1–5, closed 2026-10-03). Kept as evidence and not updated. For the lab as it is today, see the [README](../../../README.md) and the [2026-10-03 assessment](../../assessments/2026-10-03-lab-assessment.md).
+
 * **Plan Version:** 1.0 (initial submission)
 * **Assessment Reference:** [`../assessments/2026-09-30-lab-assessment.md`](../../assessments/2026-09-30-lab-assessment.md)
 * **Phase 2 Baseline:** [`2026-09-30-lab-remediation-plan-phase2-validation-02.md`](2026-09-30-lab-remediation-plan-phase2-validation-02.md) (Phase 2 authorized scope closed; L4-1 *Mitigated*)

@@ -1,5 +1,7 @@
 # Remediation — 2026-10-03 Lab Assessment
 
+> **Status: Current.** Active remediation record for the 2026-10-03 assessment.
+
 Plans, implementation reports and independent validations that remediate the findings of
 [`../../assessments/2026-10-03-lab-assessment.md`](../../assessments/2026-10-03-lab-assessment.md).
 

@@ -1,5 +1,7 @@
 # Runbook: Host Reboot and Lab Lifecycle Management
 
+> **Status: Current.** Describes the lab as it is today (reviewed 2026-10-03).
+
 This runbook outlines operational procedures for managing the multi-cluster Hub-and-Spoke lab across host reboots, Docker daemon restarts, and system maintenance events.
 
 ---

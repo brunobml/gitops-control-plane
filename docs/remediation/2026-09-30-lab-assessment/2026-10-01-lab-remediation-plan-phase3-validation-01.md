@@ -1,5 +1,7 @@
 # Phase 3 Remediation Validation — Run #01 (2026-10-01)
 
+> **Status: Historical.** Record of the 2026-09-30 assessment and its remediation (Phases 1–5, closed 2026-10-03). Kept as evidence and not updated. For the lab as it is today, see the [README](../../../README.md) and the [2026-10-03 assessment](../../assessments/2026-10-03-lab-assessment.md).
+
 | | |
 |---|---|
 | **Validates** | [`2026-10-01-lab-remediation-plan-phase3-implemented-01.md`](2026-10-01-lab-remediation-plan-phase3-implemented-01.md) (commit `249c05a`, with post-run commits `b95e543`, `ac6e304`, `57e98d3`) |
