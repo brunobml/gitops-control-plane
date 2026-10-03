@@ -9,3 +9,7 @@
 /applicationsets/ @brunobml
 /clusters/ @brunobml
 /bootstrap/ @brunobml
+
+# CI toolkit (2026-10-03 Track A): the required checks of tenant-workloads and platform-charts run it
+/ci/ @brunobml
+/.github/ @brunobml

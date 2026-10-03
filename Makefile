@@ -1,4 +1,4 @@
-.PHONY: test-alert-rules orphans all setup start stop push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints help
+.PHONY: ci ci-tenants ci-catalog ci-charts ci-schemas test-alert-rules orphans all setup start stop push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints help
 
 ROOT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 REPOS_DIR ?= $(abspath $(ROOT_DIR)/..)
@@ -15,6 +15,9 @@ help:
 	@echo "  make bootstrap           - Apply root-control-plane Argo CD application to Hub"
 	@echo "  make post-bootstrap      - After bootstrap: worker credentials, adopt argo-cd, resync, smoke test"
 	@echo "  make test-alert-rules      - promtool unit tests for the hub alert rules"
+	@echo "  make ci                   - Track A CI for this repo: offline render of all Applications, kubeconform, promtool, shellcheck, secret scan"
+	@echo "  make ci-tenants / ci-catalog / ci-charts - Same checks the other repos run in GitHub (uses ../<repo>)"
+	@echo "  make ci-schemas           - Regenerate ci/schemas/ (CRD JSON schemas) from the lab clusters after an upgrade"
 	@echo "  make orphans               - Report (dry run) what deregistered tenant apps left behind; post-bootstrap removes it"
 	@echo "  make rotate-spoke-tokens - Rotate 30-day TokenRequest tokens for Argo CD spokes and Headlamp"
 	@echo "  make promote-blueprints  - Annotate spoke cluster secrets with revisions from clusters/blueprint-revisions.env"
@@ -128,3 +131,19 @@ post-bootstrap:
 
 teardown:
 	@bash $(ROOT_DIR)/scripts/teardown-hub-spoke.sh
+
+# 2026-10-03 Track A: the checks GitHub Actions runs, locally (see ci/README.md).
+ci:
+	@bash $(ROOT_DIR)/ci/check-control-plane.sh
+
+ci-tenants:
+	@TENANT_WORKLOADS_DIR=$(REPOS_DIR)/tenant-workloads bash $(ROOT_DIR)/ci/check-tenant-workloads.sh
+
+ci-catalog:
+	@PLATFORM_CATALOG_DIR=$(REPOS_DIR)/platform-catalog bash $(ROOT_DIR)/ci/check-catalog.sh
+
+ci-charts:
+	@PLATFORM_CHARTS_DIR=$(REPOS_DIR)/platform-charts bash $(ROOT_DIR)/ci/check-charts.sh
+
+ci-schemas:
+	@python3 $(ROOT_DIR)/ci/update-crd-schemas.py

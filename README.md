@@ -79,6 +79,7 @@ flowchart TD
 │                                     #   kro-blueprints  platform-catalog blueprints per spoke (revision from clusters/)
 │                                     #   tenant-workloads one Application per tenant registration file
 │                                     #   platform-projects AppProjects
+├── ci/                              # Track A CI toolkit: offline render, kubeconform, CEL, secret scan (`make ci*`)
 ├── bootstrap/                        # Root App-of-Apps and the hub deployer identity
 ├── clusters/
 │   ├── blueprint-revisions.env       # Catalog revision per spoke (prod = release tag)

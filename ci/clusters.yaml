@@ -1,0 +1,21 @@
+# Cluster generator fixtures for CI (2026-10-03 Track A.1): the Argo CD cluster Secrets that
+# scripts/register-spokes.sh creates, minus credentials. The blueprints-revision annotation is
+# filled from clusters/blueprint-revisions.env at render time.
+# Keep the labels in sync with register-spokes.sh; ci/check-control-plane.sh fails if a label used
+# here is missing there.
+- name: spoke-nonprod
+  server: https://k3d-spoke-nonprod-server-0:6443
+  labels:
+    environment: nonprod
+    addons-managed: "true"
+    kyverno: enabled
+    observability: enabled
+    logging: enabled
+- name: spoke-prod
+  server: https://k3d-spoke-prod-server-0:6443
+  labels:
+    environment: prod
+    addons-managed: "true"
+    kyverno: enabled
+    observability: enabled
+    logging: enabled
