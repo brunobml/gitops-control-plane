@@ -14,9 +14,18 @@ kind: ApplicationSet
 metadata:
   name: tenant-workloads
   namespace: argocd
+  annotations:
+    # 2026-10-03 Track B.2 migration step 1 (R-4, Phase 4 C.2 protocol): when this file is removed,
+    # the root app must not prune this ApplicationSet (and with it all tenant Applications); it is
+    # deleted with --cascade=orphan after the per-tenant ApplicationSets exist.
+    argocd.argoproj.io/sync-options: Prune=false
 spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
+  # Track B.2 migration step 1: stop updating or deleting the Applications; ownership moves to
+  # tenant-workloads-<tenant> unchanged (zero-diff gate passed).
+  syncPolicy:
+    applicationsSync: create-only
   generators:
     - git:
         repoURL: https://github.com/brunobml/tenant-workloads.git
