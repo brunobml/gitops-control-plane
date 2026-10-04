@@ -94,7 +94,7 @@ flowchart TD
 │   ├── lab-progression-and-next-steps.md # Roadmap ideas
 │   ├── ai-prompts/                   # Prompt for the AI-assisted lab assessment
 │   ├── assessments/                  # Lab assessments (2026-09-30, 2026-10-03), one file per assessment
-│   ├── runbooks/                     # Host reboot & lifecycle runbook, operational drills
+│   ├── runbooks/                     # Lifecycle (reboot, troubleshooting, alerts), full rebuild & acceptance, drills
 │   ├── roadmaps/                     # Phase 6: production parity on AWS EKS
 │   └── remediation/
 │       ├── 2026-09-30-lab-assessment/ # Plans, reports and validations for the 2026-09-30 assessment (Phases 1–5)
@@ -217,6 +217,8 @@ To completely clean up all clusters, mock cloud containers, and networks:
 ```bash
 make teardown
 ```
+
+To rebuild everything from Git and check the result (teardown → setup → bootstrap → post-bootstrap, about 8 minutes), follow the [Full Rebuild and Acceptance Runbook](docs/runbooks/full-rebuild-and-acceptance.md).
 
 ## AI-Assisted Lab Assessment
 

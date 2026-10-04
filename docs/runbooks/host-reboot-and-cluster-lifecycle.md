@@ -2,7 +2,7 @@
 
 > **Status: Current.** Describes the lab as it is today (reviewed 2026-10-03).
 
-This runbook outlines operational procedures for managing the multi-cluster Hub-and-Spoke lab across host reboots, Docker daemon restarts, and system maintenance events.
+This runbook outlines operational procedures for managing the multi-cluster Hub-and-Spoke lab across host reboots, Docker daemon restarts, and system maintenance events. To rebuild the whole lab from Git instead, see [`full-rebuild-and-acceptance.md`](full-rebuild-and-acceptance.md).
 
 ---
 
