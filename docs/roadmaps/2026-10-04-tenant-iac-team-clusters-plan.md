@@ -1,6 +1,6 @@
 # Plan: Tenant IaC — Self-Service Team Clusters on the Lab Platform
 
-> **Status: v0.2 for peer review (2026-10-04).** Not executed. This version replaces v0.1 (`b019ed9`) and merges [Antigravity's review](2026-10-04-tenant-iac-plan-review.md) and [proposal](2026-10-04-tenant-iac-proposal-agy.md) with [Claude's response](2026-10-04-tenant-iac-plan-review-claude.md), plus the owner's decisions (§8). Next: Antigravity sign-off, then P0. Executor and validator are different parties, as usual.
+> **Status: Approved v0.2 (2026-10-04).** Signed off by Antigravity. Ready for P0 spike. This version replaces v0.1 (`b019ed9`) and merges [Antigravity's review](2026-10-04-tenant-iac-plan-review.md) and [proposal](2026-10-04-tenant-iac-proposal-agy.md) with [Claude's response](2026-10-04-tenant-iac-plan-review-claude.md), incorporating owner decisions (§8). Executor and validator are different parties, as usual.
 
 | | |
 |---|---|
