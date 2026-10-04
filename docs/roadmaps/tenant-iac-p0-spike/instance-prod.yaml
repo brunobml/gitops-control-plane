@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: iac-team-data-prod
+  labels: {pod-security.kubernetes.io/enforce: restricted}
+  annotations: {services.k8s.aws/owner-account-id: "222222222222"}
+---
+apiVersion: kro.run/v1alpha1
+kind: TeamEKSCluster
+metadata: {name: analytics-prod, namespace: iac-team-data-prod}
+spec:
+  team: team-data
+  name: analytics
+  env: prod
+  kubernetesVersion: "1.31"
+  network: platform-default
+  nodeGroup: {instanceType: t3.medium, minSize: 1, desiredSize: 2, maxSize: 3}

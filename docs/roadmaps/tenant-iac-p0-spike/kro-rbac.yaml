@@ -1,0 +1,18 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kro-team-eks-cluster
+  labels: {rbac.kro.run/aggregate-to-controller: "true"}
+rules:
+  - apiGroups: ["kro.run"]
+    resources: ["teameksclusters", "teameksclusters/status", "teameksclusters/finalizers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["iam.services.k8s.aws"]
+    resources: ["roles"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["eks.services.k8s.aws"]
+    resources: ["clusters", "nodegroups"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["ec2.services.k8s.aws"]
+    resources: ["vpcs", "subnets", "securitygroups"]
+    verbs: ["get", "list", "watch"]

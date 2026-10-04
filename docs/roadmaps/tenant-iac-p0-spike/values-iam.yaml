@@ -1,0 +1,17 @@
+# P0 spike values (throwaway cluster iac-spike, moto-spike). Image pinned by index digest from the registry.
+image:
+  tag: "1.9.1@sha256:becbd2a3f82f22cf56077d31b05cd5ec88dc079519d219502687e12b03285a13"
+aws:
+  region: "us-east-1"
+  endpoint_url: "http://moto-spike:5000"
+  allow_unsafe_aws_endpoint_urls: true
+  credentials:
+    secretName: "ack-aws-creds"
+    secretKey: "credentials"
+    profile: "default"
+resources:
+  requests: {cpu: 50m, memory: 128Mi}
+  limits: {cpu: 250m, memory: 384Mi}
+reconcile:
+  defaultResyncPeriod: 300
+  resources: [Role]
