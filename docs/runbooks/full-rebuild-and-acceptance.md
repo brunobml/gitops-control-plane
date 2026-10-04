@@ -1,6 +1,6 @@
 # Runbook: Full Rebuild and Acceptance
 
-> **Status: Current.** Rebuilds the whole lab from Git and checks the result. Replaces the former `docs/guides/devops-student-rebuild-guide.md` (2026-10-04). Timings are from the 2026-10-04 acceptance rebuild ([implemented-08](../remediation/2026-10-03-lab-assessment/2026-10-03-lab-remediation-plan-implemented-08.md)).
+> **Status: Current.** Rebuilds the whole lab from Git and checks the result. An illustrated walkthrough of the same rebuild, with terminal and UI screenshots, is in [`devops-student-rebuild-guide.md`](devops-student-rebuild-guide.md). Where the two differ, this runbook is authoritative. Timings are from the 2026-10-04 acceptance rebuild ([implemented-08](../remediation/2026-10-03-lab-assessment/2026-10-03-lab-remediation-plan-implemented-08.md)).
 
 **Companion runbooks:** [`host-reboot-and-cluster-lifecycle.md`](host-reboot-and-cluster-lifecycle.md) (stop/start, troubleshooting issues A–H, alerts) and [`operational-drills-and-failure-injection.md`](operational-drills-and-failure-injection.md).
 
