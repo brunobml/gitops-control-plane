@@ -94,7 +94,7 @@ flowchart TD
 │   ├── lab-progression-and-next-steps.md # Roadmap ideas
 │   ├── ai-prompts/                   # Prompt for the AI-assisted lab assessment
 │   ├── assessments/                  # Lab assessments (2026-09-30, 2026-10-03), one file per assessment
-│   ├── runbooks/                     # Lifecycle (reboot, troubleshooting, alerts), full rebuild & acceptance, drills
+│   ├── runbooks/                     # Lifecycle, full rebuild, Argo CD CLI & SSO users, drills, student walkthrough
 │   ├── roadmaps/                     # Phase 6: production parity on AWS EKS
 │   └── remediation/
 │       ├── 2026-09-30-lab-assessment/ # Plans, reports and validations for the 2026-09-30 assessment (Phases 1–5)
@@ -176,6 +176,8 @@ make status   # Applications, spoke controllers and moto queues
 * `tenant-a-user`: tenant role in Argo CD, Viewer in Grafana.
 
 `make password` prints where every password is stored. Passwords are generated into `~/.config/gitops-lab` (mode 600) and are never committed.
+
+Argo CD from the command line (SSO and break-glass logins, RBAC checks, safe syncs), and a **temporary SSO user** for demos or pairing instead of sharing a password: [Argo CD CLI runbook](docs/runbooks/argocd-cli.md).
 
 **Grafana dashboards:**
 * *Platform overview*: Application health, spoke connections, firing alerts, scrape targets, recent warning events.

@@ -179,6 +179,7 @@ Run it after every `make start`.
 * **Do not** remove ports with `k3d cluster edit … --port-delete` on the hub. When two mappings share a container port, k3d drops that port from the load balancer completely (I.0 spike). Recovery: `docker start k3d-hub-cluster-serverlb`, then `k3d cluster edit hub-cluster --port-add <free host port>:80@loadbalancer` (and the same for 443) to restore the proxy entries.
 
 ### Issue G: Single Sign-On Unavailable (Keycloak down or misconfigured)
+CLI logins (SSO and break-glass) and temporary SSO users: [`argocd-cli.md`](argocd-cli.md).
 **Symptoms:** "Log in via Keycloak" in Argo CD fails or loops; Headlamp redirects to a Keycloak error page; smoke stage 10 fails.
 
 **Break-glass (always available):** log in to Argo CD with the **local `platform-admin`** account (`make password`). It does not depend on Keycloak. Automation (`post-bootstrap.sh`, `register-spokes.sh`) only ever uses this local account. Headlamp has no local fallback; use `kubectl` until SSO is back.
