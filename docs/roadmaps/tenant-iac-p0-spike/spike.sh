@@ -18,7 +18,8 @@ E="--endpoint-url http://localhost:5001"
 moto_as() { # credentials for one moto account via STS (moto has no access-key-per-account mapping)
   export AWS_ACCESS_KEY_ID=x AWS_SECRET_ACCESS_KEY=x AWS_DEFAULT_REGION=us-east-1; unset AWS_SESSION_TOKEN
   local c; c=$(aws $E sts assume-role --role-arn "arn:aws:iam::$1:role/spike" --role-session-name spike --query Credentials --output json)
-  export AWS_ACCESS_KEY_ID=$(jq -r .AccessKeyId <<<"$c") AWS_SECRET_ACCESS_KEY=$(jq -r .SecretAccessKey <<<"$c") AWS_SESSION_TOKEN=$(jq -r .SessionToken <<<"$c")
+  AWS_ACCESS_KEY_ID=$(jq -r .AccessKeyId <<<"$c"); AWS_SECRET_ACCESS_KEY=$(jq -r .SecretAccessKey <<<"$c")
+  AWS_SESSION_TOKEN=$(jq -r .SessionToken <<<"$c"); export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
 }
 
 up() {
