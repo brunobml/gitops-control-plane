@@ -14,6 +14,12 @@ This platform is a **multi-cluster GitOps control plane** modeling an enterprise
 
 ```mermaid
 flowchart TD
+    %% Subgraph boundary styling
+    style Host fill:#f8fafc,stroke:#94a3b8,stroke-width:1.5px,color:#0f172a
+    style Hub fill:#eff6ff,stroke:#3b82f6,stroke-width:2px,color:#1e3a8a
+    style Spokes fill:#f0fdf4,stroke:#22c55e,stroke-width:2px,color:#14532d
+    style AWSMock fill:#fffbeb,stroke:#f59e0b,stroke-width:2px,color:#78350f
+
     subgraph Host ["Developer Machine (127.0.0.1)"]
         Browser["Web Browser (Chrome / Edge / Firefox)"]
         mkcert["Local Root CA (mkcert)"]
@@ -51,6 +57,19 @@ flowchart TD
 
     SpokeNonProd -->|ACK SQS Controller| Moto
     SpokeProd -->|ACK SQS Controller| Moto
+
+    %% Node color classes
+    classDef hostItem fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#0f172a;
+    classDef hubItem fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0369a1;
+    classDef argo fill:#ffedd5,stroke:#f97316,stroke-width:2px,color:#9a3412;
+    classDef spokeItem fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#14532d;
+    classDef cloudItem fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+
+    class Browser,mkcert hostItem;
+    class LB,Traefik,Keycloak,OAuth2Proxy,Headlamp,Monitoring hubItem;
+    class ArgoCD argo;
+    class SpokeNonProd,SpokeProd spokeItem;
+    class Moto cloudItem;
 ```
 
 ### The Core Architectural Tenets

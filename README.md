@@ -8,6 +8,12 @@ This repository serves as the central GitOps control plane for a multi-cluster *
 
 ```mermaid
 flowchart TD
+    %% Subgraph boundary styling
+    style Repos fill:#f8fafc,stroke:#94a3b8,stroke-width:1.5px,color:#0f172a
+    style Hub fill:#eff6ff,stroke:#3b82f6,stroke-width:2px,color:#1e3a8a
+    style Spokes fill:#f0fdf4,stroke:#22c55e,stroke-width:2px,color:#14532d
+    style Cloud fill:#fffbeb,stroke:#f59e0b,stroke-width:2px,color:#78350f
+
     subgraph Repos["GitHub repositories (github.com/brunobml)"]
         GCP["gitops-control-plane<br/>(ApplicationSets, addons, projects)"]
         PC["platform-catalog<br/>(kro blueprints, admission policies, controllers)"]
@@ -53,6 +59,19 @@ flowchart TD
     Orders -->|send / receive| Moto
     Agent -->|remote_write + log push, basic auth| Traefik
     AlloyH --> Obs
+
+    %% Node color classes
+    classDef repo fill:#f8fafc,stroke:#475569,stroke-width:1.5px,color:#0f172a;
+    classDef hubItem fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0369a1;
+    classDef argo fill:#ffedd5,stroke:#f97316,stroke-width:2px,color:#9a3412;
+    classDef spokeItem fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#14532d;
+    classDef cloudItem fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+
+    class GCP,PC,PCH,TW,OP repo;
+    class Traefik,KC,HL,Obs,AlloyH hubItem;
+    class ArgoCD argo;
+    class Kro,Ack,Kyv,Agent,Orders spokeItem;
+    class Moto cloudItem;
 ```
 
 * **Argo CD on the hub** deploys everything, to itself and to both spokes. Changes reach the clusters only through Git.
