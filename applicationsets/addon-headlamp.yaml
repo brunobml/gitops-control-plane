@@ -75,6 +75,14 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+    managedNamespaceMetadata:
+      labels:
+        # 2026-10-03 Track C.1 (L4-5, O-9): Pod Security baseline. Every workload of this app,
+        # Helm hook Jobs included, was dry-run under this level first (review remark R-13).
+        pod-security.kubernetes.io/enforce: baseline
+        pod-security.kubernetes.io/enforce-version: latest
+        pod-security.kubernetes.io/warn: restricted
+        pod-security.kubernetes.io/audit: restricted
     retry:
       limit: 5
       backoff:

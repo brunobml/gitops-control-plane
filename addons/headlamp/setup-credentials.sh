@@ -13,6 +13,9 @@ echo "Configuring Headlamp Multi-Cluster Least-Privilege Credentials..."
 for ctx in "${CLUSTERS[@]}"; do
   echo "Setting up RBAC on cluster: ${ctx}..."
   kubectl --context "${ctx}" create namespace headlamp-access --dry-run=client -o yaml | kubectl --context "${ctx}" apply -f -
+  # 2026-10-03 Track C.1: no pods run here (ServiceAccount and token only); restricted like the rest.
+  kubectl --context "${ctx}" label namespace headlamp-access --overwrite pod-security.kubernetes.io/enforce=restricted \
+    pod-security.kubernetes.io/enforce-version=latest >/dev/null
 
   cat <<EOF | kubectl --context "${ctx}" apply -f -
 apiVersion: v1
