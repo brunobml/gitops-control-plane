@@ -3,7 +3,7 @@
 
 > **Status: Current.** Active remediation record for the 2026-10-03 assessment.
 
-* **Plan Version:** 1.2 (commit [`fd0f315`](https://github.com/brunobml/gitops-control-plane/commit/fd0f315)). Tracks 0, A, B, and I closed; **v1.2 close-out approved** (G.3 reduced, C.1 per O-9, H rebuild; residuals recorded in §1.3).
+* **Plan Version:** 1.2 (commit [`fd0f315`](https://github.com/brunobml/gitops-control-plane/commit/fd0f315)). **100% COMPLETE & CLOSED** (All tracks 0, A, B, I, C.1, G.3 reduced, H.1 closed; residuals recorded in §1.3).
 * **Assessment:** [`../../assessments/2026-10-03-lab-assessment.md`](../../assessments/2026-10-03-lab-assessment.md) (maturity 8.0 / 10)
 * **Baseline:** Phases 1–5 of the 2026-09-30 assessment complete and accepted ([`../2026-09-30-lab-assessment/`](../2026-09-30-lab-assessment/)); last full rebuild 2026-10-03 (8 min 15 s)
 * **Target Repositories:** `gitops-control-plane`, `platform-catalog`, `platform-charts`, `orders-processor`, `tenant-workloads`
@@ -15,16 +15,20 @@
 
 | Field | Details |
 |---|---|
-| **Current Status** | 🟢 **TRACKS 0, A, B, & I COMPLETED & VALIDATED** · 🟢 **v1.2 CLOSE-OUT APPROVED** (Executing G.3 reduced, C.1, H) |
-| **Plan Version** | `v1.2` (commit [`fd0f315`](https://github.com/brunobml/gitops-control-plane/commit/fd0f315)) |
+| **Current Status** | 🟢 **100% COMPLETE & CLOSED** · All tracks closed (0, A, B, I, C.1, G.3 reduced, H.1 rebuild); residuals recorded in §1.3 |
+| **Plan Version** | `v1.2` (commit [`fd0f315`](https://github.com/brunobml/gitops-control-plane/commit/fd0f315); close-out validated) |
 | **Author** | Claude (Opus 5.5) |
-| **Reviewed By** | Antigravity (Advanced Agentic AI Peer Reviewer) |
-| **Review Date** | 2026-10-03 (v1.2 Close-Out Scope Review) |
-| **Authorization Decision** | ✅ **GREEN LIGHT** — Full plan approved; **Tracks 0, A, B, & I Closed**; **v1.2 Close-Out Scope Approved**. |
+| **Reviewed & Validated By** | Antigravity (Advanced Agentic AI Peer Reviewer) |
+| **Close-Out Date** | 2026-10-04 (H.1 Acceptance Rebuild & Plan Close-Out Validated) |
+| **Plan Decision** | 🟢 **PLAN 100% COMPLETE & CLOSED** — All active tracks validated; Phase 6 roadmap defined. |
 | **Track 0 Status** | 🟢 **CLOSED**: Validated in [`validation-01.md`](2026-10-03-lab-remediation-plan-validation-01.md), [`validation-02.md`](2026-10-03-lab-remediation-plan-validation-02.md), and [`validation-03.md`](2026-10-03-lab-remediation-plan-validation-03.md) across all steps (0.1–0.7). |
 | **Track A Status** | 🟢 **CLOSED**: Validated in [`validation-04.md`](2026-10-03-lab-remediation-plan-validation-04.md) across all steps (A.1–A.4, V-9). |
 | **Track B Status** | 🟢 **CLOSED**: Validated in [`validation-06.md`](2026-10-03-lab-remediation-plan-validation-06.md) across all steps (B.1–B.2, R-4, L2-3). |
 | **Track I Status** | 🟢 **CLOSED**: Validated in [`validation-05.md`](2026-10-03-lab-remediation-plan-validation-05.md) across all steps (I.0–I.5, R-9..R-12, O-6..O-8). |
+| **Track C.1 Status** | 🟢 **CLOSED**: Validated in [`validation-07.md`](2026-10-03-lab-remediation-plan-validation-07.md) (13 platform namespaces labeled, privileged admission blocked, R-13). |
+| **Track G.3 Status** | 🟢 **CLOSED**: Validated in [`validation-07.md`](2026-10-03-lab-remediation-plan-validation-07.md) (`make maintain`, headless exit 0, R-14). |
+| **Track H.1 Status** | 🟢 **CLOSED**: Validated in [`validation-08.md`](2026-10-03-lab-remediation-plan-validation-08.md) (484s rebuild, no 8080/8443, smoke 12/12, R-15). |
+| **Residuals Status** | 📋 **RECORDED**: Formally recorded in §1.3 for Phase 6 (AWS EKS roadmap). |
 | **Execution / validation split** | The party that executes a step writes `…-implemented-NN.md`; the other party writes `…-validation-NN.md` |
 
 ### Reviewer Decision & Feedback
