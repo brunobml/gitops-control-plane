@@ -112,12 +112,22 @@ sequenceDiagram
     Post-->>DevOps: Exit 0 (~5m)
 ```
 
+---
+
 ### Step 1: Teardown
 ```bash
 make teardown
 ```
 * **What it does:** Destroys all running containers and networks belonging to the lab (`k3d-hub-cluster`, `k3d-spoke-nonprod`, `k3d-spoke-prod`, and `moto-cloud`).
-* **Expected duration:** ~1–5 seconds.
+* **Expected duration:** ~1–5 seconds (exit code 0).
+* **Terminal output:**
+
+![Step 1: Make Teardown](screenshots/terminal-step1-teardown.png)
+
+> [!NOTE]
+> Notice how the teardown is idempotent: deleting volumes and cluster definitions cleans state without touching external containers or other k3d clusters.
+
+---
 
 ### Step 2: Setup
 ```bash
@@ -125,20 +135,32 @@ make setup
 ```
 * **What it does:** 
   1. Verifies that host ports 80 and 443 are free.
-  2. Creates the shared Docker bridge network `gitops-net`.
+  2. Creates the shared Docker bridge network `k3d-cloud-net`.
   3. Launches `moto-cloud` (port 5000) for local AWS emulation.
   4. Provisions 3 k3d Kubernetes clusters:
-     - `k3d-hub-cluster`: binds load balancer to `127.0.0.1:80` and `127.0.0.1:443`.
+     - `k3d-hub-cluster`: binds load balancer exclusively to `127.0.0.1:80` and `127.0.0.1:443`.
      - `k3d-spoke-nonprod`: binds load balancer to `127.0.0.1:8081`.
      - `k3d-spoke-prod`: binds load balancer to `127.0.0.1:8082`.
-* **Expected duration:** ~3 minutes.
+  5. Deploys Traefik Ingress on the Hub and loads the mkcert trusted TLS secret.
+  6. Installs Argo CD on the Hub and provisions enterprise `AppProject` definitions.
+* **Expected duration:** ~3 minutes (exit code 0).
+* **Terminal output:**
+
+![Step 2: Make Setup](screenshots/terminal-step2-setup.png)
+
+---
 
 ### Step 3: Bootstrap
 ```bash
 make bootstrap
 ```
-* **What it does:** Installs the core Argo CD manifests into the hub cluster and applies the root Application (`root-control-plane`).
-* **Expected duration:** ~1–2 seconds.
+* **What it does:** Applies the root Argo CD application (`root-control-plane`), which instructs Argo CD to begin discovering and reconciling all platform add-ons and tenant workloads declared in Git.
+* **Expected duration:** ~1–2 seconds (exit code 0).
+* **Terminal output:**
+
+![Step 3: Make Bootstrap](screenshots/terminal-step3-bootstrap.png)
+
+---
 
 ### Step 4: Post-Bootstrap
 ```bash
@@ -149,8 +171,13 @@ make post-bootstrap
   2. Generates Headlamp viewer tokens and mounts them securely.
   3. Prepares Keycloak SSO realm and updates CoreDNS template overrides.
   4. Seeds AWS SQS queues and Dead-Letter Queues (DLQs) in Moto Cloud.
-  5. Automatically triggers the full 12-stage smoke test to verify all systems.
-* **Expected duration:** ~4–5 minutes.
+  5. Restarts worker pods to pick up their newly issued AWS credentials.
+  6. Adopts the self-managed `argo-cd` application.
+  7. Automatically triggers the full 12-stage smoke test to verify all systems.
+* **Expected duration:** ~4–5 minutes (exit code 0).
+* **Terminal output:**
+
+![Step 4: Make Post-Bootstrap](screenshots/terminal-step4-post-bootstrap.png)
 
 ---
 
@@ -164,7 +191,12 @@ Ensure the Hub load balancer uses canonical ports 80/443 without legacy ports (8
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 ```
 
-![Docker PS Output](../remediation/2026-10-03-lab-assessment/screenshots/terminal-docker-ps.png)
+![Docker PS Output](screenshots/terminal-docker-ps.png)
+
+> [!TIP]
+> Notice that `k3d-hub-cluster-serverlb` exposes strictly `80->80/tcp`, `443->443/tcp`, and `6550->6443/tcp`. Legacy ports 8080 and 8443 are completely eliminated.
+
+---
 
 ### 2. Verify Argo CD Application Status
 All 32 applications must report `Synced` and `Healthy`:
@@ -172,7 +204,9 @@ All 32 applications must report `Synced` and `Healthy`:
 kubectl --context k3d-hub-cluster get applications -n argocd -o custom-columns=NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status
 ```
 
-![Argo CD Applications Status](../remediation/2026-10-03-lab-assessment/screenshots/terminal-argocd-apps.png)
+![Argo CD Applications Status](screenshots/terminal-argocd-apps.png)
+
+---
 
 ### 3. Verify Pod Security Admission (Track C.1)
 Platform namespaces must be protected with `restricted` (or `baseline` for Headlamp):
@@ -180,7 +214,12 @@ Platform namespaces must be protected with `restricted` (or `baseline` for Headl
 kubectl --context k3d-hub-cluster get ns -L pod-security.kubernetes.io/enforce,pod-security.kubernetes.io/warn,pod-security.kubernetes.io/audit
 ```
 
-![Pod Security Labels](../remediation/2026-10-03-lab-assessment/screenshots/terminal-pod-security.png)
+![Pod Security Labels](screenshots/terminal-pod-security.png)
+
+> [!IMPORTANT]
+> The `restricted` standard enforces non-root containers, dropped Linux capabilities, and read-only root filesystems. `headlamp` is assigned `baseline` because it requires specific capability sets.
+
+---
 
 ### 4. Verify Least-Privilege Impersonation
 Confirm that Argo CD uses impersonation for sync operations across all clusters:
@@ -188,15 +227,17 @@ Confirm that Argo CD uses impersonation for sync operations across all clusters:
 bash scripts/audit-impersonation.sh
 ```
 
-![Impersonation Audit](../remediation/2026-10-03-lab-assessment/screenshots/terminal-audit-impersonation.png)
+![Impersonation Audit](screenshots/terminal-audit-impersonation.png)
 
-### 5. Run the Smoke Test Suite
+---
+
+### 5. Run the Automated Smoke Test Suite
 Execute the automated end-to-end smoke test suite:
 ```bash
 make test
 ```
 
-![Smoke Test Suite](../remediation/2026-10-03-lab-assessment/screenshots/terminal-smoke-test.png)
+![Smoke Test Suite](screenshots/terminal-smoke-test.png)
 
 ---
 
@@ -216,7 +257,7 @@ make maintain
   - Logs results to `~/.config/gitops-lab/logs/maintain.log` (mode `0600`).
   - **Headless resilience:** If Docker or the cluster is stopped, it exits cleanly with code 0 instead of throwing an error.
 
-![Make Maintain Execution](../remediation/2026-10-03-lab-assessment/screenshots/terminal-make-maintain.png)
+![Make Maintain Execution](screenshots/terminal-make-maintain.png)
 
 ---
 
@@ -231,19 +272,29 @@ All web services are accessible via canonical subdomains of `localhost`:
 | **Headlamp** | [http://headlamp.localhost](http://headlamp.localhost) | Keycloak SSO (`platform-user`) | Multi-cluster Kubernetes viewer |
 | **Keycloak** | [http://keycloak.localhost](http://keycloak.localhost) | `admin` / `admin` | Central OIDC identity provider |
 
+---
+
 ### Web Interface Gallery
 
 #### Argo CD Web UI
-![Argo CD Web UI](../remediation/2026-10-03-lab-assessment/screenshots/ui-argocd.png)
+Accessed at `http://argocd.localhost`. Features native Single Sign-On integration with Keycloak.
+
+![Argo CD Web UI](screenshots/ui-argocd.png)
 
 #### Grafana Observability Dashboard
-![Grafana Web UI](../remediation/2026-10-03-lab-assessment/screenshots/ui-grafana.png)
+Accessed at `http://grafana.localhost`. Displays Prometheus cluster metrics, Blackbox probe results, and Loki log streams.
+
+![Grafana Web UI](screenshots/ui-grafana.png)
 
 #### Keycloak Identity Provider
-![Keycloak Web UI](../remediation/2026-10-03-lab-assessment/screenshots/ui-keycloak.png)
+Accessed at `http://keycloak.localhost`. Manages centralized realm users (`platform-user`, `tenant-a-user`) and RBAC group claims.
+
+![Keycloak Web UI](screenshots/ui-keycloak.png)
 
 #### Headlamp Multi-Cluster Viewer
-![Headlamp Web UI](../remediation/2026-10-03-lab-assessment/screenshots/ui-headlamp.png)
+Accessed at `http://headlamp.localhost`. Protected by `oauth2-proxy` to enforce authenticated SSO sessions before granting cluster visibility.
+
+![Headlamp Web UI](screenshots/ui-headlamp.png)
 
 ---
 
