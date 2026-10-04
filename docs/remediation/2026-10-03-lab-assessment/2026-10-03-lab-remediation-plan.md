@@ -119,7 +119,7 @@
 | **Remaining scope** | **G.3 (reduced):** scheduled credential renewal, because spoke tokens expire **2026-11-02** and renewal today depends on someone running `post-bootstrap`. **C.1 (optional, O-9):** Pod Security labels on the platform namespaces that have none. **H:** the full rebuild, which proves the many live changes since the last rebuild (Track I cut-over, B.2 migration, digest pins) from Git alone and drops the leftover 8080/8443 mappings |
 | **Not executed** | C.2, C.3 (NetworkPolicies), D, E, F, G.1, G.2 and the G.3 alerts become **recorded residuals** (§1.3), each with a reason, the compensating controls and a trigger to revisit |
 | **Closure criteria** | G.3 implemented and validated, C.1 per O-9, H rebuild green and validated. Then the 2026-10-03 plan is closed; the next work is the Phase 6 roadmap (production parity on EKS), where most residuals belong |
-| **New owner decisions** | O-9 (include C.1), O-10 (how the renewal is scheduled) |
+| **New owner decisions** | O-9 (include C.1), O-10 (how the renewal is scheduled). **Owner answers (2026-10-03): O-9 = yes; O-10 = manual only** (`make maintain` run by the owner; no scheduler) |
 
 #### Owner decisions requested (v1.2)
 
@@ -176,6 +176,7 @@ The 2026-10-03 assessment found the running platform strong. The gaps are in **t
 | **G.1** Signed golden chart | L4-3 | Chart versions are already immutable (release guard, local guard) and CI-checked before merge; prod changes need a PR | Release immutability, `chart-checks` required, CODEOWNERS | More than one chart or chart publisher |
 | **G.2** Renovate | L3-2 | Bot PRs need reviewing in a single-maintainer lab; pins are recent (2026-10-03) | All images, charts and Actions pinned by digest/SHA; CI validates any bump | Pins older than ~3 months, or a CVE |
 | **G.3 alerts** `ArgoCDSelfOutOfSync`, `AckReconcileErrors`, `AckResourceNotSynced`; notifications | L3-3..L3-5 | Nice to have; not seen as a real failure in this lab | `ArgoAppOutOfSync` (excludes `argo-cd` by design), `SpokeControllerDown`, ACK drift self-heals (Drill 4) | A real incident they would have caught |
+| Scheduled renewal (G.3, owner decision O-10 = manual) | L3-3 | Owner prefers running `make maintain` by hand over a Windows scheduled task | `SpokeTokenExpiringSoon` warns 7 days before any token expires; `make post-bootstrap` (after every start) also renews | A missed renewal, or the owner asks for a schedule (`scripts/maintain.sh` is already non-interactive per R-14) |
 | Per-tenant AppProjects (from Track B) | — | One tenant; CI blocks duplicate `<app>-<env>` across tenants | Per-tenant ApplicationSets, tenant guard in the template, required `registration-checks` | A second tenant is onboarded |
 
 ---
@@ -431,8 +432,8 @@ Grouped weekly PRs. Track A CI is the gate; prod-relevant bumps follow the norma
 > **v1.2 scope:**
 > * `scripts/maintain.sh` (`make maintain`): only `post-bootstrap` step 1 (token renewal, < 7 days left) and step 6 (orphans), with no smoke test. The step logic moves out of `post-bootstrap.sh` so both share it.
 >   * When the hub is unreachable (lab stopped, Docker Desktop not running), it logs and exits 0.
->   * Each run writes `lab-maintenance` (epoch) to `monitoring/credential-expiry`, so its last run is visible in Grafana.
-> * Scheduled per O-10, by default a **Windows Task Scheduler** daily task. `scripts/register-maintenance-task.ps1` registers it as an owner action; the command is printed for review first.
+>   * ~~Each run writes `lab-maintenance` (epoch) to `monitoring/credential-expiry`~~ (dropped during implementation: the exporter serves every key of that ConfigMap as a credential *expiry*, so a past timestamp would fire `SpokeTokenExpiringSoon` immediately). Runs are logged to `~/.config/gitops-lab/logs/maintain.log` (R-14).
+> * Scheduling: **none, per O-10 (owner: manual only)**. The owner runs `make maintain`; recorded as a residual (§1.3).
 > * The safety net stays `SpokeTokenExpiringSoon` (7 days).
 > * The new alerts and notifications below are **residuals** (§1.3).
 > * **Verify:** a run on a stopped hub exits 0; a run with a recorded expiry under 7 days renews the tokens (as Drill 2); the scheduled task runs once on demand.

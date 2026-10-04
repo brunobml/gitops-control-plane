@@ -1,4 +1,4 @@
-.PHONY: local-tls ci ci-tenants ci-catalog ci-charts ci-schemas test-alert-rules orphans all setup start stop push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints help
+.PHONY: maintain local-tls ci ci-tenants ci-catalog ci-charts ci-schemas test-alert-rules orphans all setup start stop push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints help
 
 ROOT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 REPOS_DIR ?= $(abspath $(ROOT_DIR)/..)
@@ -15,6 +15,7 @@ help:
 	@echo "  make bootstrap           - Apply root-control-plane Argo CD application to Hub"
 	@echo "  make post-bootstrap      - After bootstrap: worker credentials, adopt argo-cd, resync, smoke test"
 	@echo "  make test-alert-rules      - promtool unit tests for the hub alert rules"
+	@echo "  make maintain             - Routine upkeep: renew tokens (< 7 days left), clean up orphans; skips if the lab is stopped"
 	@echo "  make local-tls            - (Re)issue the https://*.localhost certificate (mkcert if installed) and load it into Traefik"
 	@echo "  make ci                   - Track A CI for this repo: offline render of all Applications, kubeconform, promtool, shellcheck, secret scan"
 	@echo "  make ci-tenants / ci-catalog / ci-charts - Same checks the other repos run in GitHub (uses ../<repo>)"
@@ -151,3 +152,6 @@ ci-schemas:
 
 local-tls:
 	@bash $(ROOT_DIR)/scripts/setup-local-tls.sh
+
+maintain:
+	@bash $(ROOT_DIR)/scripts/maintain.sh

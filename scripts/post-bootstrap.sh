@@ -31,19 +31,8 @@ argocd login localhost --plaintext --grpc-web --skip-test-tls --config "$ARGOCD_
 A=(argocd --config "$ARGOCD_CFG")
 
 echo "[1/9] Credential expiry (renew when fewer than ${RENEW_DAYS} days are left)..."
-# Phase 5 D.2 (owner decision O-4): tokens are renewed here, not on a calendar. Expiries come from
-# monitoring/credential-expiry (written whenever a token is minted); missing data also renews.
-min_exp=$(kubectl --context k3d-hub-cluster -n monitoring get configmap credential-expiry -o json 2>/dev/null \
-  | jq -r '[.data // {} | to_entries[] | select(.key|test("^(argocd|headlamp)-")) | .value | tonumber] | if length >= 5 then min else 0 end' || echo 0)
-days_left=$(( (${min_exp:-0} - $(date +%s)) / 86400 ))
-if (( ${min_exp:-0} == 0 || days_left < RENEW_DAYS )); then
-  echo "  ↻ renewing spoke and Headlamp tokens (shortest left: ${days_left} days)"
-  # register-spokes.sh calls the argocd CLI; ARGOCD_OPTS points it at this script's own session.
-  ARGOCD_OPTS="--config ${ARGOCD_CFG}" bash "${SCRIPT_DIR}/register-spokes.sh" | sed 's/^/  /'
-  bash "${SCRIPT_DIR}/../addons/headlamp/setup-credentials.sh" | sed 's/^/  /'
-else
-  echo "  ✔ shortest credential lifetime left: ${days_left} days"
-fi
+# Phase 5 D.2 / 2026-10-03 G.3: shared with maintain.sh.
+ARGOCD_CFG="$ARGOCD_CFG" RENEW_DAYS="$RENEW_DAYS" bash "${SCRIPT_DIR}/renew-credentials.sh" | sed 's/^/  /'
 
 echo "[2/9] Discovering tenant workloads (tenant-workloads registrations) and waiting for their namespaces..."
 # Phase 4 C.2: workloads are whatever tenants registered, not a fixed list. Each Application of
