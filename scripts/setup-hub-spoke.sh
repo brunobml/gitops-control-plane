@@ -48,7 +48,7 @@ echo -e "\n${YELLOW}[3/6] Creating k3d clusters (Hub, Spoke Non-Prod, Spoke Prod
 if ! k3d cluster list | grep -q "${HUB_CLUSTER}"; then
   # Track I (O-6): the hub owns host ports 80/443. Fail fast if another container holds them,
   # e.g. the jenkins-argo lab's argolab cluster (O-8): stop it first or start it on other ports.
-  busy=$(docker ps --format '{{.Names}} {{.Ports}}' | grep -E '(127\.0\.0\.1|0\.0\.0\.0|\[::\]):(80|443)->' | cut -d' ' -f1 | sort -u | tr '\n' ' ')
+  busy=$(docker ps --format '{{.Names}} {{.Ports}}' | { grep -E '(127\.0\.0\.1|0\.0\.0\.0|\[::\]):(80|443)->' || true; } | cut -d' ' -f1 | sort -u | tr '\n' ' ')
   if [[ -n "$busy" ]]; then
     echo -e "${RED}✘ Host port 80/443 is already published by: ${busy}- stop it before creating the hub.${NC}" >&2
     exit 1
