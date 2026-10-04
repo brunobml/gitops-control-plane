@@ -3,7 +3,7 @@
 
 > **Status: Current.** Active remediation record for the 2026-10-03 assessment.
 
-* **Plan Version:** 1.1 (commit [`fc74d79`](https://github.com/brunobml/gitops-control-plane/commit/fc74d79)). Tracks 0, A, B, & I closed; Tracks C & D next in execution.
+* **Plan Version:** 1.2 (close-out, **awaiting review**). Based on v1.1 (commit [`fc74d79`](https://github.com/brunobml/gitops-control-plane/commit/fc74d79)). Tracks 0, A, B and I are closed. **v1.2 closes the plan**: only G.3 (scheduled renewal), C.1 (optional, O-9) and the H rebuild remain; C.2, D, E, F, G.1, G.2 become recorded residuals (§1.3)
 * **Assessment:** [`../../assessments/2026-10-03-lab-assessment.md`](../../assessments/2026-10-03-lab-assessment.md) (maturity 8.0 / 10)
 * **Baseline:** Phases 1–5 of the 2026-09-30 assessment complete and accepted ([`../2026-09-30-lab-assessment/`](../2026-09-30-lab-assessment/)); last full rebuild 2026-10-03 (8 min 15 s)
 * **Target Repositories:** `gitops-control-plane`, `platform-catalog`, `platform-charts`, `orders-processor`, `tenant-workloads`
@@ -15,7 +15,7 @@
 
 | Field | Details |
 |---|---|
-| **Current Status** | 🟢 **TRACKS 0, A, B, & I COMPLETED & VALIDATED** (Tracks C & D Next) |
+| **Current Status** | 🟢 **TRACKS 0, A, B, & I COMPLETED & VALIDATED** · 🟡 **v1.2 CLOSE-OUT AWAITING PEER REVIEW** (remaining: G.3 reduced, C.1 optional, H; rest recorded as residuals) |
 | **Plan Version** | `v1.1` (commit [`fc74d79`](https://github.com/brunobml/gitops-control-plane/commit/fc74d79)) |
 | **Author** | Claude (Opus 5.5) |
 | **Reviewed By** | Antigravity (Advanced Agentic AI Peer Reviewer) |
@@ -96,6 +96,23 @@
 | **O-7** | What HTTPS does | **(a) Trusted local certificate (mkcert, CA trusted on Windows once) as Traefik's default, and HTTPS answered with a redirect to the HTTP URL**: no warning, then the working HTTP/SSO path. (b) Redirect with Traefik's self-signed default cert (warning first, then redirect). (c) Do not publish 443 | **Endorsed Option (a).** Provides a clean, warning-free browser experience when users type `https://` while keeping SSO implementation simple on HTTP. |
 | **O-8** | `argolab` (k3d cluster of the owner's `jenkins-argo` lab, stopped; a host leftover under O-4) also binds 80/443 when started | **Document only** (O-4 unchanged): both labs cannot run on 80/443 at the same time; `jenkins-argo` would need `HTTP_PORT`/`HTTPS_PORT` overrides (its own script supports them; its SSO assumes 80) | **Endorsed Document only.** Respects O-4 scope boundaries by leaving external clusters untouched while clearly documenting port exclusivity. |
 
+### v1.2 Close-out amendment (2026-10-03)
+
+| | |
+|---|---|
+| **Trigger** | After Tracks 0, A, I and B were validated, the owner asked *"is the lab as is good enough, or should we continue improving"*. The author's assessment: the high-value findings (prod-gate bypasses, CI, tenant blast radius, entry docs, pins, URLs/TLS) are closed. What remains is mostly defence in depth with little value on a single-user laptop lab, and some of it with real friction (the owner's standing preference: no high-friction controls whose risk is already covered; record residuals explicitly). The owner agreed to close the plan with a short finish |
+| **Remaining scope** | **G.3 (reduced):** scheduled credential renewal, because spoke tokens expire **2026-11-02** and renewal today depends on someone running `post-bootstrap`. **C.1 (optional, O-9):** Pod Security labels on the platform namespaces that have none. **H:** the full rebuild, which proves the many live changes since the last rebuild (Track I cut-over, B.2 migration, digest pins) from Git alone and drops the leftover 8080/8443 mappings |
+| **Not executed** | C.2, C.3 (NetworkPolicies), D, E, F, G.1, G.2 and the G.3 alerts become **recorded residuals** (§1.3), each with a reason, the compensating controls and a trigger to revisit |
+| **Closure criteria** | G.3 implemented and validated, C.1 per O-9, H rebuild green and validated. Then the 2026-10-03 plan is closed; the next work is the Phase 6 roadmap (production parity on EKS), where most residuals belong |
+| **New owner decisions** | O-9 (include C.1), O-10 (how the renewal is scheduled) |
+
+#### Owner decisions requested (v1.2)
+
+| ID | Question | Author's recommendation | Reviewer Endorsement |
+|---|---|---|:---:|
+| **O-9** | Include C.1 (Pod Security labels on `argocd`, `headlamp`, `headlamp-access`, `oauth2-proxy`, `traefik`, `ack-system`, `kro`, `kyverno`)? | **Yes.** Low friction: a server-side dry-run on 2026-10-03 shows every running pod already complies with `restricted`, except `headlamp` (complies with `baseline`). Labels go through GitOps; Kyverno's chart hook Jobs are dry-run under the new labels before `enforce` is set | *pending* |
+| **O-10** | How is renewal scheduled? WSL runs systemd (`systemd=true`), but this distro only runs while it has sessions; Docker Desktop keeps its own distro alive, not `Ubuntu` | **Windows Task Scheduler**, daily: `wsl.exe -d Ubuntu -- …make maintain`. It starts WSL when needed and is independent of open terminals. A systemd user timer only fires while the distro is up | *pending* |
+
 ---
 
 ## 1. Executive Summary & Scope
@@ -132,6 +149,19 @@ The 2026-10-03 assessment found the running platform strong. The gaps are in **t
 | Per-tenant log tenancy and Headlamp scoping (L4-9) | Accepted owner decisions (Phase 4 O-2, Phase 5 O-6) for a single-user lab |
 | Kyverno verification of upstream platform images (assessment rec. 14, second half) | High risk of locking the platform out of itself, for little lab value; reconsider on EKS with ECR pull-through and signed mirrors |
 | Argo CD HA | Lab scale |
+
+### 1.3 Residual register (v1.2 close-out)
+
+| Item | Finding | Why not now | Compensating controls today | Revisit when |
+|---|---|---|---|---|
+| **C.2, C.3** NetworkPolicies on platform namespaces | L4-5 | Highest breakage risk of all tracks (webhooks, metrics scrapes, UIs) for little gain. The owner holds cluster-admin on the laptop, and anyone on the host can already reach everything | Tenant namespaces, Keycloak, Loki and the lab exporters already have policies; everything is bound to `127.0.0.1`; SSO on all UIs | Phase 6 (EKS, multi-user), or a second human user of the lab |
+| **D** Tenant quotas | L4-6 | One tenant; quotas would mainly risk blocking pods | Golden chart fixes replicas and resources per env; `ContainerOOMKilled` and Kyverno/VAP admission controls | A second tenant is onboarded |
+| **E** Secrets encryption at rest, API audit log | L4-4 | Laptop datastore; audit log adds disk use and rebuild flags with no reviewer of the log | Secrets never in Git (values in `~/.config/gitops-lab`, mode 600); short-lived tokens with expiry alerts; Argo CD impersonation audit | Phase 6: EKS envelope encryption (KMS) and CloudTrail / control-plane logs |
+| **F** Spoke Traefik under GitOps | L2-5 | Spokes run k3s-bundled Traefik 3.6.13 (hub 3.7.13); tenant ingress works; the change needs a rebuild and widens H's risk | Smoke and synthetic probe cover tenant ingress; version recorded | The next rebuild that changes spoke creation anyway, or a Traefik CVE affecting 3.6 |
+| **G.1** Signed golden chart | L4-3 | Chart versions are already immutable (release guard, local guard) and CI-checked before merge; prod changes need a PR | Release immutability, `chart-checks` required, CODEOWNERS | More than one chart or chart publisher |
+| **G.2** Renovate | L3-2 | Bot PRs need reviewing in a single-maintainer lab; pins are recent (2026-10-03) | All images, charts and Actions pinned by digest/SHA; CI validates any bump | Pins older than ~3 months, or a CVE |
+| **G.3 alerts** `ArgoCDSelfOutOfSync`, `AckReconcileErrors`, `AckResourceNotSynced`; notifications | L3-3..L3-5 | Nice to have; not seen as a real failure in this lab | `ArgoAppOutOfSync` (excludes `argo-cd` by design), `SpokeControllerDown`, ACK drift self-heals (Drill 4) | A real incident they would have caught |
+| Per-tenant AppProjects (from Track B) | — | One tenant; CI blocks duplicate `<app>-<env>` across tenants | Per-tenant ApplicationSets, tenant guard in the template, required `registration-checks` | A second tenant is onboarded |
 
 ---
 
@@ -270,6 +300,11 @@ Per O-1 (recommended mixed mode), the A.1–A.3 checks become **required** statu
 ## 6. Track C: Platform Namespace Baseline (L4-5)
 
 ### Step C.1: Pod Security labels
+> **v1.2:** optional, per O-9.
+> * `enforce: restricted` on the compliant namespaces and `enforce: baseline` + `warn/audit: restricted` on `headlamp`, set through GitOps (`managedNamespaceMetadata` / namespace manifests).
+> * Before enforcing, `warn` is set and the charts' hook Jobs (Kyverno, Argo CD) are applied with `--dry-run=server` to surface violations.
+> * C.2/C.3 are residuals (§1.3).
+
 For each namespace in F6, run `kubectl label --dry-run=server` first (as in Phase 5 F.0). Then:
 * label it `restricted` where every pod passes after small securityContext fixes in its values;
 * otherwise `baseline`, with the reason recorded;
@@ -297,6 +332,8 @@ A new smoke assertion: every non-system namespace has at least one NetworkPolicy
 
 ## 7. Track D: Tenant Resource Governance (L4-6)
 
+> **v1.2: not executed**, recorded residual (§1.3).
+
 ### Step D.1: Per-namespace quotas from the registrations
 * A platform-owned ApplicationSet `tenant-namespace-baseline` (project `platform-addons`, Git-files generator over the same registrations).
 * It renders one `ResourceQuota` and one `LimitRange` per tenant namespace, sized per `env`:
@@ -313,6 +350,8 @@ A new smoke assertion: every non-system namespace has at least one NetworkPolicy
 ---
 
 ## 8. Track E: Secrets Encryption at Rest and API Audit Logging (L4-4)
+
+> **v1.2: not executed**, recorded residual (§1.3).
 
 ### Step E.0: Spike (read-only)
 On a throwaway k3d cluster:
@@ -341,6 +380,8 @@ Applied by the **Track H rebuild** (cluster flags cannot be changed in place wit
 
 ## 9. Track F: Spoke Traefik under GitOps (L2-5)
 
+> **v1.2: not executed**, recorded residual (§1.3).
+
 * `setup-hub-spoke.sh` creates the spokes with `--disable=traefik@server:*` (as on the hub).
 * A spoke addon (in `addons-spoke`, values in `platform-catalog/controllers/traefik/`) deploys the **same pinned Traefik chart** as the hub into namespace `traefik`. It has the same IngressClass name, so tenant Ingresses and the `queue-backed-service` blueprint do not change.
 * NetworkPolicy and Pod Security as in Track C.
@@ -355,11 +396,15 @@ Applied by the **Track H rebuild** (cluster flags cannot be changed in place wit
 ## 10. Track G: Supply-Chain Integrity and Operations Hygiene
 
 ### Step G.1: Signed golden chart (L4-3)
+> **v1.2: not executed**, recorded residual (§1.3).
+
 * `platform-charts` CI signs each newly pushed chart version keyless with cosign (same identity model as `orders-processor`).
 * The Track A CI in `tenant-workloads`/`gitops-control-plane` verifies the signature of every chart version referenced by an ApplicationSet before merge.
 * **Spike first:** whether Argo CD 3.5 can verify OCI Helm chart signatures natively; if yes, enable it, otherwise the CI check is the gate.
 
 ### Step G.2: Automated dependency updates (L3-2)
+> **v1.2: not executed**, recorded residual (§1.3).
+
 Renovate (GitHub App, owner action to install; or Renovate as a GitHub Action with a fine-scoped token, also owner action) for:
 * Helm chart versions in ApplicationSets and values;
 * image digests in values files;
@@ -368,6 +413,15 @@ Renovate (GitHub App, owner action to install; or Renovate as a GitHub Action wi
 Grouped weekly PRs. Track A CI is the gate; prod-relevant bumps follow the normal promotion.
 
 ### Step G.3: Scheduled self-healing and visibility (L3-3, L3-4, L3-5)
+> **v1.2 scope:**
+> * `scripts/maintain.sh` (`make maintain`): only `post-bootstrap` step 1 (token renewal, < 7 days left) and step 6 (orphans), with no smoke test. The step logic moves out of `post-bootstrap.sh` so both share it.
+>   * When the hub is unreachable (lab stopped, Docker Desktop not running), it logs and exits 0.
+>   * Each run writes `lab-maintenance` (epoch) to `monitoring/credential-expiry`, so its last run is visible in Grafana.
+> * Scheduled per O-10, by default a **Windows Task Scheduler** daily task. `scripts/register-maintenance-task.ps1` registers it as an owner action; the command is printed for review first.
+> * The safety net stays `SpokeTokenExpiringSoon` (7 days).
+> * The new alerts and notifications below are **residuals** (§1.3).
+> * **Verify:** a run on a stopped hub exits 0; a run with a recorded expiry under 7 days renews the tokens (as Drill 2); the scheduled task runs once on demand.
+
 * A host-side schedule runs the idempotent `post-bootstrap` steps 1 (token renewal) and 6 (orphans) daily: a systemd user timer if WSL systemd is enabled, otherwise documented as a manual step. So token expiry no longer depends on someone remembering.
 * New alerts, each with a runbook section and a unit test:
   * `ArgoCDSelfOutOfSync`: `argo-cd` OutOfSync for 24h;
@@ -445,6 +499,15 @@ Goal: the browser and every pod use **the same portless URL** for every hub UI a
 ## 11. Track H: Acceptance
 
 ### Step H.1: Full rebuild (O-5)
+> **v1.2 scope:** the rebuild runs **without E and F** (residuals). It proves from Git alone:
+> * Track I: hub created on 80/443 only, so the 8080/8443 leftovers are gone; `*.localhost` via Traefik in-cluster; lab certificate through `setup-local-tls.sh`; SSO on portless URLs;
+> * Track B: per-tenant ApplicationSet, render-error alert;
+> * Track 0: digest pins, allowlist;
+> * Track A: CI green on the commit built;
+> * C.1 labels if O-9 = yes; G.3 `make maintain` on the fresh lab.
+>
+> Expected list below; the items for E, F and the deferred alerts no longer apply.
+
 * `make teardown → setup → bootstrap → post-bootstrap` with Tracks E and F in the build path.
 * **Expected:**
   * all Applications Synced/Healthy;
@@ -517,6 +580,7 @@ Goal: the browser and every pod use **the same portless URL** for every hub UI a
 | 5 | C.1 – C.3, D.1 – D.2 | nonprod first, then prod | M |
 | 6 | E.0 spike, F prepared, G.1 – G.3 | spikes recorded before implementation | M–L |
 | 6b | (v1.1) I.0 spike → I.1 + I.2 → I.3 cut-over → I.4 (after the owner's mkcert step) → I.5 | v1.1 approval; owner decisions O-6..O-8; owner window for I.3 | M |
-| 7 | H.1 rebuild (applies E, F and proves I) | owner approval (O-5); other party validates | S (+ validation) |
+| 6c | (v1.2) G.3 reduced, C.1 (if O-9), then H | v1.2 approval; O-9, O-10; owner window for H (O-5) | S–M |
+| 7 | H.1 rebuild (v1.2: proves 0, A, B, I, G.3, C.1; E and F are residuals) | owner approval (O-5); other party validates | S (+ validation) |
 
 Tracks 0, A–D, G and I each get their own implementation report and independent validation. E and F are reported with H.
