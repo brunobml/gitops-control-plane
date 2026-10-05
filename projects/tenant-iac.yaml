@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: tenant-iac
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+spec:
+  description: "Team EKS cluster claims"
+  sourceRepos:
+    - https://github.com/brunobml/tenant-iac.git
+    - ghcr.io/brunobml/charts
+  destinations:
+    - name: spoke-nonprod
+      namespace: iac-*
+    - name: spoke-prod
+      namespace: iac-*
+    - server: https://k3d-spoke-nonprod-server-0:6443
+      namespace: iac-*
+    - server: https://k3d-spoke-prod-server-0:6443
+      namespace: iac-*
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  destinationServiceAccounts:
+    - server: "*"
+      namespace: iac-*
+      defaultServiceAccount: kube-system:argocd-iac-deployer

@@ -5,6 +5,7 @@
 #   claims      JSON Schema (tenant-iac/schema/cluster.schema.json), file naming,
 #               uniqueness, directory matching, relational sizing bounds
 #   fixtures    Self-test fixture suite (asserts 14 negative rejected, 2 positive admitted)
+#   team-appsets Every team directory has a committed control-plane ApplicationSet
 #   render      offline render through ApplicationSet template + golden chart (plan v0.3 §4)
 #   schemas     kubeconform of rendered TeamEKSClusters (kro CRD schema)
 #   secrets     credential patterns in tracked files
@@ -24,6 +25,10 @@ fi
 
 if stage fixtures "Fixture suite verification (positive and negative fixtures)"; then
   python3 "${CI_DIR}/check-clusters.py" "$TI" --test-fixtures || fail "fixtures"
+fi
+
+if stage team-appsets "Every team directory has an ApplicationSet"; then
+  python3 "${CI_DIR}/check-tenant-iac-appsets.py" "$REPO" "$TI" || fail "team ApplicationSets"
 fi
 
 if stage render "Render through ApplicationSet template + chart (plan v0.3 §4)"; then

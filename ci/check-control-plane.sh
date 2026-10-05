@@ -12,6 +12,7 @@
 #   dashboards   Grafana dashboard JSON (valid, unique uid/title, referenced by the kustomization)
 #   alloy        hub Alloy config parses
 #   tenant-appsets tenant-workloads-<tenant>.yaml files equal scripts/tenant-appset.sh output (B.2)
+#   iac-appsets tenant-iac-<team>.yaml files equal scripts/tenant-iac-appset.sh output
 #   sso-urls     one OIDC issuer everywhere, every relying-party URL registered in the realm, no
 #                old 8080/8443 hub URLs (Track I, review remark R-10; ci/check-sso-urls.py)
 #
@@ -54,11 +55,13 @@ fi
 
 if stage render "Render all Applications offline"; then
   tw=$(clone tenant-workloads main)
+  ti=$(clone tenant-iac main)
   if labci appsets -clusters "${CI_DIR}/clusters.yaml" -revisions "$REPO/clusters/blueprint-revisions.env" \
        -repo "${GH}/tenant-workloads.git=${tw}" \
+       -repo "${GH}/tenant-iac.git=${ti}" \
        "$REPO"/applicationsets/*.yaml "$REPO/bootstrap/root-app.yaml" > "$OUT/apps.yaml" \
      && python3 "${CI_DIR}/render.py" "$OUT/apps.yaml" --out "$OUT/manifests" \
-       --repo "${GH}/gitops-control-plane.git=${REPO}"; then
+       --repo "${GH}/gitops-control-plane.git=${REPO}" --repo "${GH}/tenant-iac.git=${ti}"; then
     ok "rendered $(ls "$OUT/manifests" | wc -l) Applications into $OUT/manifests"
   else
     fail "render"
@@ -118,6 +121,10 @@ fi
 
 if stage tenant-appsets "Tenant ApplicationSets match scripts/tenant-appset.sh (Track B.2)"; then
   python3 "${CI_DIR}/check-tenant-appsets.py" "$REPO" || fail "tenant ApplicationSets"
+fi
+
+if stage iac-appsets "Team ApplicationSets match scripts/tenant-iac-appset.sh"; then
+  python3 "${CI_DIR}/check-tenant-iac-appsets.py" "$REPO" || fail "team ApplicationSets"
 fi
 
 if stage sso-urls "SSO URL consistency (Keycloak, Argo CD, oauth2-proxy, Grafana)"; then

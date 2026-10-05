@@ -5,6 +5,7 @@
 #                             READ everything (for diffing, the resource tree and the UI) and
 #                             IMPERSONATE the two deployers below; all writes happen as a deployer.
 #   argocd-tenant-deployer    Impersonated for project tenant-workloads: namespaces + QueueBackedService.
+#   argocd-iac-deployer       Impersonated for tenant-iac: namespaces + TeamEKSCluster.
 #   argocd-platform-deployer  Impersonated for platform-catalog / platform-addons: cluster-admin (explicit).
 #
 # Usage: apply-argocd-spoke-rbac.sh <spoke-name> [--reduce-manager]
@@ -26,6 +27,12 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: argocd-tenant-deployer
+  namespace: kube-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argocd-iac-deployer
   namespace: kube-system
 ---
 apiVersion: v1
@@ -62,6 +69,31 @@ subjects:
     namespace: kube-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argocd-iac-deployer
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["kro.run"]
+    resources: ["teameksclusters"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-iac-deployer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: argocd-iac-deployer
+subjects:
+  - kind: ServiceAccount
+    name: argocd-iac-deployer
+    namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: argocd-platform-deployer
@@ -85,11 +117,11 @@ rules:
     verbs: ["get", "list", "watch"]
   - nonResourceURLs: ["*"]
     verbs: ["get"]
-  # Impersonate only the two deployer identities.
+  # Impersonate only the deployer identities.
   - apiGroups: [""]
     resources: ["serviceaccounts"]
     verbs: ["impersonate"]
-    resourceNames: ["argocd-tenant-deployer", "argocd-platform-deployer"]
+    resourceNames: ["argocd-tenant-deployer", "argocd-iac-deployer", "argocd-platform-deployer"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

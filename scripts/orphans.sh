@@ -31,6 +31,8 @@ orphans=0
 for spoke in spoke-nonprod spoke-prod; do
   K=(kubectl --context "k3d-${spoke}")
   for ns in $("${K[@]}" get ns -l platform.lab/image-verification=enabled -o jsonpath='{.items[*].metadata.name}'); do
+    # Team IaC namespaces and the platform network have their own lifecycle.
+    [[ "$ns" == iac-* || "$ns" == platform-network ]] && continue
     [[ -n "${REG_NS[${spoke}:${ns}]:-}" ]] && continue
     busy=$("${K[@]}" -n "$ns" get deploy,pods,queuebackedservices --no-headers 2>/dev/null | wc -l)
     if (( busy == 0 )); then

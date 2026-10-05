@@ -172,5 +172,34 @@ while :; do
   sleep 15
 done
 
+# A custom Argo CD health check makes TeamEKSCluster contribute to Application health.
+# Check its own status too, so a missing/misconfigured customization cannot hide a claim.
+while IFS=$'\t' read -r app spoke ns; do
+  [[ -n "$app" ]] || continue
+  account=111111111111
+  [[ "$spoke" == spoke-prod ]] && account=222222222222
+  ctx="k3d-${spoke}"
+  t1=$(date +%s)
+  while :; do
+    got_account=$(kubectl --context "$ctx" get ns "$ns" -o jsonpath='{.metadata.annotations.services\.k8s\.aws/owner-account-id}' 2>/dev/null || true)
+    [[ "$got_account" == "$account" ]] && break
+    [[ -n "$got_account" ]] && { echo "✘ ${ns}: account ${got_account}, expected ${account}" >&2; exit 1; }
+    (( $(date +%s) - t1 > TIMEOUT_NS )) && { echo "✘ ${ns}: account annotation missing" >&2; exit 1; }
+    sleep 5
+  done
+  team=${ns#iac-}
+  team=${team%-*}
+  claim=${app#"${team}"-}
+  t1=$(date +%s)
+  while :; do
+    ready=$(kubectl --context "$ctx" -n "$ns" get teamekscluster "$claim" -o jsonpath='{.status.ready}' 2>/dev/null || true)
+    [[ "$ready" == true ]] && break
+    (( $(date +%s) - t1 > TIMEOUT_APPS )) && { echo "✘ ${app}: TeamEKSCluster is not ready" >&2; exit 1; }
+    sleep 5
+  done
+  echo "  ✔ ${app}: claim ready in ${spoke}/${ns} (account ${account})"
+done < <(kubectl --context k3d-hub-cluster -n argocd get applications -o json | jq -r \
+  '.items[] | select(.spec.project=="tenant-iac") | [.metadata.name,.spec.destination.name,.spec.destination.namespace] | @tsv')
+
 echo "[9/9] Smoke test..."
 bash "${SCRIPT_DIR}/smoke-test-hub-spoke.sh"

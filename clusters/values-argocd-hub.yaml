@@ -205,59 +205,75 @@ configs:
         description: "Inspect Mock AWS Cloud State (SQS & DynamoDB)"
         icon.class: "fa-cloud"
         if: "resource.metadata.namespace startsWith \"orders-\""
+    # Split keys use exact group/kind names. The old services.k8s.aws/* pattern did not
+    # match EC2/IAM/EKS groups and left their health invisible in Argo CD.
+    resource.customizations.health.kro.run_ResourceGraphDefinition: |
+      hs = {status = "Progressing", message = "Waiting for blueprint"}
+      if obj.status ~= nil then
+        if obj.status.state == "Active" then
+          return {status = "Healthy", message = "Blueprint active"}
+        end
+        if obj.status.conditions ~= nil then
+          for _, c in ipairs(obj.status.conditions) do
+            if c.type == "Ready" and c.status == "True" then
+              return {status = "Healthy", message = c.message or "Ready"}
+            end
+          end
+        end
+      end
+      return hs
+    resource.customizations.health.kro.run_QueueBackedService: |
+      if obj.status ~= nil and obj.status.conditions ~= nil then
+        for _, c in ipairs(obj.status.conditions) do
+          if c.type == "Ready" and c.status == "True" then
+            return {status = "Healthy", message = c.message or "Ready"}
+          end
+        end
+      end
+      return {status = "Progressing", message = "Waiting for service"}
+    resource.customizations.health.kro.run_TeamEKSCluster: |
+      if obj.status ~= nil then
+        if obj.status.conditions ~= nil then
+          for _, c in ipairs(obj.status.conditions) do
+            if c.type == "Ready" and c.status == "False" and c.reason == "Terminal" then
+              return {status = "Degraded", message = c.message or "Cluster claim failed"}
+            end
+          end
+        end
+        if obj.status.ready == true then
+          return {status = "Healthy", message = "Team cluster ready"}
+        end
+      end
+      return {status = "Progressing", message = "Waiting for team cluster"}
+    # ACK's EKS Cluster never sets ResourceSynced=True with moto (P0 F-4).
+    resource.customizations.health.eks.services.k8s.aws_Cluster: |
+      if obj.status ~= nil then
+        if obj.status.conditions ~= nil then
+          for _, c in ipairs(obj.status.conditions) do
+            if c.type == "ACK.Terminal" and c.status == "True" then
+              return {status = "Degraded", message = c.message or "EKS reconciliation failed"}
+            end
+          end
+        end
+        if obj.status.status == "ACTIVE" then
+          return {status = "Healthy", message = "EKS cluster active"}
+        end
+      end
+      return {status = "Progressing", message = "Waiting for EKS cluster"}
     resource.customizations: |
-      kro.run/ResourceGraphDefinition:
+      "*.services.k8s.aws/*":
         health.lua: |
-          hs = {}
-          if obj.status ~= nil then
-            if obj.status.state == "Active" then
-              hs.status = "Healthy"
-              hs.message = "ResourceGraphDefinition is active and ready"
-              return hs
-            end
-            if obj.status.conditions ~= nil then
-              for i, condition in ipairs(obj.status.conditions) do
-                if condition.type == "Ready" and condition.status == "True" then
-                  hs.status = "Healthy"
-                  hs.message = "ResourceGraphDefinition is ready"
-                  return hs
-                end
-              end
-            end
-          end
-          hs.status = "Progressing"
-          hs.message = "Waiting for ResourceGraphDefinition to become active"
-          return hs
-      kro.run/*:
-        health.lua: |
-          hs = {}
           if obj.status ~= nil and obj.status.conditions ~= nil then
-            for i, condition in ipairs(obj.status.conditions) do
-              if condition.type == "Ready" and condition.status == "True" then
-                hs.status = "Healthy"
-                hs.message = condition.message or "Ready"
-                return hs
+            for _, c in ipairs(obj.status.conditions) do
+              if c.type == "ACK.Terminal" and c.status == "True" then
+                return {status = "Degraded", message = c.message or "ACK reconciliation failed"}
+              end
+              if c.type == "ACK.ResourceSynced" and c.status == "True" then
+                return {status = "Healthy", message = "ACK resource synced"}
               end
             end
           end
-          hs.status = "Progressing"
-          hs.message = "Waiting for resource to become ready"
-          return hs
-      services.k8s.aws/*:
-        health.lua: |
-          hs = {}
-          if obj.status ~= nil and obj.status.conditions ~= nil then
-            for i, condition in ipairs(obj.status.conditions) do
-              if condition.type == "ACK.ResourceSynced" and condition.status == "True" then
-                hs.status = "Healthy"
-                hs.message = "ACK resource synced successfully"
-                return hs
-              end
-            end
-          end
-          hs.status = "Progressing"
-          hs.message = "Waiting for ACK resource sync"
-          return hs
+          return {status = "Progressing", message = "Waiting for ACK sync"}
 
 # 2026-10-03 Step 0.6 (L3-1): Redis pinned by digest (same index digest as docker.io/library/redis).
 redis:
