@@ -71,7 +71,7 @@ for chart in "$PCH"/charts/*/; do
       fi
     elif [[ "$err" == *": not found"* ]]; then
       ok "${name}:${version} is a new version (release would push it)"
-    elif [[ "$err" == *"403: denied"* ]] && [[ "$(curl -s -o /dev/null -w '%{http_code}' "https://ghcr.io/token?scope=repository:brunobml/charts/${name}:pull&service=ghcr.io")" == 403 ]]; then
+    elif [[ "$err" == *"403: denied"* || "$err" == *"403 Forbidden"* ]] && [[ "$(curl -s -o /dev/null -w '%{http_code}' "https://ghcr.io/token?scope=repository:brunobml/charts/${name}:pull&service=ghcr.io")" == 403 ]]; then
       # GHCR answers "denied" (not "not found") for a package name that does not exist; lab charts are public
       ok "${name} is not in GHCR yet: first release of ${version} (release would push it; make the package public)"
     else
