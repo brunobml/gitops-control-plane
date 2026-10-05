@@ -6,9 +6,9 @@
 > |---|---|
 > | `platform-catalog` | `a30da38` = tag **`v1.9.0`** (RGD + VAP) |
 > | `gitops-control-plane` | `3cf231b` (chart CI + schema), `c425a22` (prod promoted to v1.9.0) |
-> | `platform-charts` | **PR #1** `p2-team-cluster-chart` (`chart-checks` green), **awaiting the owner's merge** |
+> | `platform-charts` | PR #1 (chart) and PR #2 (Helm 3.14 fix), merged by the owner; **`team-cluster:1.0.0` released** (`sha256:b0cbb6a6…`), public |
 
-## Verdict: P2 exit gate met on both spokes; the chart release waits for the PR merge
+## Verdict: P2 exit gate met on both spokes; chart released and public
 
 | Exit gate (plan §6, P2) | Result |
 |---|---|
@@ -62,11 +62,17 @@ conditions: InstanceManaged=True GraphResolved=True ResourcesReady=True Ready=Tr
 
 **Teardown:** `probe-dev` deleted in 35 s; scratch namespaces removed; moto 111… has no `p2check-*` or `team-*` clusters or roles left.
 
+## 2a. Release (after the merges)
+- The first release run after PR #1 **failed closed** (nothing pushed). The workflow's Helm v3.14.0 reports an unknown package as `failed to fetch anonymous token … 403 Forbidden`; the guard matched only the newer wording `403: denied`. That was my mistake: I had tested with a newer Helm.
+- Fixed in **PR #2**: both wordings are accepted, still only when GHCR's anonymous token endpoint answers 403. The decision logic was re-run with `alpine/helm:3.14.0`: existing version → compare, new version → push, unknown package → first release. The same fix went into the chart CI (`3317a3d`).
+- Release run `12457b2`: `queue-backed-service` identical, skipped; `team-cluster` "First release of 1.0.0: pushing…", `Pushed: ghcr.io/brunobml/charts/team-cluster:1.0.0`, digest `sha256:b0cbb6a687cfe2092f50bcff1fb48ca7ec1a7a8ac38f05e00f5898073dd92e5c`.
+- The owner made the package public. Anonymous token 200; an anonymous `helm pull … --version 1.0.0` gives the same digest. `make ci-charts`: "team-cluster:1.0.0 is released with identical content".
+
 ## 3. Open items
 | # | Item | Owner |
 |---|---|---|
-| O-a | Merge **platform-charts PR #1**; the release workflow then pushes `team-cluster:1.0.0` (first exercise of the new first-release branch) | owner |
-| O-b | Make the new package `brunobml/charts/team-cluster` **public** (GitHub → package settings); then `helm pull oci://ghcr.io/brunobml/charts/team-cluster --version 1.0.0` works anonymously | owner |
+| O-a | ~~Merge platform-charts PR #1~~ done (plus PR #2), `team-cluster:1.0.0` released | done |
+| O-b | ~~Make the package public~~ done, anonymous pull verified | done |
 | O-c | Argo CD custom health (validated-02 V-4) is still not applied lab-wide; needed for P4 (health of `TeamEKSCluster` and EKS `Cluster`) | P4 |
 
 ## 4. For the validator (Antigravity)
