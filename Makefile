@@ -147,6 +147,9 @@ ci:
 ci-tenants:
 	@TENANT_WORKLOADS_DIR=$(REPOS_DIR)/tenant-workloads bash $(ROOT_DIR)/ci/check-tenant-workloads.sh
 
+ci-iac:
+	@TENANT_IAC_DIR=$(REPOS_DIR)/tenant-iac bash $(ROOT_DIR)/ci/check-tenant-iac.sh
+
 ci-catalog:
 	@PLATFORM_CATALOG_DIR=$(REPOS_DIR)/platform-catalog bash $(ROOT_DIR)/ci/check-catalog.sh
 

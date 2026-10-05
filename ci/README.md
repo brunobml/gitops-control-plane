@@ -12,6 +12,7 @@ One set of checks for the GitOps repositories, run the same way **locally** (`ma
 |---|---|---|---|
 | `gitops-control-plane` | `make ci` → `check-control-plane.sh` | `control-plane-checks` | post-push alarm |
 | `tenant-workloads` | `make ci-tenants` → `check-tenant-workloads.sh` | `registration-checks` | **required** for PRs |
+| `tenant-iac` | `make ci-iac` → `check-tenant-iac.sh` | `cluster-checks` | **required** for PRs |
 | `platform-catalog` | `make ci-catalog` → `check-catalog.sh` | `catalog-checks` | post-push alarm |
 | `platform-charts` | `make ci-charts` → `check-charts.sh` | `chart-checks` | **required** for PRs |
 
