@@ -24,6 +24,9 @@ tests:
       - {series: 'up{job="agent",cluster="spoke-prod"}', values: '1x30'}
       - {series: 'up{job="kro",cluster="spoke-prod"}', values: '0x30'}
       - {series: 'up{job="ack-sqs",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="ack-ec2",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="ack-iam",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="ack-eks",cluster="spoke-prod"}', values: '1x30'}
     alert_rule_test:
       - eval_time: 10m
         alertname: SpokeControllerDown

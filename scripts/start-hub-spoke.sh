@@ -25,9 +25,14 @@ else
   echo "ℹ moto-cloud container not found; creating new instance..."
   docker run -d \
     --name moto-cloud \
-    --network k3d-hub-spoke-net \
+    --network k3d-cloud-net \
     -p 127.0.0.1:5000:5000 \
-    motoserver/moto@sha256:91fd602a21f49cf9eb82fdf474015a3c131d40104c8297ea6a2ca920708ae32c >/dev/null
+    -e PYTHONUNBUFFERED=1 \
+    -e MOTO_ALLOW_NONEXISTENT_SERVICES=true \
+    -e MOTO_IAM_LOAD_MANAGED_POLICIES=true \
+    --restart unless-stopped \
+    motoserver/moto@sha256:91fd602a21f49cf9eb82fdf474015a3c131d40104c8297ea6a2ca920708ae32c \
+    -p5000 -H0.0.0.0 >/dev/null
   echo "✔ moto-cloud container created and started on 127.0.0.1:5000"
 fi
 

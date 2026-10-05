@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: platform-network
+  namespace: argocd
+  labels:
+    platform.lab/tier: network
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            addons-managed: "true"
+  template:
+    metadata:
+      name: "platform-network-{{ .name }}"
+      labels:
+        app.kubernetes.io/part-of: platform-network
+    spec:
+      project: platform-catalog
+      source:
+        repoURL: https://github.com/brunobml/platform-catalog.git
+        targetRevision: '{{ index .metadata.annotations "blueprints-revision" }}'
+        path: 'network/{{ .metadata.labels.environment }}'
+      destination:
+        server: "{{ .server }}"
+        namespace: platform-network
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        managedNamespaceMetadata:
+          labels:
+            pod-security.kubernetes.io/enforce: restricted
+          annotations:
+            services.k8s.aws/owner-account-id: '{{ if eq .metadata.labels.environment "prod" }}222222222222{{ else }}111111111111{{ end }}'
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m

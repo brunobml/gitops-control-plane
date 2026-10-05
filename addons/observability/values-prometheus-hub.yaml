@@ -244,7 +244,7 @@ serverFiles:
               summary: "Kyverno p95 admission latency {{ $value | humanize }}s on {{ $labels.cluster }} (webhook timeout 30 s)"
               runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-kyvernodown
           - alert: SpokeControllerDown
-            expr: (count by (cluster) (up{job="agent"} == 1) unless count by (cluster) (up{job="kro"} == 1)) or (count by (cluster) (up{job="agent"} == 1) unless count by (cluster) (up{job="ack-sqs"} == 1))
+            expr: (count by (cluster) (up{job="agent"} == 1) unless count by (cluster) (up{job="kro"} == 1)) or (count by (cluster) (up{job="agent"} == 1) unless count by (cluster) (up{job="ack-sqs"} == 1)) or (count by (cluster) (up{job="agent"} == 1) unless count by (cluster) (up{job="ack-ec2"} == 1)) or (count by (cluster) (up{job="agent"} == 1) unless count by (cluster) (up{job="ack-iam"} == 1)) or (count by (cluster) (up{job="agent"} == 1) unless count by (cluster) (up{job="ack-eks"} == 1))
             for: 5m
             labels: {severity: critical}
             annotations:

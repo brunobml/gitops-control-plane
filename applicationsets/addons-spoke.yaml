@@ -44,6 +44,27 @@ spec:
                   releaseName: ack-sqs-controller
                   targetNamespace: ack-system
                   valuesFile: controllers/ack/values-sqs.yaml
+                - addon: ack-ec2
+                  chart: ec2-chart
+                  chartRepo: public.ecr.aws/aws-controllers-k8s
+                  chartVersion: "1.21.2"
+                  releaseName: ack-ec2-controller
+                  targetNamespace: ack-system
+                  valuesFile: controllers/ack/values-ec2.yaml
+                - addon: ack-iam
+                  chart: iam-chart
+                  chartRepo: public.ecr.aws/aws-controllers-k8s
+                  chartVersion: "1.9.1"
+                  releaseName: ack-iam-controller
+                  targetNamespace: ack-system
+                  valuesFile: controllers/ack/values-iam.yaml
+                - addon: ack-eks
+                  chart: eks-chart
+                  chartRepo: public.ecr.aws/aws-controllers-k8s
+                  chartVersion: "1.23.1"
+                  releaseName: ack-eks-controller
+                  targetNamespace: ack-system
+                  valuesFile: controllers/ack/values-eks.yaml
   template:
     metadata:
       name: "addon-{{ .addon }}-{{ .name }}"
