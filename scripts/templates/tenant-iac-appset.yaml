@@ -33,7 +33,7 @@ spec:
           targetRevision: 1.0.0
           helm:
             valueFiles:
-              - '$values/{{ .path }}'
+              - '$values/{{ .path.path }}/{{ .path.filename }}'
         - repoURL: https://github.com/brunobml/tenant-iac.git
           targetRevision: main
           ref: values

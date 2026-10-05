@@ -130,9 +130,10 @@ def check_live_claims(root, validator):
         if os.path.basename(path) != f"{name}.yaml":
             errs.append(f"{rel}: file must be named {name}.yaml")
 
-        if name in seen:
-            errs.append(f"{rel}: cluster {name} is already registered by {seen[name]}")
-        seen[name] = rel
+        cluster_key = f"{claim['team']}/{name}"
+        if cluster_key in seen:
+            errs.append(f"{rel}: cluster {cluster_key} is already registered by {seen[cluster_key]}")
+        seen[cluster_key] = rel
 
         team_counts[team_dir] = team_counts.get(team_dir, 0) + 1
         if team_counts[team_dir] > MAX_CLUSTERS_PER_TEAM:

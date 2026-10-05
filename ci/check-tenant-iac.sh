@@ -5,7 +5,7 @@
 #   claims      JSON Schema (tenant-iac/schema/cluster.schema.json), file naming,
 #               uniqueness, directory matching, relational sizing bounds
 #   fixtures    Self-test fixture suite (asserts 14 negative rejected, 2 positive admitted)
-#   render      offline render of claims through team-cluster chart
+#   render      offline render through ApplicationSet template + golden chart (plan v0.3 §4)
 #   schemas     kubeconform of rendered TeamEKSClusters (kro CRD schema)
 #   secrets     credential patterns in tracked files
 #
@@ -16,7 +16,7 @@ source "$CI_LIB" "$@"
 REPO=$(cd "${CI_DIR}/.." && pwd)
 TI=$(cd "${TENANT_IAC_DIR:-${REPO}/../tenant-iac}" && pwd)
 OUT="${LAB_CI_OUT:-$(mktemp -d)}"
-mkdir -p "$OUT/manifests"
+mkdir -p "$OUT/appsets" "$OUT/manifests"
 
 if stage claims "Cluster claim files"; then
   python3 "${CI_DIR}/check-clusters.py" "$TI" || fail "claims"
@@ -26,41 +26,36 @@ if stage fixtures "Fixture suite verification (positive and negative fixtures)";
   python3 "${CI_DIR}/check-clusters.py" "$TI" --test-fixtures || fail "fixtures"
 fi
 
-if stage render "Render cluster claims through chart"; then
-  mapfile -t claim_files < <(cd "$TI" && ls teams/*/clusters/*.yaml tests/fixtures/positive/*.yaml 2>/dev/null || true)
-  if (( ${#claim_files[@]} )); then
-    PCH="${PLATFORM_CHARTS_DIR:-${REPO}/../platform-charts}"
-    HELM_HOME=$(mktemp -d)
-    chmod 777 "$HELM_HOME"
+if stage render "Render through ApplicationSet template + chart (plan v0.3 §4)"; then
+  mapfile -t teams < <(cd "$TI" && find teams -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null || true)
 
-    if [[ -d "${PCH}/charts/team-cluster" ]]; then
-      CHART_PATH="/src/charts/team-cluster"
-      CHART_MOUNT=(-v "${PCH}/charts:/src/charts:ro")
-    else
-      CHART_PATH="oci://ghcr.io/brunobml/charts/team-cluster"
-      CHART_MOUNT=()
-    fi
+  TARGET_TI="$TI"
+  CLEANUP_TEMP=false
 
-    for cf in "${claim_files[@]}"; do
-      rel_base=$(basename "$cf" .yaml)
-      team_name=$(python3 -c 'import yaml, sys; print(yaml.safe_load(open(sys.argv[1]))["team"])' "$TI/$cf")
-      env_name=$(python3 -c 'import yaml, sys; print(yaml.safe_load(open(sys.argv[1]))["env"])' "$TI/$cf")
-      ns="iac-${team_name}-${env_name}"
-      out_manifest="$OUT/manifests/${team_name}-${rel_base}.yaml"
+  if (( ${#teams[@]} == 0 )); then
+    # Before P4 onboards teams, test the ApplicationSet template with the positive fixtures
+    TEMP_TI=$(mktemp -d)
+    mkdir -p "$TEMP_TI/teams/team-data/clusters"
+    cp "$TI/tests/fixtures/positive/dev.yaml" "$TEMP_TI/teams/team-data/clusters/analytics-dev.yaml"
+    cp "$TI/tests/fixtures/positive/prod.yaml" "$TEMP_TI/teams/team-data/clusters/analytics-prod.yaml"
+    TARGET_TI="$TEMP_TI"
+    CLEANUP_TEMP=true
+    teams=("team-data")
+  fi
 
-      if docker run --rm -u "$(id -u):$(id -g)" "${CHART_MOUNT[@]}" -v "$TI:/src/tenant:ro" \
-           -v "$HELM_HOME:/helm" -e HELM_CACHE_HOME=/helm/cache \
-           -e HELM_CONFIG_HOME=/helm/config -e HELM_DATA_HOME=/helm/data \
-           "${HELM_IMAGE}" template "$rel_base" "$CHART_PATH" --version 1.0.0 \
-           -f "/src/tenant/$cf" --namespace "$ns" > "$out_manifest"; then
-        ok "rendered: $cf -> ${team_name}-${rel_base}.yaml"
-      else
-        fail "render failed for $cf"
-      fi
-    done
-    rm -rf "$HELM_HOME"
+  for team in "${teams[@]}"; do
+    bash "$REPO/scripts/tenant-iac-appset.sh" "$team" > "$OUT/appsets/tenant-iac-${team}.yaml"
+  done
+
+  if labci appsets -repo "${GH}/tenant-iac.git=${TARGET_TI}" "$OUT/appsets"/*.yaml > "$OUT/apps.yaml" \
+     && python3 "${CI_DIR}/render.py" "$OUT/apps.yaml" --out "$OUT/manifests" --repo "${GH}/tenant-iac.git=${TARGET_TI}"; then
+    ok "ApplicationSets and charts rendered successfully"
   else
-    ok "no claims to render"
+    fail "render through ApplicationSet template failed"
+  fi
+
+  if [[ "$CLEANUP_TEMP" == true ]]; then
+    rm -rf "$TARGET_TI"
   fi
 fi
 
@@ -72,7 +67,7 @@ if stage schemas "Schema validation (kubeconform)"; then
       fail "kubeconform validation failed"
     fi
   else
-    ok "no manifests to validate"
+    fail "no manifests to validate (run the render stage first)"
   fi
 fi
 
