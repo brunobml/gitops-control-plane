@@ -2,9 +2,11 @@
 # CI for platform-charts (2026-10-03 Track A.4 required check; assessment L2-6 "no chart tests").
 # Locally: `make ci-charts`.
 #
-#   lint     helm lint with each real orders-processor values file (not a placeholder image)
-#   render   helm template with each values file -> kubeconform against the QueueBackedService CRD
-#            schema kro generates from the RGD (the contract the chart must meet)
+#   lint     helm lint with each values file: the chart's own fixtures in charts/<chart>/ci/*-values.yaml
+#            (Helm chart-testing convention; e.g. team-cluster), otherwise each real orders-processor
+#            values file (queue-backed-service; not a placeholder image)
+#   render   helm template with each values file -> kubeconform against the CRD schema kro generates
+#            from the RGD (QueueBackedService, TeamEKSCluster: the contract the chart must meet)
 #   release  the release workflow's immutability rule, without pushing: a chart version already in
 #            GHCR must have identical content, otherwise the PR must bump `version`
 #   secrets  credential patterns in tracked files
@@ -28,18 +30,26 @@ helm() {
 
 for chart in "$PCH"/charts/*/; do
   c=$(basename "$chart")
+  # values files as paths inside the helm container
+  mapfile -t fixtures < <(cd "$chart" && ls ci/*-values.yaml 2>/dev/null)
+  if (( ${#fixtures[@]} )); then
+    cvalues=("${fixtures[@]/#//src/charts/charts/$c/}")
+  else
+    cvalues=("${values[@]/#//src/app/}")
+  fi
   if stage lint "helm lint ${c}"; then
-    for v in "${values[@]}"; do
-      helm lint "/src/charts/charts/$c" -f "/src/app/$v" >/dev/null || fail "helm lint $c with $v"
+    for v in "${cvalues[@]}"; do
+      helm lint "/src/charts/charts/$c" -f "$v" >/dev/null || fail "helm lint $c with $v"
     done
-    ok "$c lints with ${#values[@]} values files (${values[*]})"
+    ok "$c lints with ${#cvalues[@]} values files (${cvalues[*]##*/})"
   fi
   if stage render "Render ${c} with each values file"; then
-    for v in "${values[@]}"; do
+    rm -rf "$OUT/manifests/$c" && mkdir -p "$OUT/manifests/$c" && chmod 777 "$OUT/manifests/$c"
+    for v in "${cvalues[@]}"; do
       n=$(basename "$v" .yaml)
-      helm template "$n" "/src/charts/charts/$c" -f "/src/app/$v" > "$OUT/manifests/$c-$n.yaml" || fail "helm template $c with $v"
+      helm template "$n" "/src/charts/charts/$c" -f "$v" > "$OUT/manifests/$c/$n.yaml" || fail "helm template $c with $v"
     done
-    if kubeconform "$OUT/manifests"; then ok "$c renders a valid QueueBackedService for every values file"; else fail "kubeconform $c"; fi
+    if kubeconform "$OUT/manifests/$c"; then ok "$c renders a valid custom resource for every values file"; else fail "kubeconform $c"; fi
   fi
   if stage release "Release immutability (no push)"; then
     name=$(awk '/^name:/ {print $2; exit}' "$chart/Chart.yaml")
@@ -61,6 +71,9 @@ for chart in "$PCH"/charts/*/; do
       fi
     elif [[ "$err" == *": not found"* ]]; then
       ok "${name}:${version} is a new version (release would push it)"
+    elif [[ "$err" == *"403: denied"* ]] && [[ "$(curl -s -o /dev/null -w '%{http_code}' "https://ghcr.io/token?scope=repository:brunobml/charts/${name}:pull&service=ghcr.io")" == 403 ]]; then
+      # GHCR answers "denied" (not "not found") for a package name that does not exist; lab charts are public
+      ok "${name} is not in GHCR yet: first release of ${version} (release would push it; make the package public)"
     else
       fail "cannot tell whether ${name}:${version} exists in GHCR: ${err}"
     fi
