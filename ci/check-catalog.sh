@@ -31,7 +31,7 @@ fi
 
 if stage render "Render the Applications that use platform-catalog"; then
   if labci appsets -clusters "${CI_DIR}/clusters.yaml" -revisions "$REPO/clusters/blueprint-revisions.env" \
-       "$REPO"/applicationsets/kro-blueprints.yaml "$REPO"/applicationsets/addons-spoke*.yaml > "$OUT/apps.yaml" \
+       "$REPO"/applicationsets/kro-blueprints.yaml "$REPO"/applicationsets/addons-spoke*.yaml "$REPO"/applicationsets/platform-network.yaml > "$OUT/apps.yaml" \
      && python3 "${CI_DIR}/render.py" "$OUT/apps.yaml" --out "$OUT/manifests" --only-repo "${GH}/platform-catalog.git" \
        --repo "${GH}/platform-catalog.git=${PC}" --repo "${GH}/gitops-control-plane.git=${REPO}"; then
     ok "rendered $(ls "$OUT/manifests" | wc -l) Applications from this catalog tree (both spokes)"

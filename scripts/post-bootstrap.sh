@@ -146,6 +146,18 @@ else
   echo "  ✔ argo-cd already Synced"
 fi
 
+# Tier-1 Platform Network self-healing after Moto restart (finding F-7)
+for spoke in spoke-nonprod spoke-prod; do
+  ctx="k3d-${spoke}"
+  total_count=$(kubectl --context "$ctx" -n platform-network get vpc,subnet,internetgateway,routetable,securitygroup --no-headers 2>/dev/null | wc -l)
+  synced_count=$(kubectl --context "$ctx" -n platform-network get vpc,subnet,internetgateway,routetable,securitygroup -o json 2>/dev/null | jq -r '[.items[].status.conditions[]? | select(.type=="ACK.ResourceSynced" and .status=="True")] | length')
+  if [[ "$total_count" -gt 0 && "$synced_count" -lt "$total_count" ]]; then
+    echo "  ↻ ${spoke}: repairing stale platform-network resources..."
+    kubectl --context "$ctx" -n platform-network delete vpc,subnet,internetgateway,routetable,securitygroup --all --timeout=30s >/dev/null 2>&1 || true
+    "${A[@]}" app sync "platform-network-${spoke}" --prune --timeout 120 >/dev/null 2>&1 || true
+  fi
+done
+
 echo "[8/9] All Applications Synced/Healthy..."
 t0=$(date +%s)
 while :; do

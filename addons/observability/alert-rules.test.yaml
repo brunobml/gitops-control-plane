@@ -33,6 +33,64 @@ tests:
         exp_alerts:
           - exp_labels: {severity: critical, cluster: spoke-prod}
             exp_annotations: {summary: "kro or ACK controller not running on spoke-prod", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spokeagentdown--spokecontrollerdown", logs: "http://grafana.localhost/d/lab-logs?var-cluster=spoke-prod&var-namespace=kro&var-namespace=ack-system"}
+  - name: SpokeControllerDown for ack-ec2 down
+    interval: 30s
+    input_series:
+      - {series: 'up{job="agent",cluster="spoke-nonprod"}', values: '1x30'}
+      - {series: 'up{job="kro",cluster="spoke-nonprod"}', values: '1x30'}
+      - {series: 'up{job="ack-sqs",cluster="spoke-nonprod"}', values: '1x30'}
+      - {series: 'up{job="ack-ec2",cluster="spoke-nonprod"}', values: '0x30'}
+      - {series: 'up{job="ack-iam",cluster="spoke-nonprod"}', values: '1x30'}
+      - {series: 'up{job="ack-eks",cluster="spoke-nonprod"}', values: '1x30'}
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: SpokeControllerDown
+        exp_alerts:
+          - exp_labels: {severity: critical, cluster: spoke-nonprod}
+            exp_annotations: {summary: "kro or ACK controller not running on spoke-nonprod", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spokeagentdown--spokecontrollerdown", logs: "http://grafana.localhost/d/lab-logs?var-cluster=spoke-nonprod&var-namespace=kro&var-namespace=ack-system"}
+  - name: SpokeControllerDown for ack-iam down
+    interval: 30s
+    input_series:
+      - {series: 'up{job="agent",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="kro",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="ack-sqs",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="ack-ec2",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="ack-iam",cluster="spoke-prod"}', values: '0x30'}
+      - {series: 'up{job="ack-eks",cluster="spoke-prod"}', values: '1x30'}
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: SpokeControllerDown
+        exp_alerts:
+          - exp_labels: {severity: critical, cluster: spoke-prod}
+            exp_annotations: {summary: "kro or ACK controller not running on spoke-prod", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spokeagentdown--spokecontrollerdown", logs: "http://grafana.localhost/d/lab-logs?var-cluster=spoke-prod&var-namespace=kro&var-namespace=ack-system"}
+  - name: SpokeControllerDown for ack-eks down
+    interval: 30s
+    input_series:
+      - {series: 'up{job="agent",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="kro",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="ack-sqs",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="ack-ec2",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="ack-iam",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="ack-eks",cluster="spoke-prod"}', values: '0x30'}
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: SpokeControllerDown
+        exp_alerts:
+          - exp_labels: {severity: critical, cluster: spoke-prod}
+            exp_annotations: {summary: "kro or ACK controller not running on spoke-prod", runbook: "docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-spokeagentdown--spokecontrollerdown", logs: "http://grafana.localhost/d/lab-logs?var-cluster=spoke-prod&var-namespace=kro&var-namespace=ack-system"}
+  - name: SpokeControllerDown silent when all spoke controllers are healthy
+    interval: 30s
+    input_series:
+      - {series: 'up{job="agent",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="kro",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="ack-sqs",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="ack-ec2",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="ack-iam",cluster="spoke-prod"}', values: '1x30'}
+      - {series: 'up{job="ack-eks",cluster="spoke-prod"}', values: '1x30'}
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: SpokeControllerDown
+        exp_alerts: []
   - name: SpokeAgentDown when a spoke stops sending
     interval: 30s
     input_series:

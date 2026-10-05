@@ -1,4 +1,4 @@
-.PHONY: maintain local-tls ci ci-tenants ci-catalog ci-charts ci-schemas test-alert-rules orphans all setup start stop push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints help
+.PHONY: maintain local-tls ci ci-tenants ci-catalog ci-charts ci-schemas test-alert-rules orphans all setup start stop push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints moto-restart restart-moto help
 
 ROOT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 REPOS_DIR ?= $(abspath $(ROOT_DIR)/..)
@@ -10,6 +10,7 @@ help:
 	@echo "  make setup               - Provision Moto, k3d clusters (hub, spoke-nonprod, spoke-prod), Traefik, Argo CD, Headlamp, Kro & ACK"
 	@echo "  make start               - Resume Moto and all k3d clusters after host reboot"
 	@echo "  make stop                - Gracefully stop Moto and k3d clusters (preserving state)"
+	@echo "  make moto-restart        - Gracefully restart Moto Cloud with zero-leak recovery & smoke test"
 	@echo "  make build-app           - Build & push orders-processor container image to local registry (TAG=v1.0.0)"
 	@echo "  make push                - Push all repositories to GitHub (origin main)"
 	@echo "  make bootstrap           - Apply root-control-plane Argo CD application to Hub"
@@ -130,6 +131,11 @@ orphans:
 
 post-bootstrap:
 	@bash $(ROOT_DIR)/scripts/post-bootstrap.sh
+
+moto-restart:
+	@bash $(ROOT_DIR)/scripts/moto-restart.sh
+
+restart-moto: moto-restart
 
 teardown:
 	@bash $(ROOT_DIR)/scripts/teardown-hub-spoke.sh

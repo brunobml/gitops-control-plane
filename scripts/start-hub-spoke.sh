@@ -66,10 +66,20 @@ for CONTEXT in "k3d-hub-cluster" "k3d-spoke-nonprod" "k3d-spoke-prod"; do
   fi
 done
 
+# 5. Refresh platform-network resources after Moto start (finding F-7)
+echo "🔄 Refreshing platform-network resources after Moto start..."
+for SPOKE in "spoke-nonprod" "spoke-prod"; do
+  CONTEXT="k3d-${SPOKE}"
+  if kubectl --context "$CONTEXT" -n platform-network get vpc >/dev/null 2>&1; then
+    kubectl --context "$CONTEXT" -n platform-network delete vpc,subnet,internetgateway,routetable,securitygroup --all --timeout=30s >/dev/null 2>&1 || true
+    echo "  ✔ ${SPOKE}: refreshed network resources (deletion-policy: retain)"
+  fi
+done
+
 echo ""
 echo "=========================================================="
 echo "✔ Hub-and-Spoke Lab environment started successfully!"
 echo "  Run 'make status' to inspect running pods and queues."
 echo "  Run 'make post-bootstrap' now: moto keeps state in memory, so a restart wipes the"
-echo "  worker IAM keys (and queues); it re-provisions keys, restarts workers, runs the smoke test."
+echo "  worker IAM keys, queues, and network IDs; it reconciles network, re-provisions keys, restarts workers, runs the smoke test."
 echo "=========================================================="
