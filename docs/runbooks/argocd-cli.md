@@ -80,6 +80,8 @@ Note the RBAC resource form `<project>/<app>`. `can-i sync applications '*'` ans
 
 ![argocd app get orders-prod](screenshots/argocd-cli/cli-app-get.png)
 
+**Per-resource health** (including the lab's custom checks for kro and ACK kinds) is in the tree view: `argocd app get orders-dev --output tree`. Argo CD 3.x does not copy it into the Application object, so `kubectl get application … -o yaml` shows no health under `status.resources`. That is expected, not a broken check. See [What `Synced` and `Healthy` actually mean](devops-student-rebuild-guide.md#what-synced-and-healthy-actually-mean).
+
 The same Application as a tree in the UI (QueueBackedService → Deployment, Service, Ingress, ConfigMap, NetworkPolicies):
 
 ![Argo CD orders-prod tree](screenshots/ui-sso/ui-argocd-orders-prod-tree.png)
@@ -131,7 +133,7 @@ scripts/temp-sso-user.sh delete <name>                                          
 
 | App | Sign in | What the temporary admin user sees |
 |---|---|---|
-| **Argo CD** `http://localhost` | *Log in via Keycloak* (UI) or `argocd login --sso` (CLI) | all 32 Applications |
+| **Argo CD** `http://localhost` | *Log in via Keycloak* (UI) or `argocd login --sso` (CLI) | all Applications (32 when captured on 2026-10-04; 42 since tenant IaC) |
 | **Grafana** `http://grafana.localhost` | *Sign in with Keycloak* | role Admin (group `lab-platform-admins`); a `lab-tenant-a` user gets Viewer |
 | **Headlamp** `http://headlamp.localhost` | automatic (oauth2-proxy → Keycloak) | all three clusters (read-only kubeconfig) |
 | **Keycloak account** `http://keycloak.localhost/realms/lab/account` | the same session | profile and group membership |

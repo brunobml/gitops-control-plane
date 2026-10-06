@@ -9,60 +9,44 @@ This document outlines recommended progression tracks to take this local multi-c
 
 ## 🧭 Current Architecture Baseline
 
-Before advancing, ensure you understand what is currently deployed and running in the lab:
+Before advancing, make sure you can explain what already runs (status 2026-10-06; the detailed diagram is in the [student guide §1](runbooks/devops-student-rebuild-guide.md#1-what-are-we-building)):
 
 ```mermaid
 flowchart TD
-    subgraph Hub["Hub Management Cluster (k3d-hub-cluster : 80)"]
-        Traefik["Traefik Ingress Router\n(Port 80)"]
-        ArgoCD["Argo CD Control Plane\n(App-of-Apps + ApplicationSets)\nhttp://localhost"]
-        Headlamp["Headlamp Multi-Cluster UI\n(Single Pane of Glass)\nhttp://headlamp.localhost"]
-        MultiKubeconfig["Multi-Cluster Kubeconfig Secret\n(Hub + Spoke Tokens)"]
+    subgraph Hub["Hub: k3d-hub-cluster (ports 80/443)"]
+        ArgoCD["Argo CD (app of apps + ApplicationSets)"]
+        Ident["Keycloak SSO, oauth2-proxy, Headlamp"]
+        Obs["Prometheus, Alertmanager, Grafana, Loki"]
     end
-
-    subgraph Spokes["Workload Clusters (Docker Network: k3d-cloud-net)"]
-        subgraph NonProd["k3d-spoke-nonprod : 8081"]
-            KroNP["Kro Controller"]
-            AckNP["ACK SQS Controller"]
-            Dev["orders-dev (1 replica)"]
-            Test["orders-test (2 replicas)"]
-        end
-        subgraph Prod["k3d-spoke-prod : 8082"]
-            KroP["Kro Controller"]
-            AckP["ACK SQS Controller"]
-            ProdApp["orders-prod (5 replicas)"]
-        end
+    subgraph Spokes["Spokes: spoke-nonprod (dev, test) and spoke-prod (prod)"]
+        Kro["kro: QueueBackedService, TeamEKSCluster"]
+        Ack["ACK: SQS, EC2, IAM, EKS"]
+        Adm["Admission: Pod Security, VAPs, Kyverno"]
+        Net["platform-network (tier 1): VPC, subnets, SG"]
     end
-
-    subgraph Cloud["Mock AWS Infrastructure"]
-        Moto["moto-cloud:5000\n(AWS SQS Engine)"]
+    subgraph Moto["moto-cloud :5000"]
+        A111["account 111111111111 (nonprod)"]
+        A222["account 222222222222 (prod)"]
     end
-
-    Traefik --> ArgoCD
-    Traefik --> Headlamp
-    MultiKubeconfig -.-> Headlamp
-    Headlamp -->|Live Cluster Proxy| Hub
-    Headlamp -->|Live Cluster Proxy| NonProd
-    Headlamp -->|Live Cluster Proxy| Prod
-
-    ArgoCD -->|GitOps Distribution| Spokes
-    KroNP --> Dev & Test
-    KroP --> ProdApp
-    AckNP & AckP --> Moto
+    Git["Git: 6 repositories"] --> ArgoCD
+    ArgoCD -->|sync via impersonation| Spokes
+    Kro --> Ack
+    Ack -->|CARM role per namespace| A111
+    Ack -->|CARM role per namespace| A222
 ```
 
 ---
 
 ## 🎯 Progression Track Overview
 
-| Track | Theme | Target Capability | Complexity | Key Technologies |
-| :--- | :--- | :--- | :--- | :--- |
-| **Track 1** | **Autoscaling** | Event-driven scaling based on SQS queue depth | Medium (20 min) | KEDA, AWS SQS, Kro |
-| **Track 2** | **Progressive Delivery** | Canary rollouts with traffic shaping | Medium (30 min) | Argo Rollouts, AnalysisTemplates |
-| **Track 3** | **Governance & Security** | Policy as Code & admission control | Medium (25 min) | Kyverno, CIS Benchmarks |
-| **Track 4** | **Reliability & Chaos** | Automated self-healing & cloud drift recovery | Low (15 min) | GitOps selfHeal, ACK reconcile |
-| **Track 5** | **Observability** | Telemetry, queue lag, and Headlamp metrics | Medium (30 min) | Prometheus, Headlamp plugins |
-| **Track 6** | **Platform Onboarding** | Automated tenant onboarding & PR workflows | High (45 min) | ApplicationSet Generators, Backstage |
+| Track | Theme | Target Capability | Complexity | Key Technologies | Status (2026-10-06) |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Track 1** | **Autoscaling** | Event-driven scaling based on SQS queue depth | Medium (20 min) | KEDA, AWS SQS, Kro | not started |
+| **Track 2** | **Progressive Delivery** | Canary rollouts with traffic shaping | Medium (30 min) | Argo Rollouts, AnalysisTemplates | not started: the lab *promotes* configuration by Git (SHA pin + PR), with rolling updates; no traffic-weighted canary |
+| **Track 3** | **Governance & Security** | Policy as Code & admission control | Medium (25 min) | Kyverno, CIS Benchmarks | **delivered**: Pod Security `restricted`, ValidatingAdmissionPolicies, Kyverno signature verification |
+| **Track 4** | **Reliability & Chaos** | Automated self-healing & cloud drift recovery | Low (15 min) | GitOps selfHeal, ACK reconcile | **partly**: six manual [drills](runbooks/operational-drills-and-failure-injection.md); no automated chaos suite |
+| **Track 5** | **Observability** | Telemetry, queue lag, and Headlamp metrics | Medium (30 min) | Prometheus, Headlamp plugins | **delivered** (Prometheus, Alertmanager, Grafana, Loki, synthetic order probe); no Headlamp plugins |
+| **Track 6** | **Platform Onboarding** | Automated tenant onboarding & PR workflows | High (45 min) | ApplicationSet Generators, Backstage | **partly**: per-tenant/per-team ApplicationSets and PR-gated `tenant-workloads`/`tenant-iac`; no portal |
 
 ---
 

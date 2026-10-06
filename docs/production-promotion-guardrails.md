@@ -262,8 +262,8 @@ jobs:
 
 | Pattern | Operational Overhead | Developer Friction | Security & Compliance | Recommendation |
 | :--- | :--- | :--- | :--- | :--- |
-| **Pattern 1: Manual Argo CD Gate** | Low | Low | High (Argo CD RBAC enforced) | **Immediate Best Choice for Lab** |
-| **Pattern 2: Branch/Tag Promotion** | Low | Low | Very High (Auditable in Git log) | **Best for Standard Release Cycles** |
+| **Pattern 1: Manual Argo CD Gate** | Low | Low | High (Argo CD RBAC enforced) | Simple alternative (not what the lab uses) |
+| **Pattern 2: Branch/Tag Promotion** | Low | Low | Very High (Auditable in Git log) | **Best for Standard Release Cycles**; the lab's model (SHA pin) |
 | **Pattern 3: GitHub CODEOWNERS** | Very Low | Low | High (GitHub PR enforced) | **Best for Single-Branch Repos** |
 | **Pattern 4: Repository Separation** | Medium | Medium | Maximum (Hard organizational boundary)| **Best for Highly Regulated (PCI/HIPAA)** |
 | **Pattern 5: GitHub Environment Gates** | Medium | Low | Very High (Complete automation + audit) | **Best for Fully Automated Enterprises** |
@@ -272,9 +272,14 @@ jobs:
 
 ## Summary Recommendation for our Multi-Cluster Lab
 
-1. **Short Term (Current Setup)**:
-   * Disable `automated` sync for prod Applications in [applicationsets/tenant-workloads-tenant-a.yaml](../applicationsets/tenant-workloads-tenant-a.yaml) (pre-Phase-4: `tenant-workloads-prod.yaml`).
-   * Result: Changes to `values-prod.yaml` will flag the application as `OutOfSync`, requiring a manual review and sync command.
+1. **What the lab does today** (verified 2026-10-06):
+   * Prod Applications sync **automatically** (`automated: {prune: true, selfHeal: true}` on `orders-prod`); there is no manual sync gate.
+   * The gate is **in Git**: `tenants/tenant-a/apps/orders-prod.yaml` in `tenant-workloads` must pin `valuesRevision` to a full 40-character commit SHA (the ApplicationSet template refuses anything else for prod), so pushing to `main` in `orders-processor` does not change prod.
+   * Promotion = a pull request in `tenant-workloads` that moves the SHA. The repository's ruleset requires the PR and the **required check `registration-checks`**; reviews are 0 in this single-maintainer lab, and CODEOWNERS only *requests* a review (Pattern 3 without enforcement).
+   * In terms of this guide, that is Pattern 2 (an immutable revision is promoted) plus Pattern 3, not Pattern 1. Pattern 1 (manual sync) remains a valid alternative, but it is not configured.
+
+> **Promotion is not progressive delivery.** The lab promotes an immutable *configuration* from one environment to the next through Git, and Kubernetes then does a normal rolling update. It does **not** shift traffic gradually or roll back on metrics (canary, blue/green, Argo Rollouts, Flagger). That is roadmap [Track 2](lab-progression-and-next-steps.md#track-2-progressive-delivery-with-argo-rollouts).
+
 2. **Long Term (Target Production Architecture)**:
    * Combine **Pattern 2 (Protected `prod` branch / release tags)** with **Pattern 5 (GitHub Actions environment approval gates)**.
    * Developers never write YAML by hand for production; they promote verified release tags through an audited, approved CI/CD workflow.

@@ -1,6 +1,6 @@
 # Developer Tutorial: Building Cloud Apps on the Multi-Cluster Platform
 
-> **Status: Current.** Describes the lab as it is today (reviewed 2026-10-03).
+> **Status: Current.** Describes the lab as it is today (reviewed 2026-10-03; examples re-verified on the lab 2026-10-06). Terms used here: [Concepts, Glossary & Self-Check](concepts-and-glossary.md).
 
 Welcome! This tutorial guides you through using our enterprise **Multi-Cluster Hub-and-Spoke** platform as an **application developer**.
 
@@ -25,32 +25,38 @@ flowchart TD
     end
 
     subgraph NonProdCluster["k3d-spoke-nonprod"]
-        KroNP["Kro Engine"]
+        KroNP["kro (expands QueueBackedService)"]
+        AckNP["ACK SQS controller (account 111111111111)"]
         WorkerNP["Dev/Test Worker Pods"]
     end
 
     subgraph ProdCluster["k3d-spoke-prod"]
-        KroP["Kro Engine"]
+        KroP["kro (expands QueueBackedService)"]
+        AckP["ACK SQS controller (account 222222222222)"]
         WorkerP["Prod Worker Pods (2 replicas)"]
     end
 
-    subgraph CentralCloud["Central Mock AWS Cloud (moto-cloud:5000)"]
+    subgraph CentralCloud["Central Mock AWS Cloud (moto-cloud:5000): dev/test queues in account 111111111111, prod in 222222222222"]
         DevQueue["orders-dev-queue"]
         TestQueue["orders-test-queue"]
         ProdQueue["orders-prod-queue"]
     end
 
-    SpokeNonProd --> KroNP
-    KroNP --> WorkerNP
-    KroNP -->|ACK SQS Controller| DevQueue
-    KroNP -->|ACK SQS Controller| TestQueue
+    SpokeNonProd -->|3. Argo CD renders the chart, applies QueueBackedService| KroNP
+    KroNP -->|4. Deployment| WorkerNP
+    KroNP -->|4. ACK Queue objects| AckNP
+    AckNP -->|5. SQS API| DevQueue
+    AckNP -->|5. SQS API| TestQueue
     WorkerNP <--> DevQueue
 
-    SpokeProd --> KroP
-    KroP --> WorkerP
-    KroP -->|ACK SQS Controller| ProdQueue
+    SpokeProd -->|3. Argo CD renders the chart, applies QueueBackedService| KroP
+    KroP -->|4. Deployment| WorkerP
+    KroP -->|4. ACK Queue objects| AckP
+    AckP -->|5. SQS API| ProdQueue
     WorkerP <--> ProdQueue
 ```
+
+Four controllers take part, each with its own status: the Argo CD ApplicationSet controller, the Argo CD application controller, kro and the ACK SQS controller. The student guide's [One change, four reconcilers](runbooks/devops-student-rebuild-guide.md#one-change-four-reconcilers) shows what each watches and writes, and where to look when one stops.
 
 ---
 
@@ -94,9 +100,19 @@ valuesRevision: main # prod must pin a full 40-character commit SHA
 
 ---
 
-### Step 2: Understand the Service Manifest
+### Step 2: Understand What You Write vs What the Platform Renders
 
-Look at `deploy/values-dev.yaml` in the `orders-processor` repository (or the rendered `QueueBackedService` CR):
+**What you write** is five Helm values in your own repository, `orders-processor/deploy/values-dev.yaml`:
+
+```yaml
+name: orders
+environment: dev
+replicas: 1
+retentionPeriod: "86400"
+image: ghcr.io/brunobml/orders-processor:v1.5.0@sha256:e95bb63320628d8541e984b668474bcc21066e54110d00ab20974132f1287510
+```
+
+**What lands on the spoke** is a `QueueBackedService` custom resource. Argo CD renders the platform's golden Helm chart (`queue-backed-service` 1.0.0 from GHCR, owned by `platform-charts`) with your values file and applies the result. See it with `kubectl --context k3d-spoke-nonprod -n orders-dev get queuebackedservice orders -o yaml` (trimmed):
 
 ```yaml
 apiVersion: kro.run/v1alpha1
@@ -104,25 +120,24 @@ kind: QueueBackedService
 metadata:
   name: orders
   namespace: orders-dev
+  labels:
+    app.kubernetes.io/managed-by: Helm   # rendered by the chart
+    kro.run/owned: "true"                # kro now manages it
 spec:
-  name: orders
   environment: dev
+  image: ghcr.io/brunobml/orders-processor:v1.5.0@sha256:e95bb63320628d8541e984b668474bcc21066e54110d00ab20974132f1287510
+  messageRetentionPeriod: "86400"        # your value retentionPeriod, renamed by the chart template
+  name: orders
   replicas: 1
-  messageRetentionPeriod: "86400"
-  image: ghcr.io/brunobml/orders-processor:v1.2.0
 ```
 
-Notice how minimal this is! You only specify:
-- `kind: QueueBackedService`: The high-level blueprint from the platform catalog.
-- `environment: dev`: Targets your environment naming.
-- `replicas: 1`: Number of worker pods.
-- `messageRetentionPeriod: "86400"`: SQS queue retention (in seconds).
-- `image`: The container image for the service worker.
+Two different things happened, done by two different components:
+1. **Helm render (Argo CD):** your values became a custom resource. The chart decides field names (`retentionPeriod` → `messageRetentionPeriod`) and defaults. You never write this resource by hand.
+2. **Composition (kro):** the `QueueBackedService` blueprint (a kro ResourceGraphDefinition in `platform-catalog`) expands this one resource into a worker `Deployment`, `Service`, `Ingress`, `ConfigMap`, two `NetworkPolicies`, a `PodDisruptionBudget` **only when `replicas > 1`** (a kro `includeWhen` condition: prod has one, dev does not), and two **ACK `Queue` resources** (`orders-dev-queue` and its dead-letter queue `orders-dev-dlq`). It passes `QUEUE_URL` and `QUEUE_ARN` to your worker.
 
-Under the hood, **Kro** automatically generates:
-1. A Kubernetes `Deployment` (`orders-dev-worker`).
-2. An AWS SQS Queue in Central Moto Cloud (`orders-dev-queue`).
-3. Passes the `QUEUE_URL` and `QUEUE_ARN` directly to your worker container.
+kro does **not** create the SQS queue in the cloud. It creates Kubernetes objects. The **ACK SQS controller** on the spoke watches the `Queue` objects and calls the SQS API in your environment's account (`111111111111` for dev). See *One change, four reconcilers* in the student guide for the whole chain.
+
+> **Why the long image reference?** Tenant images must come from `ghcr.io/brunobml/` (a ValidatingAdmissionPolicy) and be signed by the orders-processor CI (Kyverno). The digest `@sha256:…` pins the exact signed build. An older unsigned tag such as `v1.2.0` is rejected at admission.
 
 ---
 
@@ -149,11 +164,12 @@ kubectl --context k3d-spoke-nonprod -n orders-dev logs -l app=orders-dev-worker 
 ```
 Output:
 ```text
-🚀 Worker started for [dev] listening on http://moto-cloud:5000/123456789012/orders-dev-queue
-🌐 HTTP Web Dashboard listening on port 8080
-📦 [dev] Received Order from SQS: {"orderId": "ORD-999", "item": "Laptop"} (MsgId: f47add7a...)
-✔ [dev] Processed and deleted order f47add7a... from queue
+🚀 Worker started for [dev] listening on http://moto-cloud:5000/111111111111/orders-dev-queue
+🌐 HTTP Web Dashboard listening on port 8080 (Pod: orders-dev-worker-…)
+📦 [dev on orders-dev-worker-…] Received Order from SQS: {"orderId": "ORD-1234", "customer": "Alice", "amount": 99.50} (MsgId: 18f4e1ca...)
+✔ [dev on orders-dev-worker-…] Processed & recorded in DynamoDB: 18f4e1ca-…
 ```
+The account in the queue URL is `111111111111`, the nonprod account, not moto's default `123456789012`: see Step 4. Messages named `synthetic-orders-dev-…` come from the platform's end-to-end probe, which sends one order every 5 minutes.
 
 ---
 
@@ -181,21 +197,39 @@ Open your browser at **http://localhost:8001**:
 
 ### Step 4: Interacting with Simulated AWS via AWS CLI
 
-From your host machine, you can interact with the mock cloud just like real AWS:
+Each environment has its **own AWS account**: dev and test live in `111111111111`, prod in `222222222222` (ACK's cross-account resource management, CARM: the namespace annotation `services.k8s.aws/owner-account-id` decides the account). Moto, like AWS, answers **in the account of the credentials you call with**. So first get credentials for the account you want to look at:
 
 ```bash
-export AWS_ACCESS_KEY_ID=mock-key
-export AWS_SECRET_ACCESS_KEY=mock-secret
-export AWS_DEFAULT_REGION=us-east-1
+# Credentials for one moto account, the way the platform's controllers get them (STS AssumeRole)
+aws_as() {
+  local creds
+  creds=$(AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret AWS_SESSION_TOKEN= \
+    aws --endpoint-url=http://localhost:5000 --region us-east-1 sts assume-role \
+    --role-arn "arn:aws:iam::$1:role/learner" --role-session-name learner --query Credentials --output json)
+  export AWS_ACCESS_KEY_ID=$(jq -r .AccessKeyId <<<"$creds")
+  export AWS_SECRET_ACCESS_KEY=$(jq -r .SecretAccessKey <<<"$creds")
+  export AWS_SESSION_TOKEN=$(jq -r .SessionToken <<<"$creds")
+  export AWS_DEFAULT_REGION=us-east-1
+}
 
-# List all SQS queues across all environments
+# Dev and test queues (and their dead-letter queues) are in the nonprod account
+aws_as 111111111111
 aws --endpoint-url=http://localhost:5000 sqs list-queues
 
-# Publish a test message to your Dev Queue
-aws --endpoint-url=http://localhost:5000 sqs send-message \
-  --queue-url "http://localhost:5000/123456789012/orders-dev-queue" \
+# Publish a test order to the dev queue; look the URL up instead of typing the account
+QUEUE_URL=$(aws --endpoint-url=http://localhost:5000 sqs get-queue-url --queue-name orders-dev-queue --output text)
+echo "$QUEUE_URL"   # http://localhost:5000/111111111111/orders-dev-queue
+aws --endpoint-url=http://localhost:5000 sqs send-message --queue-url "$QUEUE_URL" \
   --message-body '{"orderId": "ORD-1234", "customer": "Alice", "amount": 99.50}'
+
+# The prod queue is only visible from the prod account
+aws_as 222222222222
+aws --endpoint-url=http://localhost:5000 sqs list-queues
 ```
+
+Then watch the dev worker pick up the order (Step 3's log command): `📦 [dev on orders-dev-worker-…] Received Order from SQS: {"orderId": "ORD-1234", …}`.
+
+> **Try this:** call `list-queues` with plain `mock-key` credentials. You get **nothing**: those credentials land in moto's default account `123456789012`, where the platform never creates anything. An empty answer here means "wrong account", not "no queues". `make moto-resources` lists every account at once.
 
 ---
 
@@ -230,7 +264,7 @@ Want to scale `orders-dev` from 1 replica to 3 replicas?
 | **View Test Pods** | `kubectl --context k3d-spoke-nonprod -n orders-test get pods` |
 | **View Prod Pods** | `kubectl --context k3d-spoke-prod -n orders-prod get pods` |
 | **View Worker Logs** | `kubectl --context k3d-spoke-nonprod -n orders-dev logs -l app=orders-dev-worker -f` |
-| **List AWS Queues** | `AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs list-queues` |
-| **Send Test Message** | `AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs send-message --queue-url <URL> --message-body '{"test": true}'` |
+| **List AWS Queues** | `aws_as 111111111111` (Step 4), then `aws --endpoint-url=http://localhost:5000 sqs list-queues`; all accounts at once: `make moto-resources` |
+| **Send Test Message** | `aws_as 111111111111`, then `aws --endpoint-url=http://localhost:5000 sqs send-message --queue-url "$(aws --endpoint-url=http://localhost:5000 sqs get-queue-url --queue-name orders-dev-queue --output text)" --message-body '{"test": true}'` |
 | **Argo CD UI** | [http://localhost](http://localhost) |
 | **Moto Cloud API** | [http://localhost:5000/moto-api/](http://localhost:5000/moto-api/) |

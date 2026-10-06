@@ -215,6 +215,8 @@ The 20 alert rules are unit-tested with `make test-alert-rules` (and in CI, `mak
 
 See the [operational drills](docs/runbooks/operational-drills-and-failure-injection.md).
 
+**Learning the concepts** (not just the commands): start with the [student guide](docs/runbooks/devops-student-rebuild-guide.md) (objectives, checkpoints, *one change, four reconcilers*, the Drill 4 milestone), then the [developer tutorial](docs/developer-tutorial.md), and keep [Concepts, Glossary & Self-Check](docs/concepts-and-glossary.md) at hand.
+
 ---
 
 ## 🔄 Host Reboot & Lab Lifecycle

@@ -5,6 +5,18 @@
 
 ---
 
+## 0. Concepts First (for learners)
+
+Read this before the procedures; the glossary terms are in [Concepts, Glossary & Self-Check](../concepts-and-glossary.md).
+
+* **Same chain as tenant apps, different blueprint.** A claim file → ApplicationSet `tenant-iac-<team>` → chart `team-cluster` (Helm render by Argo CD) → `TeamEKSCluster` → kro → ACK IAM `Role`s, EKS `Cluster`, `Nodegroup` → AWS API in the environment's account. Four reconcilers again: see [One change, four reconcilers](devops-student-rebuild-guide.md#one-change-four-reconcilers).
+* **Two tiers of infrastructure.** The **network is platform-owned** (tier 1): one VPC, two subnets, an internet gateway, a route table and a security group per account, declared in `platform-catalog/network/` and deployed to namespace `platform-network`, where teams cannot write. A **team cluster** (tier 2) only *reads* it: the kro blueprint uses `externalRef` to look up `platform-subnet-a/-b` and `platform-cluster-sg` and copies their current IDs into the cluster spec. No ID is ever written in Git; if the network is recreated with new IDs, kro re-renders the clusters.
+* **Names include the team** (`<team>-<name>-<env>`). Two teams may both have an `analytics-dev`; AWS names, Argo CD Application names and Kubernetes objects never collide. (Without the team prefix, one team's claim could adopt, and later delete, another team's cluster: tenant-IaC P0 finding F-1.)
+* **What "ready" proves here.** moto stores an EKS cluster as an `ACTIVE` record: there is no Kubernetes behind it. A ready `TeamEKSCluster` proves that the request was valid, landed in the right account with the right roles and network, and is observable. It does not prove that anyone can run `kubectl` against it (see the note in Runbook 1).
+* **Prod is protected differently.** Prod resources use `deletion-policy: retain` and `adopt-or-create`: deleting a prod claim keeps the cloud resources, and restoring the claim picks them up again.
+
+---
+
 ## 1. Architecture & Governance Model
 
 The self-service infrastructure workflow is declarative, PR-driven, and governed by strict isolation boundaries:
@@ -24,7 +36,8 @@ Hub Argo CD (k3d-hub-cluster)
 Spoke Clusters (k3d-spoke-nonprod / k3d-spoke-prod)
   └── Namespace: iac-<team>-<env> (PSS restricted, CARM owner-account-id)
           └── TeamEKSCluster CR (kro.run/v1alpha1)
-                  │
+                  │       reads (externalRef) ◄── Namespace platform-network (tier 1, platform-owned):
+                  │                               VPC, platform-subnet-a/-b, platform-cluster-sg
                   ▼ Kro ResourceGraphDefinition (teamekscluster)
                   ├── iam.services.k8s.aws/v1alpha1: Role (Cluster & Node roles)
                   ├── eks.services.k8s.aws/v1alpha1: Cluster (EKS cluster)
@@ -62,13 +75,18 @@ AWS / Moto Cloud (http://localhost:5000)
      instanceType: t3.medium
      minSize: 1
      desiredSize: 2
-     maxSize: 4
+     maxSize: 3          # dev/test: at most 3 (prod: at most 5)
    ```
 
 3. **Validate Locally:**
    ```bash
-   # Validate JSON schema and naming
-   python3 -c "import json, jsonschema, yaml; jsonschema.validate(yaml.safe_load(open('teams/team-data/clusters/ml-feature-store-dev.yaml')), json.load(open('schema/cluster.schema.json')))"
+   # Quick check: the JSON schema only (fields, allowed values, size limits per environment)
+   python3 -c "import json, jsonschema, yaml; jsonschema.validate(yaml.safe_load(open('teams/team-data/clusters/ml-feature-store-dev.yaml')), json.load(open('schema/cluster.schema.json')))" && echo "schema OK"
+
+   # Full check = what the required CI check runs: schema, min <= desired <= max, team = folder,
+   # file name = <name>-<env>.yaml, clusters per team, render through the real ApplicationSet + chart
+   # (run from gitops-control-plane; it checks the tenant-iac working copy next to it, ../tenant-iac)
+   make ci-iac
    ```
 
 4. **Submit PR & Merge:**

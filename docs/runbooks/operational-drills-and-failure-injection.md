@@ -4,7 +4,7 @@
 > **Status: Current.** Version 1.1 (2026-10-03, Step 0.5 of the [2026-10-03 remediation plan](../remediation/2026-10-03-lab-assessment/2026-10-03-lab-remediation-plan.md)). Every drill below was run once against the lab before this version was committed; observed timings are from that run.
 
 * **Target Audience:** Platform Engineers, SREs, and Operations Operators
-* **Cluster Baseline:** `k3d-hub-cluster`, `k3d-spoke-nonprod`, `k3d-spoke-prod`, `moto-cloud`, 32 Applications
+* **Cluster Baseline:** `k3d-hub-cluster`, `k3d-spoke-nonprod`, `k3d-spoke-prod`, `moto-cloud`, all Applications Synced/Healthy (42 on 2026-10-06)
 * **Companion Runbook:** [`host-reboot-and-cluster-lifecycle.md`](host-reboot-and-cluster-lifecycle.md)
 * **Paths:** commands run from the `gitops-control-plane` checkout. The other repositories are expected next to it: `REPOS_DIR=${REPOS_DIR:-..}`
 
@@ -68,7 +68,7 @@ In Grafana (http://grafana.localhost, Keycloak user `platform-user`), open *Dash
 Expected baseline:
 * 12/12 smoke stages pass;
 * no firing alerts;
-* 32/32 Applications `Synced / Healthy`.
+* every Application `Synced / Healthy` (42 on 2026-10-06): `kubectl --context k3d-hub-cluster -n argocd get applications --no-headers | grep -v "Synced *Healthy"` prints nothing.
 
 ---
 
