@@ -33,20 +33,11 @@ setup() {
 }
 
 @test "Gate 12d: Discovered TeamEKSCluster claims report ready in Prometheus" {
-  local claims=()
-  for spoke in spoke-nonprod spoke-prod; do
-    local ctx="k3d-${spoke}"
-    run kubectl --context "$ctx" get teamekscluster -A -o jsonpath='{range .items[*]}{"'${spoke}'|"}{.metadata.namespace}{"|"}{.metadata.name}{"\n"}{end}'
-    [ "$status" -eq 0 ]
-    while IFS='|' read -r cl ns name; do
-      [[ -n "$name" ]] && claims+=("${cl}|${ns}|${name}")
-    done <<< "$output"
-  done
+  # shellcheck source=scripts/lib/discover-iac-claims.sh
+  source "${BATS_TEST_DIRNAME}/../../scripts/lib/discover-iac-claims.sh"
+  discover_iac_claims
 
-  # Require at least 2 claims discovered matching registered tenant-iac applications
-  [ "${#claims[@]}" -ge 2 ]
-
-  for claim in "${claims[@]}"; do
+  for claim in "${IAC_CLAIM_TUPLES[@]}"; do
     local cl ns name t0 r=""
     IFS='|' read -r cl ns name <<< "$claim"
     t0=$(date +%s)

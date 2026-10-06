@@ -292,7 +292,24 @@ tests:
       - eval_time: 10m
         alertname: TeamClusterNotReady
         exp_alerts: []
-  - name: SyntheticProbeDown when synthetic-order-probe target is absent or down
+  - name: SyntheticProbeDown when synthetic-order-probe target is down
+    interval: 30s
+    input_series:
+      - {series: 'up{job="agent",cluster="spoke-nonprod"}', values: '1x20'}
+      - {series: 'up{job="synthetic-order-probe",cluster="spoke-nonprod"}', values: '0x20'}
+      - {series: 'up{job="agent",cluster="spoke-prod"}', values: '1x20'}
+      - {series: 'up{job="synthetic-order-probe",cluster="spoke-prod"}', values: '1x20'}
+    alert_rule_test:
+      - {eval_time: 4m, alertname: SyntheticProbeDown, exp_alerts: []}
+      - eval_time: 6m
+        alertname: SyntheticProbeDown
+        exp_alerts:
+          - exp_labels: {severity: critical, cluster: spoke-nonprod}
+            exp_annotations:
+              summary: "Synthetic order probe is not running on spoke-nonprod: e2e and team cluster monitoring is interrupted"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-syntheticprobedown
+              logs: "http://grafana.localhost/d/lab-logs?var-cluster=spoke-nonprod&var-namespace=platform-probes"
+  - name: SyntheticProbeDown when synthetic-order-probe target is absent
     interval: 30s
     input_series:
       - {series: 'up{job="agent",cluster="spoke-nonprod"}', values: '1x20'}
@@ -320,5 +337,4 @@ tests:
       - eval_time: 10m
         alertname: SyntheticProbeDown
         exp_alerts: []
-
 

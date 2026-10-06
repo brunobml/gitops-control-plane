@@ -381,36 +381,14 @@ echo -e "${GREEN}✔ Logs shipped from hub, spoke-nonprod and spoke-prod; Loki u
 e2e=$(promq 'lab_order_e2e_success == 0' | jq -r '[.data.result[] | .metric.namespace] | join(",")')
 [[ -n "$e2e" ]] && echo -e "${YELLOW}! synthetic order probe's last run failed for: ${e2e} (re-checked every 5 min)${NC}"
 # Phase P5: assert team EKS clusters are ready in Prometheus metrics
-# Dynamic discovery of TeamEKSCluster claims across spokes (Track 3)
-CLAIM_TUPLES=()
-for spoke in "spoke-nonprod" "spoke-prod"; do
-  ctx="k3d-${spoke}"
-  claim_output=$(kubectl --context "$ctx" get teamekscluster -A -o jsonpath='{range .items[*]}{"'${spoke}'|"}{.metadata.namespace}{"|"}{.metadata.name}{"\n"}{end}' 2>/dev/null)
-  discovery_rc=$?
-  if [[ $discovery_rc -ne 0 ]]; then
-    echo -e "${RED}✘ Failed to discover TeamEKSCluster claims on ${spoke} (kubectl exit code ${discovery_rc})${NC}"
-    exit 1
-  fi
-  while IFS='|' read -r cl ns name; do
-    [[ -n "$name" ]] && CLAIM_TUPLES+=("${cl}|${ns}|${name}")
-  done <<< "$claim_output"
-done
-
-# Correlate with registered tenant-iac applications in Argo CD
-iac_apps_count=$(kubectl --context k3d-hub-cluster -n argocd get applications -o json \
-  | jq '[.items[] | select(.spec.project=="tenant-iac")] | length')
-
-if (( iac_apps_count > 0 && ${#CLAIM_TUPLES[@]} == 0 )); then
-  echo -e "${RED}✘ ${iac_apps_count} tenant-iac applications registered in Argo CD, but 0 TeamEKSCluster claims discovered! Claims disappeared unexpectedly.${NC}"
+# Dynamic discovery and count comparison shared with Bats Gate 12d.
+# shellcheck source=scripts/lib/discover-iac-claims.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/discover-iac-claims.sh"
+if ! discover_iac_claims; then
   exit 1
 fi
 
-if (( ${#CLAIM_TUPLES[@]} == 0 )); then
-  echo -e "${RED}✘ No TeamEKSCluster claims discovered across spokes!${NC}"
-  exit 1
-fi
-
-for claim in "${CLAIM_TUPLES[@]}"; do
+for claim in "${IAC_CLAIM_TUPLES[@]}"; do
   IFS='|' read -r cl ns name <<< "$claim"
   t0=$(date +%s)
   r=""
@@ -434,7 +412,7 @@ if [[ -n "$team_unready" ]]; then
   echo -e "${RED}✘ Team clusters not ready in Prometheus metrics: ${team_unready}${NC}"
   exit 1
 fi
-echo -e "${GREEN}✔ All ${#CLAIM_TUPLES[@]} discovered TeamEKSCluster claims verified Ready in Prometheus${NC}"
+echo -e "${GREEN}✔ All ${#IAC_CLAIM_TUPLES[@]} discovered TeamEKSCluster claims verified Ready in Prometheus${NC}"
 # Alerts firing for more than 20 min are persistent problems; younger ones are reported (they
 # clear on their own after a recovery, within one probe cycle / alert 'for' window).
 alerts=$(kubectl --context k3d-hub-cluster -n monitoring exec deploy/prometheus-server -c prometheus-server -- wget -qO- http://localhost:9090/api/v1/alerts 2>/dev/null)

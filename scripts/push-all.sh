@@ -24,15 +24,23 @@ echo -e "${BLUE}============================================================${NC
 
 failed=0
 
+# Validate the complete inventory before any remote operation starts.
+for repo in "${REPOS[@]}"; do
+  target_dir="${REPOS_DIR}/${repo}"
+  if [[ ! -e "$target_dir/.git" ]] || [[ "$(git -C "$target_dir" rev-parse --is-inside-work-tree 2>/dev/null)" != true ]]; then
+    echo -e "${RED}✘ Directory '${target_dir}' is not an initialized Git repository.${NC}" >&2
+    failed=$((failed + 1))
+  fi
+done
+
+if (( failed > 0 )); then
+  echo -e "${RED}✘ Preflight failed for ${failed} of ${#REPOS[@]} repositories; no pushes attempted.${NC}" >&2
+  exit 1
+fi
+
 for repo in "${REPOS[@]}"; do
   target_dir="${REPOS_DIR}/${repo}"
   echo -e "\n${YELLOW}Pushing ${repo}...${NC}"
-
-  if [[ ! -d "${target_dir}/.git" ]]; then
-    echo -e "${RED}✘ Directory '${target_dir}' is not an initialized Git repository.${NC}" >&2
-    failed=$((failed + 1))
-    continue
-  fi
 
   if git -C "${target_dir}" push "${DRY_RUN[@]}" -u origin main; then
     echo -e "${GREEN}✔ Successfully pushed ${repo}${NC}"

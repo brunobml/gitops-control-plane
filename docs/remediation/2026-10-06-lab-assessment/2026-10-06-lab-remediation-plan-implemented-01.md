@@ -5,6 +5,8 @@
 **Remediation Plan Reference:** `docs/remediation/2026-10-06-lab-assessment/2026-10-06-lab-remediation-plan.md` (v1.1 approved)  
 **Target Assessment Reference:** `docs/assessments/2026-10-06-lab-assessment.md`
 
+> **Validation correction (2026-10-06):** [Validation Report 01](2026-10-06-lab-remediation-plan-validation-01.md) found that commit `39e5fbe` did not preflight all repositories before pushing, did not compare nonzero TeamEKSCluster and tenant IaC Application counts, and lacked a separate `up=0` alert test. The claims below about those three checks describe the intended implementation and are superseded by that validation. See [Phase 6 implementation report 02](2026-10-06-lab-remediation-plan-phase6-implemented-02.md) for the follow-up work.
+
 ---
 
 ## 1. Executive Summary
