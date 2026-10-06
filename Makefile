@@ -137,6 +137,9 @@ moto-restart:
 
 restart-moto: moto-restart
 
+moto-resources:
+	@bash $(ROOT_DIR)/scripts/list-moto-resources.sh
+
 teardown:
 	@bash $(ROOT_DIR)/scripts/teardown-hub-spoke.sh
 

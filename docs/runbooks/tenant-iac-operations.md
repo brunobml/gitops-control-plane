@@ -11,7 +11,7 @@ The self-service infrastructure workflow is declarative, PR-driven, and governed
 
 ```
 Tenant Repo (tenant-iac)
-  └── teams/<team>/<name>-<env>.yaml
+  └── teams/<team>/clusters/<name>-<env>.yaml
           │
           │  Pull Request + CI validation (JSON Schema + CEL + Rule 24519842)
           ▼
@@ -51,7 +51,7 @@ AWS / Moto Cloud (http://localhost:5000)
    ```
 
 2. **Create Cluster Claim File:**
-   Create file `teams/<team>/<name>-<env>.yaml` following `schema/cluster.schema.json`:
+   Create file `teams/<team>/clusters/<name>-<env>.yaml` following `schema/cluster.schema.json`:
    ```yaml
    team: team-data
    name: ml-feature-store
@@ -68,13 +68,13 @@ AWS / Moto Cloud (http://localhost:5000)
 3. **Validate Locally:**
    ```bash
    # Validate JSON schema and naming
-   python3 -c "import json, jsonschema, yaml; jsonschema.validate(yaml.safe_load(open('teams/team-data/ml-feature-store-dev.yaml')), json.load(open('schema/cluster.schema.json')))"
+   python3 -c "import json, jsonschema, yaml; jsonschema.validate(yaml.safe_load(open('teams/team-data/clusters/ml-feature-store-dev.yaml')), json.load(open('schema/cluster.schema.json')))"
    ```
 
 4. **Submit PR & Merge:**
    - Push branch and open PR against `main`.
-   - CI workflow `cluster-checks` runs automatically: validates schema, ensures naming convention `<team>/<name>-<env>.yaml`, enforces unique cluster names, checks allowed Kubernetes versions (`1.32`, `1.33`), and scans for secrets.
-   - For `prod` clusters, CODEOWNERS requests platform lead review.
+   - CI workflow `cluster-checks` runs automatically: validates schema, ensures naming convention `teams/<team>/clusters/<name>-<env>.yaml`, enforces unique cluster names, checks allowed Kubernetes versions (`1.32`, `1.33`, `1.34`), and scans for secrets.
+   - For `prod` clusters, CODEOWNERS requests platform lead review. In single-contributor environments (e.g. personal GitHub repos where the author is the sole maintainer), GitHub ruleset `24519842` enforces the `cluster-checks` CI status check as the mandatory automated gate (`required_approving_review_count: 0`).
    - Once checks pass and review is approved, merge PR to `main`.
    - Hub Argo CD ApplicationSet automatically detects the file and deploys the cluster application within 3 minutes (or sync immediately via Argo CD UI).
 
@@ -85,11 +85,11 @@ AWS / Moto Cloud (http://localhost:5000)
 1. **Allowed In-Place Changes:**
    - **Nodegroup Sizing:** `desiredSize`, `minSize`, `maxSize`.
    - **Instance Type:** `instanceType` (e.g. `t3.medium` $\rightarrow$ `m5.large`).
-   - **Kubernetes Version:** `kubernetesVersion` (e.g. `"1.32"` $\rightarrow$ `"1.33"`).
+   - **Kubernetes Version:** `kubernetesVersion` (e.g. `"1.32"` $\rightarrow$ `"1.33"` $\rightarrow$ `"1.34"`).
 
 2. **Procedure:**
    - Create a branch in `brunobml/tenant-iac`.
-   - Edit `teams/<team>/<name>-<env>.yaml` with the updated parameters.
+   - Edit `teams/<team>/clusters/<name>-<env>.yaml` with the updated parameters.
    - Open PR and verify CI passes.
    - Merge PR.
    - Argo CD updates the `TeamEKSCluster` CR on the spoke.
@@ -101,7 +101,7 @@ AWS / Moto Cloud (http://localhost:5000)
 ### Runbook 3: Deleting a Nonprod Cluster (`delete`)
 
 1. **Procedure:**
-   - In `brunobml/tenant-iac`, open a PR removing `teams/<team>/<name>-dev.yaml`.
+   - In `brunobml/tenant-iac`, open a PR removing `teams/<team>/clusters/<name>-dev.yaml`.
    - Merge the PR.
 2. **Lifecycle & Teardown Behavior:**
    - Argo CD ApplicationSet notices file removal and prunes the Application.
@@ -118,7 +118,7 @@ AWS / Moto Cloud (http://localhost:5000)
 ### Runbook 4: Deleting a Prod Cluster (`prod-retention`)
 
 1. **Procedure:**
-   - Open a PR in `brunobml/tenant-iac` removing `teams/<team>/<name>-prod.yaml`.
+   - Open a PR in `brunobml/tenant-iac` removing `teams/<team>/clusters/<name>-prod.yaml`.
    - Requires PR approval and passing CI checks.
    - Merge PR.
 2. **Cloud Resource Protection:**
@@ -160,7 +160,7 @@ make moto-restart
 
 #### Symptoms:
 - Prometheus alert `TeamClusterNotReady` is firing (Critical).
-- Grafana *Platform Overview* dashboard shows a cluster in `NOT READY` state.
+- Grafana *Platform Overview* dashboard (*Team clusters* panel) displays `Readiness` as `NotReady` (and/or state `UNKNOWN`/`FAILED`).
 - Hub Argo CD displays application `team-<team>-<name>-<env>` in `Degraded` or `Progressing` status.
 
 #### Investigation:

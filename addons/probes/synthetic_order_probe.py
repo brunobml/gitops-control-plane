@@ -139,6 +139,7 @@ def run_once():
                     ts = calendar.timegm(time.strptime(created, "%Y-%m-%dT%H:%M:%SZ"))
                 except ValueError:
                     ts = 0
+            ready_str = "Ready" if st.get("ready") is True else "NotReady"
             clusters[(c_ns, c_name)] = {
                 "name": c_name,
                 "namespace": c_ns,
@@ -148,6 +149,7 @@ def run_once():
                 "arn": arn,
                 "state": state,
                 "ready": ready,
+                "readiness": ready_str,
                 "created_ts": ts,
             }
     except Exception as e:  # noqa: BLE001
@@ -167,7 +169,7 @@ def loop():
             print(f"probe cycle error: {e}", flush=True)
             with LOCK:
                 STATE["errors"] += 1
-            time.sleep(INTERVAL)
+        time.sleep(INTERVAL)
 
 
 def metrics():
@@ -187,7 +189,7 @@ def metrics():
         ]
         for (c_ns, c_name), d in sorted(clusters.items()):
             out.append(
-                f'lab_team_cluster_info{{name="{d["name"]}",namespace="{d["namespace"]}",team="{d["team"]}",env="{d["env"]}",cluster_name="{d["cluster_name"]}",arn="{d["arn"]}",state="{d["state"]}"}} {d["created_ts"]}'
+                f'lab_team_cluster_info{{name="{d["name"]}",namespace="{d["namespace"]}",team="{d["team"]}",env="{d["env"]}",cluster_name="{d["cluster_name"]}",arn="{d["arn"]}",state="{d["state"]}",readiness="{d["readiness"]}"}} {d["created_ts"]}'
             )
         out += [
             "# HELP lab_team_cluster_ready Readiness of team EKS cluster (1=ready, 0=not ready).",

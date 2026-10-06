@@ -248,6 +248,7 @@
        "env": true,
        "cluster": true,
        "state": true,
+       "readiness": true,
        "arn": true,
        "Value": true
       },
@@ -257,6 +258,7 @@
        "env": "Env",
        "cluster": "Spoke",
        "state": "State",
+       "readiness": "Readiness",
        "arn": "Cluster ARN",
        "Value": "Age"
       }

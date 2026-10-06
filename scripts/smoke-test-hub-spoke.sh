@@ -360,11 +360,22 @@ echo -e "${GREEN}✔ Logs shipped from hub, spoke-nonprod and spoke-prod; Loki u
 e2e=$(promq 'lab_order_e2e_success == 0' | jq -r '[.data.result[] | .metric.namespace] | join(",")')
 [[ -n "$e2e" ]] && echo -e "${YELLOW}! synthetic order probe's last run failed for: ${e2e} (re-checked every 5 min)${NC}"
 # Phase P5: assert team EKS clusters are ready in Prometheus metrics
-team_unready=$(promq 'lab_team_cluster_ready == 0' | jq -r '[.data.result[] | .metric.name] | join(",")' 2>/dev/null || true)
+for exp in "analytics-dev" "analytics-prod"; do
+  r=$(promq "lab_team_cluster_ready{name=\"${exp}\"}" | jq -r '.data.result[0].value[1] // empty')
+  if [[ -z "$r" ]]; then
+    echo -e "${RED}✘ Missing lab_team_cluster_ready metric for ${exp}${NC}"
+    exit 1
+  elif [[ "$r" != "1" ]]; then
+    echo -e "${RED}✘ Team cluster ${exp} not ready (lab_team_cluster_ready=${r})${NC}"
+    exit 1
+  fi
+done
+team_unready=$(promq 'lab_team_cluster_ready == 0' | jq -r '[.data.result[] | .metric.name] | join(",")')
 if [[ -n "$team_unready" ]]; then
   echo -e "${RED}✘ Team clusters not ready in Prometheus metrics: ${team_unready}${NC}"
   exit 1
 fi
+echo -e "${GREEN}✔ Team clusters analytics-dev and analytics-prod verified Ready in Prometheus${NC}"
 # Alerts firing for more than 20 min are persistent problems; younger ones are reported (they
 # clear on their own after a recovery, within one probe cycle / alert 'for' window).
 alerts=$(kubectl --context k3d-hub-cluster -n monitoring exec deploy/prometheus-server -c prometheus-server -- wget -qO- http://localhost:9090/api/v1/alerts 2>/dev/null)
