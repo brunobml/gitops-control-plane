@@ -253,7 +253,7 @@ serverFiles:
               logs: "http://grafana.localhost/d/lab-logs?var-cluster={{ $labels.cluster }}&var-namespace=kro&var-namespace=ack-system"
           - alert: TeamClusterNotReady
             expr: lab_team_cluster_ready == 0
-            for: 5m
+            for: 1m
             labels: {severity: critical}
             annotations:
               summary: "Team cluster {{ $labels.name }} is not ready on {{ $labels.cluster }}"
