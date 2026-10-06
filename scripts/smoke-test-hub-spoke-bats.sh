@@ -26,14 +26,16 @@ if ! command -v bats >/dev/null 2>&1; then
   exit 1
 fi
 
-# Locate the Bats test file
-TEST_FILE=""
-if [[ -f "${REPO_ROOT}/tests/smoke-test-hub-spoke.bats" ]]; then
-  TEST_FILE="${REPO_ROOT}/tests/smoke-test-hub-spoke.bats"
+# Locate the Bats test suite target (directory or file)
+TEST_TARGET=""
+if [[ -d "${REPO_ROOT}/tests/smoke" ]]; then
+  TEST_TARGET="${REPO_ROOT}/tests/smoke"
+elif [[ -f "${REPO_ROOT}/tests/smoke-test-hub-spoke.bats" ]]; then
+  TEST_TARGET="${REPO_ROOT}/tests/smoke-test-hub-spoke.bats"
 elif [[ -f "${SCRIPT_DIR}/smoke-test-hub-spoke.bats" ]]; then
-  TEST_FILE="${SCRIPT_DIR}/smoke-test-hub-spoke.bats"
+  TEST_TARGET="${SCRIPT_DIR}/smoke-test-hub-spoke.bats"
 else
-  echo "❌ Error: Could not locate smoke-test-hub-spoke.bats in tests/ or scripts/!" >&2
+  echo "❌ Error: Could not locate smoke tests in tests/smoke/ or tests/!" >&2
   exit 1
 fi
 
@@ -68,11 +70,11 @@ DEFAULT_FLAGS=(--timing --print-output-on-failure)
 
 echo "============================================================"
 echo " Running Bats Smoke Test Suite: $(bats -v)"
-echo " Test File: ${TEST_FILE}"
+echo " Target: ${TEST_TARGET}"
 echo "============================================================"
 
 if [[ $# -eq 0 ]]; then
-  bats "${DEFAULT_FLAGS[@]}" "${TEST_FILE}"
+  bats "${DEFAULT_FLAGS[@]}" "${TEST_TARGET}"
 else
-  bats "${DEFAULT_FLAGS[@]}" "$@" "${TEST_FILE}"
+  bats "${DEFAULT_FLAGS[@]}" "$@" "${TEST_TARGET}"
 fi
