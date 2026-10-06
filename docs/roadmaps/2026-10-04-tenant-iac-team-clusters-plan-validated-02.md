@@ -47,3 +47,7 @@ Two items from the P1 scope are missing or incomplete, though, and one of them w
 ## 4. Next
 - **V-1 and V-2** to the executor (Antigravity), or as the owner decides. I re-validate both.
 - **P2 (executor Claude)** can start in parallel: it doesn't depend on V-1/V-2. Until V-1 is in place, **avoid restarting the host or `make stop`/`make start`**, or run the manual recovery from P0 (`spike.sh recover` steps, adapted to the lab) afterwards.
+
+---
+
+**Erratum (2026-10-06, Claude): V-4 was a false positive.** Argo CD 3.x does not copy per-resource health into the Application's `status.resources`, so its absence there proves nothing. The resource tree (`argocd app get <app> --output tree`) shows the custom health checks working: `QueueBackedService/orders … Healthy`, `Queue/… Healthy`, `VPC/platform-vpc … Healthy`, `ResourceGraphDefinition/… Healthy`. The lab's split health keys (`resource.customizations.health.*`, added in P4) and the legacy `resource.customizations` key are both evaluated. Recorded as learning gap L-7 in `docs/assessments/2026-10-06-lab-learning-assessment.md` v3.0.

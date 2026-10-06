@@ -1,18 +1,26 @@
 # Lab Learning Assessment — 2026-10-06
 
-> **Perspective:** Senior Trainer & Technical Enablement Specialist (Platform Engineering, SRE, and GitOps).  
+> **Perspective:** Senior Trainer & Technical Enablement Specialist (Platform Engineering, SRE, and GitOps).
 > **Evaluation Focus:** Whether a motivated learner can extract, internalize, and transfer the underlying *concepts* and *mental models* of the platform (Argo CD, KRO, AWS ACK, multi-cluster GitOps, admission control, and observability) rather than merely executing a procedural checklist of commands.
 
 | | |
 |---|---|
-| **Document version** | **2.0 — Final Enablement Assessment (Peer-Reviewed & Expanded by Agy)** |
-| **Status** | Completed & Published |
+| **Document version** | **3.0: evidence re-check and update** (supersedes 2.0) |
+| **Status** | Current |
 | **Assessment Date** | 2026-10-06 |
-| **Authors & Reviewers** | Codex (v1.0 draft) & Agy (v2.0 comprehensive review & enablement synthesis) |
+| **Authors & Reviewers** | Codex (v1.0 draft), Agy (v2.0 review and enablement synthesis), **Claude (Opus 5.5) (v3.0: every v2.0 claim re-verified on the repository and the live lab; corrections, new gaps, answer guidance)** |
 | **Assessment Standard** | [`docs/ai-prompts/ai-agent-lab-expert-trainer-assessment-prompt.md`](../ai-prompts/ai-agent-lab-expert-trainer-assessment-prompt.md) |
-| **Repository Baseline** | `gitops-control-plane` commit `595b249` (Post-Remediation Phase 6 Accepted) |
-| **Target Documentation** | Root [`README.md`](../../README.md), [`devops-student-rebuild-guide.md`](../runbooks/devops-student-rebuild-guide.md), [`developer-tutorial.md`](../developer-tutorial.md), [`operational-drills-and-failure-injection.md`](../runbooks/operational-drills-and-failure-injection.md), [`tenant-iac-operations.md`](../runbooks/tenant-iac-operations.md), [`production-promotion-guardrails.md`](../production-promotion-guardrails.md), [`host-reboot-and-cluster-lifecycle.md`](../runbooks/host-reboot-and-cluster-lifecycle.md), and ApplicationSets / blueprints across catalog repositories |
-| **Methodology** | Systematic pedagogical audit against the 5 Enablement Dimensions (Coverage, Scaffolding, Hands-on Design, Documentation, Transfer), local schema and CLI verification of copyable learner examples, and cognitive load journey analysis. |
+| **Repository Baseline** | `gitops-control-plane` `ce13239`. No learner-facing document changed since v2.0's baseline `595b249`, so v3.0 changes the assessment, not the lab. Live lab: 42 Applications Synced/Healthy |
+| **Target Documentation** | Root [`README.md`](../../README.md), [`devops-student-rebuild-guide.md`](../runbooks/devops-student-rebuild-guide.md), [`developer-tutorial.md`](../developer-tutorial.md), [`operational-drills-and-failure-injection.md`](../runbooks/operational-drills-and-failure-injection.md), [`tenant-iac-operations.md`](../runbooks/tenant-iac-operations.md), [`production-promotion-guardrails.md`](../production-promotion-guardrails.md), [`lab-progression-and-next-steps.md`](../lab-progression-and-next-steps.md) *(added in v3.0)*, [`argocd-cli.md`](../runbooks/argocd-cli.md) *(added in v3.0)*, [`host-reboot-and-cluster-lifecycle.md`](../runbooks/host-reboot-and-cluster-lifecycle.md) |
+| **Methodology** | The 5 enablement dimensions of the standard. **Every copyable example cited as evidence was executed** (schema validation, AWS CLI against moto, server-side dry-run admission tests, Argo CD resource tree). The commands and results are in §9 |
+
+### What changed in v3.0
+| | Change |
+|---|---|
+| ✅ Confirmed | L-1 (Kro credited with creating SQS queues), L-2 (tenant-iac example fails the schema; tutorial uses the wrong AWS account; "32 Applications" baseline), L-3 (no objectives, predictions or definitions), L-4 (lifecycle semantics scattered), the 27 Bats smoke tests, Drill 4's behaviour, the two-tier acceptance note |
+| ✏️ Corrected | **v2.0's SQS fix does not work**: `--queue-owner-aws-account-id 111111111111` with default credentials also returns `NonExistentQueue`, because moto resolves queues in the *caller's* account. The working fix uses account-111 credentials (§6, P0-2). **L-5 evidence was misplaced**: canary/Argo Rollouts appear in `lab-progression-and-next-steps.md` (Track 2), not in the promotion guide. The promotion guide's real problem is that it calls a *manual prod sync gate* "Current Setup", while the live `orders-prod` syncs automatically. **"Reset in under 7 minutes"**: the measured clean rebuild is 484 s (about 8 min, `full-rebuild-and-acceptance.md`). **"32 Applications" appears 5 times**, not 2 |
+| ➕ Added | L-6 (tutorial "values file" is a stale rendered CR, with an image admission now rejects), L-7 (where Argo CD health lives: a trap that misled a validator in this project), L-8 (stale learner architecture views: no tier-1 network, EC2/IAM/EKS controllers or tenant IaC path), two checklist concepts, answer guidance for every trainer question, verification log |
+| 🔢 Score | **6.0 / 10, unchanged**: the documents did not change; the corrections cancel out (v2.0 slightly overstated some evidence, and missed some real gaps) |
 
 ---
 
@@ -21,13 +29,14 @@
 ### Overall Educational Effectiveness Score: **6.0 / 10**
 
 ### Score Justification
-The lab is an **operational and architectural tour de force**: it models a realistic, multi-cluster enterprise control plane with central AWS emulation (Moto), multi-tenant GitOps pipelines, composition engines (Kro), cloud controllers (ACK), supply-chain admission security (Kyverno + native VAPs), SSO federation (Keycloak), and full-stack observability.
+The platform is operationally excellent and realistic: a hub and two spokes, central AWS emulation with per-environment accounts, multi-tenant GitOps, kro composition, ACK controllers, layered admission control, SSO and full observability. Its failure drills are the best teaching material in the repository.
 
-However, from an **educational enablement perspective**, the lab currently suffers from a pronounced **procedural bias**:
-1. **The Controller Model is Blurred:** Learners observe actions happening (e.g. an SQS queue appearing), but documentation frequently attributes multiple distinct controller responsibilities to a single umbrella term like "GitOps" or "Kro", obscuring the distinct reconciliation loops of Argo CD, Kro, and ACK.
-2. **Broken Copy-Paste Examples Break Trust:** Key learner examples (such as tenant IaC dev cluster sizing, developer tutorial SQS message publishing, and historical application count baselines) fail schema validation or point to incorrect AWS accounts/versions.
-3. **Checklist Execution Over Mental Models:** A learner can run `make teardown && make setup && make bootstrap && make post-bootstrap` and pass 27 Bats tests without ever understanding what `Synced` actually guarantees, why `Healthy` is independent of sync status, or why a Moto `ACTIVE` record is fundamentally different from a functioning Kubernetes cluster.
-4. **Drills are Siloed from the Learning Flow:** The exceptional failure injection drills in the operational playbook are treated as operational runbooks rather than sequenced learning checkpoints with "predict-observe-explain" scaffolding.
+As **teaching material**, it still has a procedural bias, and in places it **teaches the wrong model**:
+1. **The controller chain is blurred.** The developer tutorial credits Kro with creating the SQS queue. The Helm render step and the ACK controller, the component that actually talks to the cloud, are invisible in the prose.
+2. **Copyable examples fail.** A learner who follows the tenant-IaC runbook, the developer tutorial or the tutorial's cheat sheet gets schema errors, `NonExistentQueue` or an empty queue list, and cannot tell their own mistakes from documentation bugs. v2.0's own fix for the SQS example also fails.
+3. **Status vocabulary is never defined.** No document explains `Synced` vs `Healthy`, or where Argo CD evaluates health for custom resources. That gap misled even an expert validator during the tenant-IaC work (L-7).
+4. **The learner's map is out of date.** The student guide's architecture shows only ACK SQS, and the "current baseline" diagram in the progression guide predates SSO, Kyverno, the platform network and tenant IaC.
+5. **The drills are excellent but sit outside the learning path**, with no predict-observe-explain structure.
 
 ---
 
@@ -35,192 +44,179 @@ However, from an **educational enablement perspective**, the lab currently suffe
 
 | Dimension | Rating | Trainer Findings Summary |
 |---|---|---|
-| **1. Concept Coverage & Explicitness** | **Partial (6/10)** | Foundational terms are named, but the boundaries between reconcilers (Argo CD ApplicationSet &rarr; Argo CD Application &rarr; Helm Chart Render &rarr; Kro RGD &rarr; ACK CRD &rarr; AWS API) are left implicit. |
-| **2. Learning Flow & Scaffolding** | **Weak (4.5/10)** | Starts immediately with an overwhelming 3-cluster, 42-application distributed build. Lacks prerequisite conceptual self-checks and gradual progression from 1 application to complex composition. |
-| **3. Hands-on Design Quality** | **Strong (8/10)** | The failure injection drills (cloud loss, token expiry, Kyverno outage, out-of-band cloud drift) are world-class. However, they lack structured pause-and-reflect prompts before execution. |
-| **4. Documentation Effectiveness** | **Uneven (5.5/10)** | Rich architecture diagrams and runbooks, but plagued by drifted numbers (32 vs 42 apps), outdated container tags, hardcoded wrong account numbers, and absent conceptual glossaries. |
-| **5. Transfer of Learning** | **Moderate (6/10)** | Strong on GitOps repository segregation and least-privilege impersonation; weak on distinguishing local emulation shortcuts from real AWS production requirements. |
+| **1. Concept Coverage & Explicitness** | **Partial (5.5/10)** | Tools are named, but the boundaries between reconcilers (ApplicationSet → Application → Helm render → kro RGD → ACK CR → AWS API) are implicit or wrong. `Synced`/`Healthy`, health customizations, finalizers vs ownerReferences vs deletion policies are never defined in one place |
+| **2. Learning Flow & Scaffolding** | **Weak (4.5/10)** | Starts with a 3-cluster, 42-Application build. No learning objectives, no prerequisite self-check, no predict/observe points. The "Lessons learned" section teaches shell and k3d pitfalls, not GitOps concepts |
+| **3. Hands-on Design Quality** | **Strong (8/10)** | Drills cover cloud state loss, token expiry, admission outage, out-of-band drift, tenant deregistration and a Loki post-mortem, with real timings and correct account handling (`moto111`). Missing: prediction prompts before each drill |
+| **4. Documentation Effectiveness** | **Uneven (5/10)** | Good diagrams and runbooks, but 5 stale "32 Applications" baselines, a wrong account in the tutorial and its cheat sheet, a stale tutorial manifest, a promotion guide that contradicts the live lab, and stale architecture views. No glossary, no key takeaways |
+| **5. Transfer of Learning** | **Moderate (6.5/10)** | Strong on repository separation of duties, per-environment accounts (CARM), least-privilege impersonation, the moto-vs-EKS gap (tenant IaC two-tier note) and admission layering. Weak on promotion vs progressive delivery, and on which lab shortcuts must not reach production |
 
 ---
 
 ## 3. Educational Strengths
 
-1. **Concrete Traceability from Git to Workload:**
-   The multi-repository structure (`gitops-control-plane`, `platform-catalog`, `platform-charts`, `tenant-workloads`, `tenant-iac`, `orders-processor`) mirrors real-world enterprise separation of duties. A learner can trace a single commit in `tenant-workloads` across the hub, through the ApplicationSet generator, into the spoke namespace, and out to the worker container.
-2. **Real-World Asynchronous Drift & Healing in Failure Drills:**
-   The ACK drift drill ([`operational-drills-and-failure-injection.md`](../runbooks/operational-drills-and-failure-injection.md#drill-4-out-of-band-cloud-drift-repaired-by-ack)) is a masterclass in teaching controller reconciliation. When an SQS queue is deleted directly out-of-band in Moto, the learner sees that Kubernetes does *not* detect it instantly; rather, the ACK controller detects and heals it on its scheduled resync loop. This concretely dispels the misconception that Kubernetes controllers are instantaneous event listeners.
-3. **Explicit Distinction Between Infrastructure Simulation and Real EKS:**
-   The recent addition of the **Two-Tier Acceptance Model** note in [`tenant-iac-operations.md`](../runbooks/tenant-iac-operations.md#runbook-1-onboarding-a-new-team-cluster-create) clearly articulates why a mock ACK `status.status == ACTIVE` in Moto validates declarative composition and CARM account boundaries, but does not prove Kubernetes API reachability, node joining, CNI networking, or workload scheduling.
-4. **Repeatable, Idempotent Baseline:**
-   The rebuild scripts (`make setup`, `make bootstrap`, `make post-bootstrap`) provide a reliable, deterministic foundation. When an experiment goes wrong, the student can reset to a verified clean slate in under 7 minutes.
+1. **Traceability from Git to workload.** The six-repository split (`gitops-control-plane`, `platform-catalog`, `platform-charts`, `tenant-workloads`, `tenant-iac`, `orders-processor`) mirrors real separation of duties. One commit in `tenant-workloads` can be followed through the ApplicationSet, onto a spoke, into kro and ACK, and out to moto.
+2. **Drift and healing you can watch.** Drill 4 ([operational-drills](../runbooks/operational-drills-and-failure-injection.md#6-drill-4-out-of-band-cloud-drift-on-sqs-resources)) deletes a DLQ directly in moto, as account 111, and shows ACK recreating it on its resync cycle ("observed 150 s … at most about 300 s"). That dispels the idea that controllers react instantly to everything, and teaches that Argo CD does not see cloud-side drift at all.
+3. **Honest simulation boundaries.** The two-tier acceptance note in [`tenant-iac-operations.md`](../runbooks/tenant-iac-operations.md) (line 84) states that a moto EKS `ACTIVE` record proves the declarative chain and account isolation, not a reachable Kubernetes API, nodes, CNI or workloads.
+4. **Layered admission control that can be demonstrated.** The lab really has three independent admission layers on tenant namespaces, and they fire in a teachable order (verified in §9: Pod Security → ValidatingAdmissionPolicy → Kyverno).
+5. **Repeatable baseline.** `make teardown && make setup && make bootstrap && make post-bootstrap` rebuilds everything from Git without manual steps (484 s measured), and 27 Bats smoke tests confirm the result. Learners can experiment without fear.
 
 ---
 
 ## 4. Key Gaps & Learning Risks
 
-### ⚠️ Gap L-1: Multi-Controller Reconciliation Boundaries are Conflated (**Severity: High**)
-* **Evidence:** In [`developer-tutorial.md`](../developer-tutorial.md#step-2-understand-the-service-manifest), lines 122–126 state:
-  > *"Under the hood, **Kro** automatically generates: 1. A Kubernetes `Deployment`... 2. An AWS SQS Queue in Central Moto Cloud... 3. Passes the `QUEUE_URL` and `QUEUE_ARN` directly to your worker container."*
-* **Pedagogical Flaw:** Kro does **not** create SQS queues in AWS/Moto. Kro is a Kubernetes-native resource composition engine; it only creates Kubernetes child custom resources defined in its ResourceGraphDefinition (RGD)—specifically an ACK `Queue` custom resource (`queue.sqs.services.k8s.aws`). The AWS ACK SQS controller is the component that talks to AWS/Moto. Furthermore, the developer writes a Helm values file (`deploy/values-dev.yaml`), which Argo CD renders into the `QueueBackedService` custom resource.
-* **Learning Risk:** The learner attributes all automation to a single magic tool ("Kro" or "GitOps"), leaving them unable to isolate failure boundaries when an ACK controller is down or an Argo CD render fails.
-
+### ⚠️ Gap L-1: The reconciler chain is conflated (**Severity: High**) — *confirmed*
+* **Evidence:** [`developer-tutorial.md`](../developer-tutorial.md) lines 122–126: *"Under the hood, **Kro** automatically generates: 1. A Kubernetes `Deployment` … 2. An AWS SQS Queue in Central Moto Cloud …"*. The tutorial's diagram draws `KroNP -->|ACK SQS Controller| DevQueue`, so the ACK controller is a label on an arrow, not a component.
+* **What actually happens:**
 ```
-What the docs say:
-[ Developer commits values.yaml ] ──────► [ Kro Engine ] ──────► [ AWS SQS Queue ]
-
-What actually happens (The 4 Reconcilers):
-[ Git Commit ]
-      │
-      ▼ (Reconciler 1: Argo CD ApplicationSet & Application Controller)
-[ Rendered QueueBackedService CR on Spoke ]
-      │
-      ▼ (Reconciler 2: Kro Controller)
-[ ACK Queue CR + Kubernetes Deployment CR on Spoke ]
-      │
-      ▼ (Reconciler 3: ACK SQS Service Controller)
-[ AWS SQS Queue in Moto Cloud (Account 111111111111) ]
+[ Git: tenant-workloads registration + orders-processor/deploy/values-dev.yaml ]
+      │  Reconciler 1: Argo CD ApplicationSet controller (generates the Application)
+      ▼  Reconciler 2: Argo CD application controller (renders the Helm chart, applies to the spoke)
+[ QueueBackedService CR on spoke-nonprod ]
+      │  Reconciler 3: kro (expands the RGD: Deployment, Service, Ingress, NetworkPolicies, ACK Queue CRs)
+      ▼
+[ ACK Queue CRs (sqs.services.k8s.aws) ]
+      │  Reconciler 4: ACK SQS controller (assumes the account role via CARM, calls the SQS API)
+      ▼
+[ SQS queue + DLQ in moto, account 111111111111 ]
 ```
+* **Learning risk:** the learner cannot isolate a failure. "My queue is missing" has four different owners, each with its own status field and log.
 
----
+### ⚠️ Gap L-2: Copyable examples fail or use the wrong account (**Severity: High**) — *confirmed, extended, fix corrected*
+1. **Tenant IaC example fails the schema.** [`tenant-iac-operations.md`](../runbooks/tenant-iac-operations.md) lines 56–66: `env: dev` with `maxSize: 4`. The runbook's own validation command (line 71) fails: `jsonschema.exceptions.ValidationError: 4 is greater than the maximum of 3` (executed, §9).
+2. **The developer tutorial uses moto's default account.** Lines 152 (sample log) and 196 (`send-message` URL) use `…/123456789012/orders-dev-queue`. The live worker logs `…/111111111111/orders-dev-queue`, and the documented URL returns `NonExistentQueue`. The **cheat sheet** (line 233) lists queues with plain mock credentials, which also queries the default account and finds nothing.
+   *v2.0's proposed fix (`get-queue-url --queue-owner-aws-account-id 111111111111` with default credentials) also returns `NonExistentQueue`:* moto resolves the queue in the caller's account. What works is credentials *for* account 111, which is exactly what Drill 4's `moto111` helper does.
+3. **"32 Applications" is stale in five places:** `devops-student-rebuild-guide.md` lines 226 and 307, `operational-drills-and-failure-injection.md` lines 7 and 71, `argocd-cli.md` line 134. The live count is 42.
+* **Learning risk:** when advertised commands fail, learners lose trust and start guessing. Worse, the account example teaches a wrong mental model of CARM: "the queue is in the default account".
 
-### ⚠️ Gap L-2: Learner-Facing Examples Fail Local Validation or Hardcode Wrong Accounts (**Severity: High**)
+### ⚠️ Gap L-3: Procedure dominates conceptual scaffolding (**Severity: Medium**) — *confirmed*
+* **Evidence:** a search of the README, `docs/` and the runbooks for "learning objective", "you will learn", "predict", "reflect", "takeaway", "glossary" or "self-check" finds nothing. No document defines `Synced` vs `Healthy`. The student guide's §7 "Common Pitfalls & DevOps Lessons Learned" covers `set -euo pipefail`, k3d port edits and headless scheduling: useful operator trivia, but none of it is about reconciliation, desired state or controllers.
+* **Learning risk:** a learner completes the rebuild, sees 42 green Applications and 27 passing tests, and still cannot explain what `Synced` guarantees.
+
+### ⚠️ Gap L-4: Lifecycle semantics are scattered (**Severity: Medium**) — *confirmed*
+* **Evidence:** finalizers and kro's reverse-order deletion (tenant-iac runbook), `prune` settings (ApplicationSets), `deletion-policy: retain|delete` (both RGDs), `adopt-or-create` for prod team clusters (TeamEKSCluster RGD), and Argo CD's `preserveResourcesOnDeletion` all exist, but no document compares them.
+* **Learning risk:** learners conflate "delete the Git file", "delete the Kubernetes object" and "delete the cloud resource". These are three different events with three different owners.
+
+### ⚠️ Gap L-5: Promotion model vs progressive delivery, and a guide that contradicts the lab (**Severity: Medium**) — *re-evidenced*
+* **Evidence (corrected):**
+  - [`production-promotion-guardrails.md`](../production-promotion-guardrails.md) is a design reference with five patterns. Its banner correctly says that the lab promotes prod through a PR that pins `valuesRevision` to a 40-character SHA. But its closing "Summary Recommendation … **Short Term (Current Setup)**: Disable `automated` sync for prod" contradicts the live lab: `orders-prod` has `automated: {prune: true, selfHeal: true}`.
+  - Canary and Argo Rollouts appear only as **future Track 2** in [`lab-progression-and-next-steps.md`](../lab-progression-and-next-steps.md).
+* **Learning risk:** the learner cannot say which promotion pattern the lab implements, and may believe they practised progressive delivery when they practised **immutable configuration promotion with rolling updates**.
+
+### ➕ Gap L-6: The tutorial's "values file" is a stale rendered CR (**Severity: Medium**) — *new*
+* **Evidence:** [`developer-tutorial.md`](../developer-tutorial.md) Step 2 says *"Look at `deploy/values-dev.yaml` … (or the rendered `QueueBackedService` CR)"*, then shows a **CR**: `apiVersion: kro.run/v1alpha1`, `messageRetentionPeriod`, `image: …:v1.2.0`. The real `values-dev.yaml` is five Helm values (`name`, `environment`, `replicas`, `retentionPeriod`, `image: …:v1.5.0@sha256:…`). `v1.2.0` is **refused by admission** today (Kyverno `tenant-images-signed`, §9).
+* **Learning risk:** this hides the Helm render layer (L-1), teaches field names that do not exist in the values file, and a learner who copies the image gets an admission denial without knowing why.
+
+### ➕ Gap L-7: Where Argo CD health lives is never explained (**Severity: Medium**) — *new*
+* **Evidence:** the lab ships custom health checks (`resource.customizations.health.kro.run_QueueBackedService`, `…_TeamEKSCluster`, `…_ResourceGraphDefinition`, `…eks.services.k8s.aws_Cluster`). The resource tree shows them working (`QueueBackedService/orders … Healthy`, `TeamEKSCluster/analytics-dev … Healthy`, `VPC/platform-vpc … Healthy`). But Argo CD 3.x **does not copy per-resource health into the Application's `status.resources`**: `kubectl get application -o yaml` shows no health for those kinds. No document says this, or that kro and ACK objects only get a health status because the lab defines one.
+* **Real consequence in this project:** during the tenant-IaC P1 validation, the validator concluded from `status.resources` that "Argo CD applies none of the custom health checks" (validated-02 V-4). That was a false positive, corrected on 2026-10-06. If an expert falls into it, a learner will.
+* **Learning risk:** wrong conclusions about health, and no understanding that health for CRDs is something the platform defines, not something Kubernetes provides.
+
+### ➕ Gap L-8: The learner's architecture views are stale and omit tenant IaC (**Severity: Medium**) — *new*
 * **Evidence:**
-  1. **Schema Rejection in Tenant IaC Runbook:** [`tenant-iac-operations.md`](../runbooks/tenant-iac-operations.md#runbook-1-onboarding-a-new-team-cluster-create) (line 65) provides a copyable cluster claim example for `env: dev` with `maxSize: 4`. The repository's schema (`schema/cluster.schema.json`) enforces a strict rule: for `env: dev` or `test`, `maxSize <= 3`. Running the documented validation script (`python3 -c "import jsonschema..."`) immediately crashes with:
-     ```text
-     jsonschema.exceptions.ValidationError: 4 is greater than the maximum of 3
-     ```
-  2. **Wrong Account Number in SQS CLI Example:** [`developer-tutorial.md`](../developer-tutorial.md#step-4-interacting-with-simulated-aws-via-aws-cli) (line 196) gives a copyable command:
-     ```bash
-     aws --endpoint-url=http://localhost:5000 sqs send-message \
-       --queue-url "http://localhost:5000/123456789012/orders-dev-queue" ...
-     ```
-     Under CARM (Cross-Account Resource Management), `orders-dev` belongs to AWS account `111111111111` (nonprod), NOT the default Moto account `123456789012`. If a student copies this command, it sends a message to a non-existent or wrong queue.
-  3. **Stale Baseline Application Counts:** [`devops-student-rebuild-guide.md`](../runbooks/devops-student-rebuild-guide.md#2-verify-argo-cd-application-status) (line 226) and [`operational-drills-and-failure-injection.md`](../runbooks/operational-drills-and-failure-injection.md#2-pre-drill-health-check) (line 71) repeatedly instruct the student to verify that "all 32 applications report Synced and Healthy". The current accepted baseline contains **42 Applications**.
-* **Learning Risk:** When advertised copyable examples fail or output does not match documentation, students lose confidence in the material and cannot distinguish their own mistakes from platform bugs.
-
----
-
-### ⚠️ Gap L-3: Procedural Execution Dominates over Conceptual Scaffolding (**Severity: Medium**)
-* **Evidence:** [`devops-student-rebuild-guide.md`](../runbooks/devops-student-rebuild-guide.md) provides an excellent 4-step sequence (`make teardown`, `make setup`, `make bootstrap`, `make post-bootstrap`), but:
-  - It contains zero **Learning Objectives** at the start of each section.
-  - It contains zero **Pause-and-Predict** reflection stops (e.g., "Before running `make bootstrap`, what resources exist on the hub? What will Argo CD do when `root-control-plane` is created?").
-  - It inspects `Synced` and `Healthy` in Argo CD without ever defining the difference (e.g., an Application can be `Synced` because Git matches Kubernetes, but `Degraded` because pod containers are in CrashLoopBackOff).
-* **Learning Risk:** The student completes the guide in 15 minutes, observes 100% green checkmarks, and acquires purely muscle-memory/procedural skills without internalizing the underlying declarative model.
-
----
-
-### ⚠️ Gap L-4: Lifecycle Semantics (Pruning, Finalizers, OwnerReferences, Retention) are Disjointed (**Severity: Medium**)
-* **Evidence:**
-  - Kro finalizers and reverse-topological deletion are mentioned in [`tenant-iac-operations.md`](../runbooks/tenant-iac-operations.md).
-  - Argo CD Application pruning is configured across ApplicationSets (`prune: false` vs `prune: true`).
-  - Kubernetes `ownerReferences` are used in the Kro RGD blueprint.
-  - Production cloud retention policies (`deletion-policy: retain` on prod vs `delete` on dev) are specified in Kro blueprints.
-* **Pedagogical Flaw:** These concepts are scattered across disparate runbooks. There is no unified explanation of the **Kubernetes Garbage Collection Lifecycle vs External Cloud Resource Lifecycle**.
-* **Learning Risk:** Students conflate deleting a Git file with deleting a Kubernetes resource, and conflate deleting a Kubernetes CR with terminating an external cloud resource.
-
----
-
-### ⚠️ Gap L-5: Git Promotion vs Progressive Delivery (Canary/Rollouts) is Ambiguous (**Severity: Medium**)
-* **Evidence:** [`production-promotion-guardrails.md`](../production-promotion-guardrails.md) discusses Git revision pinning (e.g. `valuesRevision: <commit-sha>`) for production promotion, but references Argo Rollouts, KEDA, and canary deployments as conceptual targets.
-* **Pedagogical Flaw:** A student might complete the lab believing they practiced progressive delivery or canary traffic routing, when they actually practiced **declarative branch/commit promotion with standard rolling updates**.
-* **Learning Risk:** Failure to understand the fundamental difference between **deployment promotion** (moving an immutable artifact/config across environments) and **traffic-weighted progressive delivery** (canary/blue-green within an environment).
+  - The student guide's architecture (§1) shows moto as "AWS SQS" with only the ACK SQS controller: no EC2/IAM/EKS controllers, no tier-1 `platform-network`, no tenant-IaC flow, although its tenets list `tenant-iac` as one of the six repositories.
+  - [`lab-progression-and-next-steps.md`](../lab-progression-and-next-steps.md) asks the learner to *"ensure you understand what is currently deployed"* and then shows a pre-SSO, pre-Kyverno, SQS-only baseline. Its "Track 3: Kyverno" is presented as future work, although Kyverno is live.
+  - The only tenant-IaC learning material is an **operations** runbook.
+* **Learning risk:** the learner's mental model of the system is incomplete. The richest composition example in the lab (claim → ApplicationSet → chart → kro → ACK IAM/EKS, reading a platform-owned network through `externalRef`) is not taught at all.
 
 ---
 
 ## 5. Must-Understand Concept Checklist
 
-| Must-Understand Concept | Educational Verdict | Detailed Assessment / Gap |
+| Must-Understand Concept | Verdict | Detailed Assessment / Gap |
 |---|:---:|---|
-| **1. Declarative Desired State vs Observed Status** | **Partially Covered** | Covered procedurally via Git sync. Missing clear explanation of controller status fields and why status is owned by controllers, not Git. |
-| **2. Controller Pattern & Continuous Reconciliation Loops** | **Partially Covered** | Observed during ACK out-of-band drift healing. Missing explicit diagram showing the periodic resync loop vs watch event loop. |
-| **3. The 4-Tier Reconciler Chain (Argo CD &rarr; Kro &rarr; ACK &rarr; Cloud)** | **Missing / Conflated** | **Major gap:** Documentation repeatedly claims Kro generates SQS queues, hiding the ACK controller layer and Helm render step. |
-| **4. Argo CD `Synced` vs `Healthy` Distinction** | **Partially Covered** | Both statuses are checked, but their architectural independence (sync = Git spec parity; health = runtime readiness) is never explained. |
-| **5. ApplicationSet Generators & Dynamic Multi-Cluster Routing** | **Fully Covered** | Excellent coverage via Git and cluster generators routing between `spoke-nonprod` and `spoke-prod`. |
-| **6. Custom Resource Definitions (CRDs) & Composition (Kro RGD)** | **Partially Covered** | Claims and RGDs are shown, but the CEL schema expressions and child dependency graph resolution are not taught. |
-| **7. Multi-Tenant Account Isolation (CARM & IAM Impersonation)** | **Fully Covered** | Clear mapping between spoke namespaces, role assumptions (`arn:aws:iam::<account>:role/...`), and Moto accounts (`111111111111` vs `222222222222`). |
-| **8. Deletion Lifecycles: Pruning, Finalizers, OwnerReferences, & Retention** | **Partially Covered** | Documented for tenant IaC, but lacks a comparative model showing Kubernetes garbage collection vs external cloud retention. |
-| **9. Admission Governance: Webhooks (Kyverno) vs Native In-Tree Policies (VAP)** | **Fully Covered** | Clear distinction between image signature verification (Kyverno webhook) and registry allowlisting / deployer boundary (native VAPs). |
-| **10. Immutable Production Artifact Promotion vs Progressive Delivery** | **Partially Covered** | Git SHA pinning for prod is well documented, but needs explicit contrast against canary/traffic-weighted delivery. |
-| **11. Simulation Fidelity: Moto Mock Cloud vs Production AWS EKS** | **Partially Covered** | Two-tier acceptance model is documented in tenant IaC, but missing in student rebuild guide and developer tutorial. |
+| **1. Declarative desired state vs observed status** | **Partially Covered** | Practised through Git sync. Never explained that `status` belongs to controllers, not Git |
+| **2. Controller pattern & reconciliation loops (watch vs periodic resync)** | **Partially Covered** | Drill 4 shows resync (≤ 300 s) concretely. No explanation of watch events vs resync, or why Argo CD cannot see cloud drift |
+| **3. The reconciler chain (ApplicationSet → Application/Helm → kro → ACK → cloud)** | **Missing / Conflated** | L-1, L-6: Kro credited with SQS; Helm render hidden |
+| **4. `Synced` vs `Healthy`; where health is evaluated; custom health for CRDs** | **Missing** | L-3, L-7: never defined; health location undocumented |
+| **5. ApplicationSet generators & multi-cluster routing** | **Fully Covered** | Git-files and cluster generators routing to `spoke-nonprod`/`spoke-prod`; per-tenant and per-team ApplicationSets |
+| **6. CRDs & composition (kro RGD: schema, CEL, dependency graph, `readyWhen`, `externalRef`)** | **Partially Covered** | RGDs and claims shown. CEL expressions, dependency ordering, `readyWhen` and cross-namespace `externalRef` are not taught |
+| **7. Multi-account isolation (CARM, STS role assumption)** | **Partially Covered** *(v2.0: Fully)* | Well modelled in the platform and in the drills (`moto111`), but the developer tutorial contradicts it (L-2.2) |
+| **8. Deletion lifecycles: prune, finalizers, ownerReferences, retain/adopt** | **Partially Covered** | L-4: present, never compared |
+| **9. Admission layering (Pod Security, VAP, Kyverno webhook)** | **Fully Covered** | Clear split of responsibilities; the order is demonstrable (§9) |
+| **10. Configuration promotion vs progressive delivery** | **Partially Covered** | L-5: the guide contradicts the live promotion model |
+| **11. Simulation fidelity: moto vs real AWS/EKS** | **Partially Covered** | Explicit for tenant IaC only; absent from the student guide and tutorial |
+| **12. Cloud-state loss and recovery (in-memory moto, credential caching, re-adoption)** *(new)* | **Partially Covered** | Drill 1 and `make moto-restart` cover it, and `tenant-iac-operations.md` Runbook 5 gives a one-line reason per step. The mechanisms behind them (ACK's cached STS credentials, IGW/SG not recreated, IDs that change) are explained only in the roadmap reports |
+| **13. Platform-owned vs team-owned infrastructure (two tiers)** *(new)* | **Missing** (learner docs) | L-8: taught only in the tenant-IaC plan and operations runbook |
 
 ---
 
 ## 6. Prioritized Enablement Recommendations
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       ENABLEMENT ROADMAP PRIORITY                           │
-│                                                                             │
-│  [ P0: Immediate Fixes ]    Fix Broken Examples & Stale Baselines (L-2)     │
-│             │                                                               │
-│             ▼                                                               │
-│  [ P1: Structural Scaffolding ] Disentangle the 4 Reconcilers (L-1)         │
-│                               Embed "Predict-Observe-Explain" Drills (L-3)  │
-│             │                                                               │
-│             ▼                                                               │
-│  [ P2: Conceptual Transfer ] Add Concept Glossary & Lifecycle Guide (L-4)   │
-│                               Clarify Git Promotion vs Canary (L-5)         │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Priority P0: Fix Stale Examples and Schema Violations (Immediate)
-1. **Fix Tenant IaC Example:** In [`tenant-iac-operations.md`](../runbooks/tenant-iac-operations.md#runbook-1-onboarding-a-new-team-cluster-create), update the copyable dev cluster claim to use `maxSize: 3` (or `env: prod` with `maxSize: 4`) so that the local `python3 jsonschema.validate` verification succeeds.
-2. **Fix Developer Tutorial SQS Command:** In [`developer-tutorial.md`](../developer-tutorial.md#step-4-interacting-with-simulated-aws-via-aws-cli), replace the hardcoded account `123456789012` with dynamic queue discovery or the correct CARM nonprod account:
+### Priority P0: Make every copyable example true (small, immediate)
+1. **Tenant IaC example:** `maxSize: 3` for `env: dev` in `tenant-iac-operations.md`, so the runbook's validation command passes.
+2. **SQS account (corrected fix):** in `developer-tutorial.md` (Step 3 sample log, Step 4, cheat sheet), use account-111 credentials, as Drill 4 does:
    ```bash
-   QUEUE_URL=$(aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs get-queue-url --queue-name orders-dev-queue --queue-owner-aws-account-id 111111111111 --output text --query QueueUrl)
-   aws --endpoint-url=http://localhost:5000 sqs send-message --queue-url "$QUEUE_URL" --message-body '{"orderId": "ORD-1234", "customer": "Alice", "amount": 99.50}'
+   moto111() {   # credentials for moto account 111111111111 (nonprod), see operational-drills §2
+     local c; c=$(AWS_ACCESS_KEY_ID=x AWS_SECRET_ACCESS_KEY=x aws --endpoint-url=http://localhost:5000 --region us-east-1 \
+       sts assume-role --role-arn arn:aws:iam::111111111111:role/learner --role-session-name learner --query Credentials --output json)
+     export AWS_ACCESS_KEY_ID=$(jq -r .AccessKeyId <<<"$c") AWS_SECRET_ACCESS_KEY=$(jq -r .SecretAccessKey <<<"$c") AWS_SESSION_TOKEN=$(jq -r .SessionToken <<<"$c")
+   }
+   moto111
+   QUEUE_URL=$(aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs get-queue-url --queue-name orders-dev-queue --output text)
+   aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs send-message --queue-url "$QUEUE_URL" --message-body '{"orderId":"ORD-1234"}'
    ```
-3. **Synchronize Application Baselines:** Update [`devops-student-rebuild-guide.md`](../runbooks/devops-student-rebuild-guide.md) and [`operational-drills-and-failure-injection.md`](../runbooks/operational-drills-and-failure-injection.md) from 32 to **42 Applications**.
+   (Verified: `get-queue-url` → `http://localhost:5000/111111111111/orders-dev-queue`.) Better still, document the existing `make moto-resources` helper for listing.
+3. **Baselines:** 32 → 42 in all five places, or better, *"all Applications (`argocd app list`)"* so the number cannot drift again.
+4. **Tutorial Step 2:** show the real `deploy/values-dev.yaml`, and then, separately and labelled, the rendered `QueueBackedService` (`kubectl get queuebackedservice orders -o yaml`). This turns L-6 into a lesson about the Helm layer.
 
-### Priority P1: Disentangle Reconcilers and Add Pedagogical Scaffolding
-1. **Create the "One Claim, Four Reconcilers" Guide:** Add an illustrated section in `developer-tutorial.md` and `devops-student-rebuild-guide.md` explicitly defining the boundary between:
-   - *Argo CD Application Controller:* Reconciles Git manifests &rarr; Kubernetes cluster.
-   - *Helm Engine:* Renders `values.yaml` into `QueueBackedService` custom resource.
-   - *Kro Engine:* Expands `QueueBackedService` into ACK `Queue` CR and Kubernetes `Deployment`.
-   - *ACK SQS Controller:* Reconciles ACK `Queue` CR &rarr; AWS/Moto SQS Queue.
-2. **Incorporate "Predict-Observe-Explain" Checkpoints:** In [`devops-student-rebuild-guide.md`](../runbooks/devops-student-rebuild-guide.md), add reflection tables after each step:
-   - *Step 2 (Setup):* Before running, what is running on the host? After running, what is the difference between `k3d-hub-cluster` and the two spokes?
-   - *Step 3 (Bootstrap):* Why does creating a single Argo CD application (`root-control-plane`) cause 41 other applications to appear?
-   - *Step 4 (Post-Bootstrap):* Why is `argo-cd` set to manual sync by default?
-3. **Promote Drills to Learning Milestones:** Move Drill 4 (Out-of-Band Cloud Drift) directly into the core student tutorial so every learner personally deletes an SQS queue in Moto and watches the ACK controller heal it.
+### Priority P1: Teach the model, not just the procedure
+1. **"One change, four reconcilers" section** (tutorial and student guide), using the chain in L-1. For each reconciler: what it watches, what it writes, where its status is, and what you see when it is down.
+2. **Status & health primer:** `Synced` (live = rendered Git) vs `Healthy` (runtime readiness as judged by health checks); built-in vs custom health (`resource.customizations.health.*` in `clusters/values-argocd-hub.yaml`); **where to read health in Argo CD 3.x** (UI, `argocd app get --output tree`, not `status.resources`).
+3. **Predict–Observe–Explain checkpoints** in the student guide (before `make bootstrap`: "what will one root Application create?"; after: "why 42?"; before Drill 4: "will Argo CD notice?").
+4. **Promote Drill 4 (and Drill 1) into the learning path**, each with a prediction prompt and an "explain what you saw" prompt.
+5. **Refresh the learner architecture** (student guide §1, progression baseline): ACK EC2/IAM/EKS, `platform-network`, tenant IaC, Keycloak, Kyverno; mark progression tracks already implemented.
 
-### Priority P2: Concept Glossaries & Conceptual Boundaries
-1. **Add an Enterprise GitOps Glossary:** Create a reference table contrasting:
-   - `Synced` vs `Healthy` vs `Ready`.
-   - `ApplicationSet` vs `Application` vs `AppProject`.
-   - `ownerReferences` (Kubernetes cascade deletion) vs `Finalizers` (pre-delete blocking hook) vs `deletion-policy: retain` (external cloud preservation).
-2. **Explicit Promotion vs Progressive Delivery Note:** Add a clear callout in `production-promotion-guardrails.md` contrasting the lab's declarative Git revision promotion model with traffic-based canary deployments (Argo Rollouts).
+### Priority P2: Make concepts transferable
+1. **Glossary / concept sheet:** `Synced`/`Healthy`/`Ready`; `ApplicationSet`/`Application`/`AppProject`; `ownerReferences` vs finalizers vs `deletion-policy: retain` vs `adopt-or-create`; CARM; RGD/`readyWhen`/`externalRef`.
+2. **Lifecycle comparison table:** "delete the Git file", "delete the K8s object", "delete the cloud resource", each with owner, trigger and the prod vs nonprod difference.
+3. **Promotion guide:** replace "Short Term (Current Setup)" with what the lab actually does (SHA pin + PR + required check, automated sync), and add a callout: promotion ≠ progressive delivery (link Track 2).
+4. **A learner path for tenant IaC** (concepts, not operations): two tiers, `externalRef`, why the EKS `Cluster` never reports `ResourceSynced` in moto, and what changes on real AWS.
+5. **Rewrite "Lessons learned"** around concepts (drift, reconciliation timing, account isolation), keeping the shell/k3d items as an appendix.
 
 ---
 
-## 7. Suggested Trainer Reflection & Validation Questions
+## 7. Trainer Reflection & Validation Questions (with answer guidance)
 
-A trainer or enablement lead should use these 8 questions to evaluate whether a student has achieved true conceptual understanding or merely executed commands:
-
-1. **The Reconciler Trace:**  
-   *"You edit `replicas: 3` in `deploy/values-dev.yaml` and push to GitHub. Name the four distinct software components that process this change before the third pod starts, and name one log or status field you would check to verify each component's success."*
-2. **The Status Disconnect (`Synced` vs `Healthy`):**  
-   *"In the Argo CD UI, your application is showing `Synced` with a green checkmark, but `Degraded` with a red heart. Explain how this state is possible. What does `Synced` prove, and what does `Degraded` prove?"*
-3. **Out-of-Band Cloud Drift:**  
-   *"An operator manually deletes the `orders-dev-queue` directly in the AWS console (or Moto API). Does Argo CD detect this drift? Why or why not? What component will detect it, and when?"*
-4. **Composition vs Cloud Control:**  
-   *"What is the difference between what Kro does and what AWS ACK does? If the ACK SQS controller pod is killed, can Kro still reconcile a new `QueueBackedService`? What state will the system be in?"*
-5. **Deletion & Cascade Semantics:**  
-   *"You delete `tenants/tenant-a/apps/orders-dev.yaml` from Git. Describe the cascade sequence: What does Argo CD do? What does Kubernetes garbage collection do to the worker pods? What does ACK do to the Moto SQS queue? How would this behavior change in production if the deletion policy was set to `retain`?"*
-6. **GitOps Exceptions:**  
-   *"The guide states that 'Git is the single source of truth for everything running'. Name two pieces of state in this lab that are intentionally NOT stored in Git, and explain why storing them in Git would violate security or operational best practices."*
-7. **Admission Control Layering:**  
-   *"You attempt to run an unapproved container image `docker.io/library/nginx:latest` in the `orders-dev` namespace. Which admission control denies it first: Pod Security Standards (`restricted`), the native ValidatingAdmissionPolicy (`tenant-image-registry-allowlist`), or Kyverno (`tenant-images-signed`)? Why?"*
-8. **The Simulation Reality Gap:**  
-   *"A student shows you that their new `TeamEKSCluster` claim reports `Ready=True` in Prometheus metrics on the hub. Does this prove that a developer can run `kubectl get pods` against that team's new EKS cluster? Explain the difference between Moto's ACK simulation and real AWS EKS convergence."*
+| # | Question | A strong answer includes |
+|---|---|---|
+| 1 | **The reconciler trace.** You set `replicas: 3` in `deploy/values-dev.yaml` and push. Name every component that acts before the third pod runs, and one status field or log you would check for each | Argo CD application controller notices the new revision (the ApplicationSet is unchanged: the registration did not change), renders the chart, applies the `QueueBackedService` (Application `Synced`); kro updates the Deployment (instance `Ready`); the Deployment/ReplicaSet controllers create pods (`readyReplicas`). ACK is **not** involved: no queue field changed |
+| 2 | **Synced but Degraded.** How can an Application be `Synced` and `Degraded`? | Sync = live objects match the rendered Git; health = runtime readiness judged by health checks (e.g. CrashLoopBackOff). For kro/ACK kinds, health exists only because the lab defines Lua health checks; in Argo CD 3.x you read it in the resource tree, not in `status.resources` |
+| 3 | **Out-of-band cloud drift.** Someone deletes `orders-dev-dlq` directly in moto. Who notices, and when? | Argo CD does not (its desired state is the Kubernetes object, which is unchanged). The ACK SQS controller notices on its next resync (≤ 300 s; observed 11–150 s) and recreates it. A controller restart forces it immediately |
+| 4 | **Composition vs cloud control.** If the ACK SQS controller is down, what happens to a new `QueueBackedService`? | kro still creates the Deployment and the ACK `Queue` CRs; the queues are not created (CRs unsynced), so the instance is not ready and the workers have no queue. Argo CD shows the Application `Synced`; health depends on the health checks. `SpokeControllerDown` fires |
+| 5 | **Deletion cascade.** You delete `tenants/tenant-a/apps/orders-dev.yaml`. What happens, layer by layer, and how would `retain` change it? | The ApplicationSet drops the Application; Argo CD deletes its resources (finalizer); kro deletes its children; ACK deletes the queues because of `deletion-policy: delete`. With `retain` (prod), the Kubernetes objects go but the cloud queues stay. Garbage collection via ownerReferences is not the same as cloud deletion |
+| 6 | **GitOps exceptions.** Name state that is intentionally **not** in Git, and why | Passwords and tokens (`~/.config/gitops-lab`, mode 600), worker IAM keys (Secrets created by `post-bootstrap`), the TLS leaf key, moto's in-memory state. Secrets in Git leak; cloud state is observed, not declared |
+| 7 | **Admission layering.** An `nginx:latest` pod is created in `orders-dev`. Which layer denies it first? | Verified on the lab: **Pod Security `restricted`** (in-tree, runs first) denies a pod without a compliant `securityContext`. With a compliant one, the **ValidatingAdmissionPolicy** registry allowlist denies it. An allowed-registry but unsigned image (`orders-processor:v1.2.0`) is denied by **Kyverno**'s validating webhook. Bonus: via a Deployment, the denial shows on the ReplicaSet's events, not on the `kubectl apply` |
+| 8 | **The simulation gap.** A `TeamEKSCluster` shows `Ready` and `TeamClusterNotReady` is silent. Can a team run `kubectl` against it? | No. moto creates an `ACTIVE` API record with a fake endpoint; there is no control plane, node or CNI. `Ready` proves the declarative chain, the accounts and the guardrails. On real AWS, readiness would also require a reachable endpoint, nodes and access entries |
 
 ---
 
 ## 8. Final Trainer Verdict
 
-The lab provides an **exceptionally mature and stable technical platform**. Its operational mechanics, multi-cluster topology, security boundaries, and telemetry are production-grade. 
+The **platform** is mature, realistic and stable. The **enablement layer** is where the work is, and it is mostly small, concrete work:
+1. **P0, about an hour:** make every copyable example true (the tenant-IaC claim, account-111 SQS commands, the 42-Application baseline, the real values file).
+2. **P1:** teach the reconciler chain and the status vocabulary, including *where* health lives. This gap was strong enough to mislead an expert validator.
+3. **P1/P2:** turn the drills into predict-observe-explain milestones, refresh the architecture views, and give tenant IaC a learner path.
 
-To transform this platform into an **elite training program**, the project must now invest in its **enablement layer**:
-1. Correct the copyable examples so students never encounter false-negative errors.
-2. Disentangle the controller chain so students understand the distinct roles of Argo CD, Kro, and ACK.
-3. Transform passive command execution into an active "Predict & Observe" discovery journey.
+Done well, these would raise the score to about 8/10 without changing a single platform component.
+
+---
+
+## 9. Verification Log (2026-10-06, live lab)
+
+| Claim | Command (abridged) | Result |
+|---|---|---|
+| Tenant-IaC example fails | runbook lines 56–66 → `jsonschema.validate(…, tenant-iac/schema/cluster.schema.json)` | `ValidationError: 4 is greater than the maximum of 3` |
+| Tutorial URL wrong | `aws sqs get-queue-attributes --queue-url …/123456789012/orders-dev-queue` (default creds) | `NonExistentQueue` |
+| v2.0 fix wrong | `aws sqs get-queue-url --queue-name orders-dev-queue --queue-owner-aws-account-id 111111111111` (default creds) | `NonExistentQueue` |
+| Working fix | STS assume-role into 111, then `get-queue-url` | `http://localhost:5000/111111111111/orders-dev-queue` |
+| Live worker account | `kubectl -n orders-dev logs <worker>` | `listening on http://moto-cloud:5000/111111111111/orders-dev-queue` |
+| "32" occurrences | `grep` in docs | student guide l.226, l.307; drills l.7, l.71; argocd-cli l.134. Live: 42 Applications |
+| Real values file | `orders-processor/deploy/values-dev.yaml` | `retentionPeriod`, `image: …:v1.5.0@sha256:e95bb633…` |
+| Prod sync policy | `kubectl get application orders-prod -o jsonpath='{.spec.syncPolicy.automated}'` | `{"prune":true,"selfHeal":true}` |
+| Health customizations present | `argocd-cm` keys | `resource.customizations.health.{kro.run_QueueBackedService, kro.run_TeamEKSCluster, kro.run_ResourceGraphDefinition, eks.services.k8s.aws_Cluster}` |
+| Health not in `status.resources` | `kubectl get application orders-dev -o json` | `QueueBackedService` health absent |
+| Health evaluated | `argocd app get orders-dev --output tree` | `QueueBackedService/orders Synced Healthy`, `Queue/orders-dev-dlq Healthy`; `TeamEKSCluster/analytics-dev Healthy`; `VPC/platform-vpc Healthy` |
+| Admission order | `kubectl apply --dry-run=server` in `orders-dev` | nginx, no securityContext → **PodSecurity restricted**; nginx, compliant → **VAP** `tenant-image-registry-allowlist`; `ghcr.io/brunobml/orders-processor:v1.2.0`, compliant → **Kyverno** `tenant-images-signed` |
+| Smoke tests | `grep -c @test tests/smoke/*.bats` | 6+4+2+6+3+6 = **27** |
+| Rebuild time | `full-rebuild-and-acceptance.md` l.56 | 484 s |
+| Scaffolding absent | `grep -i` for objectives/predict/reflect/glossary/takeaway/self-check | no matches |
