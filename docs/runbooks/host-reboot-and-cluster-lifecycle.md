@@ -260,3 +260,9 @@ A container restarted because it exceeded its memory limit (Kubernetes emits no 
 3. Fix forward with a new commit, or revert. Do not promote a catalog revision to prod while its CI is red.
 
 *CIStatusUnknown*: the ci-status exporter (`monitoring/ci-status-exporter`) could not read the GitHub API for 30 min. Causes: no internet from the hub; GitHub's unauthenticated limit of 60 calls/hour, shared with everything on the host (see `lab_ci_github_rate_limit_remaining`); or the exporter is down.
+
+### Alert: TeamClusterNotReady
+A self-service team EKS cluster is not ready (`lab_team_cluster_ready == 0`) on a spoke for 5 min.
+1. Check the cluster status on the spoke: `kubectl --context k3d-<spoke> -n iac-<team>-<env> get teamekscluster,cluster.eks,nodegroup.eks,role.iam`.
+2. Check ACK EKS/IAM controller logs in `ack-system`: `kubectl --context k3d-<spoke> -n ack-system logs -l app.kubernetes.io/name=eks-controller`.
+3. For full procedures, see [Tenant IaC Operations Runbook](tenant-iac-operations.md#alert-teamclusternotready).

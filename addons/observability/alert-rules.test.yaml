@@ -268,4 +268,28 @@ tests:
             exp_annotations:
               summary: "ApplicationSet tenant-workloads-tenant-a is not up to date (ErrorOccurred): its Applications are no longer updated"
               runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-applicationsetnotuptodate
+  - name: TeamClusterNotReady fires when a team cluster is not ready
+    interval: 30s
+    input_series:
+      - {series: 'lab_team_cluster_ready{cluster="spoke-nonprod",name="analytics-dev",namespace="iac-team-data-dev",team="team-data",env="dev"}', values: '0x20'}
+      - {series: 'lab_team_cluster_ready{cluster="spoke-prod",name="analytics-prod",namespace="iac-team-data-prod",team="team-data",env="prod"}', values: '1x20'}
+    alert_rule_test:
+      - {eval_time: 2m, alertname: TeamClusterNotReady, exp_alerts: []}
+      - eval_time: 6m
+        alertname: TeamClusterNotReady
+        exp_alerts:
+          - exp_labels: {severity: critical, cluster: spoke-nonprod, name: analytics-dev, namespace: iac-team-data-dev, team: team-data, env: dev}
+            exp_annotations:
+              summary: "Team cluster analytics-dev is not ready on spoke-nonprod"
+              runbook: docs/runbooks/tenant-iac-operations.md#alert-teamclusternotready
+              logs: "http://grafana.localhost/d/lab-logs?var-cluster=spoke-nonprod&var-namespace=iac-team-data-dev"
+  - name: TeamClusterNotReady silent when all team clusters are ready
+    interval: 30s
+    input_series:
+      - {series: 'lab_team_cluster_ready{cluster="spoke-nonprod",name="analytics-dev",namespace="iac-team-data-dev",team="team-data",env="dev"}', values: '1x20'}
+      - {series: 'lab_team_cluster_ready{cluster="spoke-prod",name="analytics-prod",namespace="iac-team-data-prod",team="team-data",env="prod"}', values: '1x20'}
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: TeamClusterNotReady
+        exp_alerts: []
 

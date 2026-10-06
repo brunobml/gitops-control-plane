@@ -8,6 +8,7 @@ platform.lab/image-verification=enabled, CARM annotation services.k8s.aws/owner-
 Results are served on :9102/metrics for the spoke Prometheus agent.
 Standard library only (SigV4 signing included), so nothing is installed at runtime.
 """
+import calendar
 import datetime
 import hashlib
 import hmac
@@ -29,7 +30,7 @@ REGION = "us-east-1"
 SA = "/var/run/secrets/kubernetes.io/serviceaccount"
 API = "https://kubernetes.default.svc"
 
-STATE = {"results": {}, "errors": 0, "last_run": 0}
+STATE = {"results": {}, "errors": 0, "last_run": 0, "clusters": {}}
 LOCK = threading.Lock()
 
 
@@ -116,8 +117,45 @@ def run_once():
                     STATE["errors"] += 1
             results[ns] = (ok, secs)
             print(f"{ns}: {'ok' if ok else 'FAILED'} in {secs:.1f}s", flush=True)
+    clusters = {}
+    try:
+        c_items = k8s("/apis/kro.run/v1alpha1/teameksclusters").get("items", [])
+        for item in c_items:
+            m = item.get("metadata", {})
+            sp = item.get("spec", {})
+            st = item.get("status", {})
+            c_name = m.get("name", "")
+            c_ns = m.get("namespace", "")
+            team = sp.get("team", "")
+            env = sp.get("env", "")
+            cluster_name = st.get("clusterName", "")
+            arn = st.get("clusterARN", "")
+            state = st.get("state", st.get("clusterStatus", "UNKNOWN"))
+            ready = 1 if st.get("ready") is True else 0
+            created = m.get("creationTimestamp", "")
+            ts = 0
+            if created:
+                try:
+                    ts = calendar.timegm(time.strptime(created, "%Y-%m-%dT%H:%M:%SZ"))
+                except ValueError:
+                    ts = 0
+            clusters[(c_ns, c_name)] = {
+                "name": c_name,
+                "namespace": c_ns,
+                "team": team,
+                "env": env,
+                "cluster_name": cluster_name,
+                "arn": arn,
+                "state": state,
+                "ready": ready,
+                "created_ts": ts,
+            }
+    except Exception as e:  # noqa: BLE001
+        print(f"teameksclusters probe error: {e}", flush=True)
+
     with LOCK:
         STATE["results"] = results
+        STATE["clusters"] = clusters
         STATE["last_run"] = int(time.time())
 
 
@@ -129,18 +167,44 @@ def loop():
             print(f"probe cycle error: {e}", flush=True)
             with LOCK:
                 STATE["errors"] += 1
-        time.sleep(INTERVAL)
+            time.sleep(INTERVAL)
 
 
 def metrics():
     with LOCK:
         res, errors, last = dict(STATE["results"]), STATE["errors"], STATE["last_run"]
+        clusters = dict(STATE.get("clusters", {}))
     out = ["# TYPE lab_order_e2e_success gauge", "# TYPE lab_order_e2e_duration_seconds gauge"]
     for ns, (ok, secs) in sorted(res.items()):
         out.append(f'lab_order_e2e_success{{namespace="{ns}"}} {1 if ok else 0}')
         out.append(f'lab_order_e2e_duration_seconds{{namespace="{ns}"}} {secs:.1f}')
     out += ["# TYPE lab_order_e2e_last_run_timestamp_seconds gauge", f"lab_order_e2e_last_run_timestamp_seconds {last}",
             "# TYPE lab_order_e2e_errors_total counter", f"lab_order_e2e_errors_total {errors}"]
+    if clusters:
+        out += [
+            "# HELP lab_team_cluster_info Information about team EKS clusters.",
+            "# TYPE lab_team_cluster_info gauge",
+        ]
+        for (c_ns, c_name), d in sorted(clusters.items()):
+            out.append(
+                f'lab_team_cluster_info{{name="{d["name"]}",namespace="{d["namespace"]}",team="{d["team"]}",env="{d["env"]}",cluster_name="{d["cluster_name"]}",arn="{d["arn"]}",state="{d["state"]}"}} {d["created_ts"]}'
+            )
+        out += [
+            "# HELP lab_team_cluster_ready Readiness of team EKS cluster (1=ready, 0=not ready).",
+            "# TYPE lab_team_cluster_ready gauge",
+        ]
+        for (c_ns, c_name), d in sorted(clusters.items()):
+            out.append(
+                f'lab_team_cluster_ready{{name="{d["name"]}",namespace="{d["namespace"]}",team="{d["team"]}",env="{d["env"]}"}} {d["ready"]}'
+            )
+        out += [
+            "# HELP lab_team_cluster_created_timestamp_seconds Creation timestamp in unix seconds.",
+            "# TYPE lab_team_cluster_created_timestamp_seconds gauge",
+        ]
+        for (c_ns, c_name), d in sorted(clusters.items()):
+            out.append(
+                f'lab_team_cluster_created_timestamp_seconds{{name="{d["name"]}",namespace="{d["namespace"]}",team="{d["team"]}",env="{d["env"]}"}} {d["created_ts"]}'
+            )
     return "\n".join(out) + "\n"
 
 

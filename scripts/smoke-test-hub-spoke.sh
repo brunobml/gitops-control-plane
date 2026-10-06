@@ -44,8 +44,7 @@ else
 fi
 
 # 3. Argo CD Applications Health & Sync State (L3-4, C-2)
-echo -e "\n${YELLOW}[3/12] Asserting Argo CD Application Sync and Health...${NC}"
-EXPECTED_APPS=("argo-cd" "addon-headlamp" "addon-keycloak" "addon-oauth2-proxy" "addon-kyverno-spoke-nonprod" "addon-kyverno-spoke-prod" "addon-prometheus" "addon-grafana" "addon-blackbox" "addon-lab-exporters" "addon-observability-spoke-nonprod" "addon-observability-spoke-prod" "addon-loki" "addon-alloy" "addon-logging-spoke-nonprod" "addon-logging-spoke-prod" "addon-platform-config-spoke-nonprod" "addon-platform-config-spoke-prod" "addon-traefik" "platform-projects" "addon-kro-spoke-nonprod" "addon-kro-spoke-prod" "addon-ack-sqs-spoke-nonprod" "addon-ack-sqs-spoke-prod" "addon-ack-credentials-spoke-nonprod" "addon-ack-credentials-spoke-prod" "kro-blueprints-spoke-nonprod" "kro-blueprints-spoke-prod" "orders-dev" "orders-test" "orders-prod" "root-control-plane")
+EXPECTED_APPS=("argo-cd" "addon-headlamp" "addon-keycloak" "addon-oauth2-proxy" "addon-kyverno-spoke-nonprod" "addon-kyverno-spoke-prod" "addon-prometheus" "addon-grafana" "addon-blackbox" "addon-lab-exporters" "addon-observability-spoke-nonprod" "addon-observability-spoke-prod" "addon-loki" "addon-alloy" "addon-logging-spoke-nonprod" "addon-logging-spoke-prod" "addon-platform-config-spoke-nonprod" "addon-platform-config-spoke-prod" "addon-traefik" "platform-projects" "addon-kro-spoke-nonprod" "addon-kro-spoke-prod" "addon-ack-sqs-spoke-nonprod" "addon-ack-sqs-spoke-prod" "addon-ack-ec2-spoke-nonprod" "addon-ack-ec2-spoke-prod" "addon-ack-iam-spoke-nonprod" "addon-ack-iam-spoke-prod" "addon-ack-eks-spoke-nonprod" "addon-ack-eks-spoke-prod" "addon-ack-credentials-spoke-nonprod" "addon-ack-credentials-spoke-prod" "platform-network-spoke-nonprod" "platform-network-spoke-prod" "kro-blueprints-spoke-nonprod" "kro-blueprints-spoke-prod" "orders-dev" "orders-test" "orders-prod" "team-data-analytics-dev" "team-data-analytics-prod" "root-control-plane")
 APP_DATA=$(kubectl --context k3d-hub-cluster -n argocd get applications -o jsonpath='{range .items[*]}{.metadata.name}:{.status.sync.status}:{.status.health.status}{"\n"}{end}')
 
 for expected in "${EXPECTED_APPS[@]}"; do
@@ -360,6 +359,12 @@ echo -e "${GREEN}✔ Logs shipped from hub, spoke-nonprod and spoke-prod; Loki u
 # moto restart) its last result can still be a failure; stage 9 already proved e2e processing directly.
 e2e=$(promq 'lab_order_e2e_success == 0' | jq -r '[.data.result[] | .metric.namespace] | join(",")')
 [[ -n "$e2e" ]] && echo -e "${YELLOW}! synthetic order probe's last run failed for: ${e2e} (re-checked every 5 min)${NC}"
+# Phase P5: assert team EKS clusters are ready in Prometheus metrics
+team_unready=$(promq 'lab_team_cluster_ready == 0' | jq -r '[.data.result[] | .metric.name] | join(",")' 2>/dev/null || true)
+if [[ -n "$team_unready" ]]; then
+  echo -e "${RED}✘ Team clusters not ready in Prometheus metrics: ${team_unready}${NC}"
+  exit 1
+fi
 # Alerts firing for more than 20 min are persistent problems; younger ones are reported (they
 # clear on their own after a recovery, within one probe cycle / alert 'for' window).
 alerts=$(kubectl --context k3d-hub-cluster -n monitoring exec deploy/prometheus-server -c prometheus-server -- wget -qO- http://localhost:9090/api/v1/alerts 2>/dev/null)

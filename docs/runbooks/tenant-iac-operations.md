@@ -1,0 +1,192 @@
+# Operations Runbook: Tenant Infrastructure-as-Code (IaC) Self-Service
+
+> **Audience:** Platform Engineers, SREs, and Tenant Service Owners.  
+> **Scope:** Self-service EKS clusters provisioned via [`brunobml/tenant-iac`](https://github.com/brunobml/tenant-iac), governed by Hub Argo CD and instantiated via Kro + AWS Controllers for Kubernetes (ACK) on `k3d-spoke-nonprod` and `k3d-spoke-prod`.
+
+---
+
+## 1. Architecture & Governance Model
+
+The self-service infrastructure workflow is declarative, PR-driven, and governed by strict isolation boundaries:
+
+```
+Tenant Repo (tenant-iac)
+  └── teams/<team>/<name>-<env>.yaml
+          │
+          │  Pull Request + CI validation (JSON Schema + CEL + Rule 24519842)
+          ▼
+Hub Argo CD (k3d-hub-cluster)
+  ├── AppProject: tenant-iac (scoped sources/destinations)
+  └── ApplicationSet: tenant-iac-<team> (git files generator)
+          │
+          │  Spoke ServiceAccount: argocd-iac-deployer (least-privilege RBAC)
+          ▼
+Spoke Clusters (k3d-spoke-nonprod / k3d-spoke-prod)
+  └── Namespace: iac-<team>-<env> (PSS restricted, CARM owner-account-id)
+          └── TeamEKSCluster CR (kro.run/v1alpha1)
+                  │
+                  ▼ Kro ResourceGraphDefinition (teamekscluster)
+                  ├── iam.services.k8s.aws/v1alpha1: Role (Cluster & Node roles)
+                  ├── eks.services.k8s.aws/v1alpha1: Cluster (EKS cluster)
+                  └── eks.services.k8s.aws/v1alpha1: Nodegroup (Managed Nodegroup)
+                          │
+                          ▼ CARM AssumeRole via local STS
+AWS / Moto Cloud (http://localhost:5000)
+  ├── Nonprod Account 111111111111 (deletion-policy: delete)
+  ├── Prod Account 222222222222 (deletion-policy: retain)
+  └── Default Account 123456789012 (zero leaked resources)
+```
+
+---
+
+## 2. Operational Procedures
+
+### Runbook 1: Requesting a New Cluster (`request`)
+
+1. **Clone & Branch:**
+   ```bash
+   git clone git@github.com:brunobml/tenant-iac.git
+   cd tenant-iac
+   git checkout -b feature/new-<team>-<name>-<env>
+   ```
+
+2. **Create Cluster Claim File:**
+   Create file `teams/<team>/<name>-<env>.yaml` following `schema/cluster.schema.json`:
+   ```yaml
+   team: team-data
+   name: ml-feature-store
+   env: dev
+   kubernetesVersion: "1.33"
+   network: platform-default
+   nodeGroup:
+     instanceType: t3.medium
+     minSize: 1
+     desiredSize: 2
+     maxSize: 4
+   ```
+
+3. **Validate Locally:**
+   ```bash
+   # Validate JSON schema and naming
+   python3 -c "import json, jsonschema, yaml; jsonschema.validate(yaml.safe_load(open('teams/team-data/ml-feature-store-dev.yaml')), json.load(open('schema/cluster.schema.json')))"
+   ```
+
+4. **Submit PR & Merge:**
+   - Push branch and open PR against `main`.
+   - CI workflow `cluster-checks` runs automatically: validates schema, ensures naming convention `<team>/<name>-<env>.yaml`, enforces unique cluster names, checks allowed Kubernetes versions (`1.32`, `1.33`), and scans for secrets.
+   - For `prod` clusters, CODEOWNERS requests platform lead review.
+   - Once checks pass and review is approved, merge PR to `main`.
+   - Hub Argo CD ApplicationSet automatically detects the file and deploys the cluster application within 3 minutes (or sync immediately via Argo CD UI).
+
+---
+
+### Runbook 2: Modifying an Existing Cluster (`change`)
+
+1. **Allowed In-Place Changes:**
+   - **Nodegroup Sizing:** `desiredSize`, `minSize`, `maxSize`.
+   - **Instance Type:** `instanceType` (e.g. `t3.medium` $\rightarrow$ `m5.large`).
+   - **Kubernetes Version:** `kubernetesVersion` (e.g. `"1.32"` $\rightarrow$ `"1.33"`).
+
+2. **Procedure:**
+   - Create a branch in `brunobml/tenant-iac`.
+   - Edit `teams/<team>/<name>-<env>.yaml` with the updated parameters.
+   - Open PR and verify CI passes.
+   - Merge PR.
+   - Argo CD updates the `TeamEKSCluster` CR on the spoke.
+   - Kro reconciles the resource graph and updates the underlying ACK `Cluster` and `Nodegroup` CRs.
+   - ACK controller updates the live AWS EKS cluster and nodegroup with zero downtime.
+
+---
+
+### Runbook 3: Deleting a Nonprod Cluster (`delete`)
+
+1. **Procedure:**
+   - In `brunobml/tenant-iac`, open a PR removing `teams/<team>/<name>-dev.yaml`.
+   - Merge the PR.
+2. **Lifecycle & Teardown Behavior:**
+   - Argo CD ApplicationSet notices file removal and prunes the Application.
+   - Deletion of `TeamEKSCluster` triggers Kro finalizer.
+   - Kro deletes children in strict reverse topological order:
+     1. Nodegroup (`Nodegroup.eks.services.k8s.aws`)
+     2. EKS Cluster (`Cluster.eks.services.k8s.aws`)
+     3. IAM Roles (`Role.iam.services.k8s.aws`)
+   - Because `env: dev` uses `deletion-policy: delete`, ACK controller actively calls Moto/AWS to terminate and remove the cloud resources in account `111111111111`.
+   - Namespace and all resources are completely cleaned up.
+
+---
+
+### Runbook 4: Deleting a Prod Cluster (`prod-retention`)
+
+1. **Procedure:**
+   - Open a PR in `brunobml/tenant-iac` removing `teams/<team>/<name>-prod.yaml`.
+   - Requires PR approval and passing CI checks.
+   - Merge PR.
+2. **Cloud Resource Protection:**
+   - Argo CD prunes the Application and Kubernetes CRs are deleted.
+   - **CRITICAL:** Because `env: prod` uses `deletion-policy: retain` (enforced by the Helm chart blueprint), ACK controllers **do not** delete the underlying cloud resources in AWS account `222222222222`.
+   - The AWS EKS cluster, managed nodegroup, and IAM roles remain intact in AWS to prevent accidental data loss.
+   - To decommission retained cloud resources permanently, a platform administrator must assume the account role and execute AWS CLI deletion explicitly.
+
+---
+
+### Runbook 5: Moto Cloud Restart & Disaster Recovery (`moto-restart`)
+
+When the host machine reboots or the `moto-cloud` Docker container restarts, Moto loses its in-memory state.
+
+#### Automated Recovery:
+Run the official recovery script from repository root:
+```bash
+make moto-restart
+# OR: bash scripts/moto-restart.sh
+```
+
+#### What the Script Does:
+1. **Pauses Argo CD Application Controller:** Prevents self-healing race conditions.
+2. **Scales Down ACK Controllers (0 Replicas):** Prevents in-flight unauthenticated requests from leaking into Moto default account `123456789012` before STS tokens are ready.
+3. **Restarts Moto Container:** Issues `docker restart moto-cloud` with managed IAM policies enabled.
+4. **Re-creates Platform Network:** Clears stale network objects and re-syncs VPC, Subnets, and Security Groups.
+5. **Clears Stale Adopted Markers:** Removes `services.k8s.aws/adopted` markers.
+6. **Scales Up ACK Controllers (1 Replica):** Allows controllers to reconcile against freshly provisioned cloud state.
+7. **Resumes Argo CD Application Controller:** Unpauses reconciliation.
+8. **Re-syncs Applications:** Ensures platform network and tenant workloads reach `Healthy`.
+9. **Leak Verification:** Asserts that account `123456789012` has **zero** leaked VPCs, SGs, IGWs, SQS queues, or IAM roles.
+10. **Re-provisions Worker Credentials & Runs Smoke Gates:** Verifies end-to-end functionality.
+
+---
+
+## 3. Alerts & Troubleshooting
+
+### Alert: `TeamClusterNotReady`
+
+#### Symptoms:
+- Prometheus alert `TeamClusterNotReady` is firing (Critical).
+- Grafana *Platform Overview* dashboard shows a cluster in `NOT READY` state.
+- Hub Argo CD displays application `team-<team>-<name>-<env>` in `Degraded` or `Progressing` status.
+
+#### Investigation:
+1. **Check Team Cluster Status on Spoke:**
+   ```bash
+   # Nonprod:
+   kubectl --context k3d-spoke-nonprod -n iac-<team>-<env> get teameksclusters
+   kubectl --context k3d-spoke-nonprod -n iac-<team>-<env> describe teamekscluster <name>-<env>
+
+   # Prod:
+   kubectl --context k3d-spoke-prod -n iac-<team>-<env> get teameksclusters
+   kubectl --context k3d-spoke-prod -n iac-<team>-<env> describe teamekscluster <name>-<env>
+   ```
+
+2. **Check Child Resource Status:**
+   ```bash
+   kubectl --context <ctx> -n iac-<team>-<env> get cluster.eks,nodegroup.eks,role.iam
+   ```
+
+3. **Check ACK Controller Logs:**
+   ```bash
+   kubectl --context <ctx> -n ack-system logs -l app.kubernetes.io/name=eks-controller --tail=100
+   kubectl --context <ctx> -n ack-system logs -l app.kubernetes.io/name=iam-controller --tail=100
+   ```
+
+4. **Common Causes & Remediation:**
+   - **VPC Subnet Misalignment:** Check that `TeamEKSCluster` references a valid network (e.g. `platform-default`).
+   - **Terminal Condition on Cluster:** If ACK reports `ACK.Terminal=True`, check AWS IAM permissions or VPC limits.
+   - **Controller Scale Down:** Verify all pods in `ack-system` are `1/1 Running`.

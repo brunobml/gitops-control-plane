@@ -192,12 +192,85 @@
    }
   },
   {
+   "id": 9,
+   "type": "table",
+   "title": "Team clusters",
+   "gridPos": {
+    "x": 0,
+    "y": 14,
+    "w": 24,
+    "h": 6
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "time() - lab_team_cluster_info",
+     "format": "table",
+     "instant": true,
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "align": "auto"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Value"
+      },
+      "properties": [
+       {
+        "id": "displayName",
+        "value": "Age"
+       },
+       {
+        "id": "unit",
+        "value": "s"
+       }
+      ]
+     }
+    ]
+   },
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "includeByName": {
+       "name": true,
+       "team": true,
+       "env": true,
+       "cluster": true,
+       "state": true,
+       "arn": true,
+       "Value": true
+      },
+      "renameByName": {
+       "name": "Cluster",
+       "team": "Team",
+       "env": "Env",
+       "cluster": "Spoke",
+       "state": "State",
+       "arn": "Cluster ARN",
+       "Value": "Age"
+      }
+     }
+    }
+   ]
+  },
+  {
    "id": 7,
    "type": "timeseries",
    "title": "Scrape targets up (by job, cluster)",
    "gridPos": {
     "x": 0,
-    "y": 14,
+    "y": 20,
     "w": 24,
     "h": 8
    },
@@ -219,7 +292,7 @@
    "title": "Recent warning events (all clusters) - details: Logs & events",
    "gridPos": {
     "x": 0,
-    "y": 22,
+    "y": 28,
     "w": 24,
     "h": 8
    },

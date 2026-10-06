@@ -18,7 +18,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 OWNER = os.environ.get("CI_OWNER", "brunobml")
-REPOS = os.environ.get("CI_REPOS", "gitops-control-plane,platform-catalog,tenant-workloads,platform-charts,orders-processor").split(",")
+REPOS = os.environ.get("CI_REPOS", "gitops-control-plane,platform-catalog,tenant-workloads,platform-charts,orders-processor,tenant-iac").split(",")
 INTERVAL = int(os.environ.get("CI_POLL_SECONDS", "600"))
 FINAL = {"success", "failure", "timed_out", "startup_failure"}   # cancelled/skipped/neutral say nothing
 
