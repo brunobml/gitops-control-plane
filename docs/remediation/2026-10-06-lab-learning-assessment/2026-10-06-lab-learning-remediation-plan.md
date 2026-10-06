@@ -1,6 +1,6 @@
 # Lab Learning Remediation Plan — 2026-10-06 Learning Assessment: Technical Enablement, Mental Models & Pedagogical Hygiene
 
-> **Status: Proposed (v1.0).** Awaiting peer review and sign-off before implementation.
+> **Status: Approved (v1.0 + peer-review corrections R-1…R-10, 2026-10-06).** Implementer: Claude. Validator: an independent party.
 
 | | |
 |---|---|
@@ -18,9 +18,28 @@
 
 | Field | Details |
 |---|---|
-| **Current Status** | 🟡 **PROPOSED v1.0 (Awaiting Reviewer Sign-Off)** |
+| **Current Status** | ✅ **APPROVED** (peer review by Claude with binding corrections R-1…R-10; see below) |
 | **Target Completion** | 2026-10-07 |
 | **Execution / Validation Model** | The party that implements a track authors `…-implemented-NN.md`; an independent validator authors `…-validation-NN.md`. The implementer never self-certifies acceptance. |
+
+### Peer Review — Claude (Opus 5.5), 2026-10-06: ✅ APPROVED with binding corrections R-1…R-10
+
+Every factual claim in the plan was checked against the repository and the live lab. The direction and phasing are right. The corrections below are **binding for implementation**: several steps would otherwise put new false statements in front of learners, against guardrail P-0.
+
+| # | Step | Correction (evidence) |
+|---|---|---|
+| R-1 | 1.4 | The rendered `QueueBackedService` has **`messageRetentionPeriod`**, not `retentionPeriod` (`kubectl get queuebackedservice orders -o json`: `"messageRetentionPeriod":"86400"`). The chart *maps* the value `retentionPeriod` to the spec field `messageRetentionPeriod`, and that mapping is exactly the Helm-layer lesson to show |
+| R-2 | 2.1 | Diagnostic table names are wrong. Real objects: `deploy/argo-cd-argocd-applicationset-controller` and **`statefulset/argo-cd-argocd-application-controller`** (namespace `argocd`), `deploy/kro` (ns `kro`), **`deploy/ack-sqs-controller-sqs-chart`** (ns `ack-system`). Reconciler 2 renders the chart **from GHCR (`platform-charts`)** with values from `orders-processor`. kro creates Deployment, Service, Ingress, PDB, ConfigMap, NetworkPolicies and the two ACK `Queue` CRs, not only "Deployment, Service, Queue" |
+| R-3 | 1.3 | "42" will drift again, as "32" did. Write *"all Applications (42 on 2026-10-06: 37 platform + 3 tenant-workloads + 2 tenant-iac)"* plus the command to count them. Verified: projects control-plane 13 + platform-addons 20 + platform-catalog 4 + tenant-workloads 3 + tenant-iac 2. The check must target the baseline phrases (`32 Applications`, `32/32`, `all 32`), not every "32" |
+| R-4 | 2.2 | Drop the unverified mechanism ("maintained in memory … to reduce etcd payload bloat"). Teach the **observed** behaviour (absent from `status.resources`, present in the UI and `argocd app get --output tree`) and *why kro/ACK kinds have health at all*: the lab's Lua checks under `resource.customizations.health.*` in `clusters/values-argocd-hub.yaml` |
+| R-5 | 3.2 | Drill 4 timing is "≤ 300 s (observed 11–150 s)", not "within 150 s". Use account-111 credentials (`moto111`) and keep the drill's DLQ target (the worker keeps running). **Drill 1** uses `docker restart moto-cloud` + `make post-bootstrap` and predates the platform network and `make moto-restart` (tenant-IaC P0 F-6/F-7). It must be re-verified on the current lab, with `make moto-restart` as recovery, **before** it becomes a learner milestone |
+| R-6 | 4.1 | Matrix corrections (verified on `orders-dev`): deleting the registration file → the ApplicationSet deletes the Application (default `sync` policy, `policy.override` enabled) → Argo CD's `resources-finalizer.argocd.argoproj.io` deletes the `QueueBackedService` → **`kro.run/finalizer`**: kro deletes its children → **`finalizers.sqs.services.k8s.aws/Queue`**: ACK deletes the queue (`deletion-policy: delete`) or keeps it (`retain`). Children carry `ownerReferences` (`controller: true`, `blockOwnerDeletion: true`) as a garbage-collection backstop. "Re-link with `adopt-or-create`" applies to **prod `TeamEKSCluster`** only; re-creating a retained prod SQS queue is untested, so say so |
+| R-7 | 4.2 | "approved pull request" → a pull request that passes the **required check `registration-checks`** (0 approvals in this single-user lab; CODEOWNERS only requests a review) |
+| R-8 | 5.1 | Don't assert counts that drift (585 resources, 36 scripts): the gate is "all stages pass". Script names verified (`scripts/smoke-test-hub-spoke.sh`, `scripts/smoke-test-hub-spoke-bats.sh`); 22 alert rules verified |
+| R-9 | missing | Prompt dimension 4 asks how a learner **verifies understanding**: embed the assessment's 8 self-check questions (§7, with answer guidance) at the end of the student guide/tutorial. Also rewrite the student guide's "Lessons learned" around concepts (assessment P2-5) |
+| R-10 | 5.3 | The score must be re-evaluated by a party other than the implementer |
+
+**Execution (owner, 2026-10-06):** Claude implements; the validator is a different party (Antigravity or Codex).
 
 ### Operational & Pedagogical Guardrails
 

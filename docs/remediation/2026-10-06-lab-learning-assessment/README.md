@@ -13,4 +13,4 @@ Following the established repository pair-programming and verification standards
 *(The party that executes an implementation phase never validates its own work.)*
 
 ### Document Registry
-* **Remediation Plan:** [`2026-10-06-lab-learning-remediation-plan.md`](2026-10-06-lab-learning-remediation-plan.md) (v1.0 Proposed)
+* **Remediation Plan:** [`2026-10-06-lab-learning-remediation-plan.md`](2026-10-06-lab-learning-remediation-plan.md) (v1.0 approved with corrections R-1…R-10)
