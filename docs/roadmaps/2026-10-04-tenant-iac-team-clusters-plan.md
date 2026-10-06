@@ -1,6 +1,6 @@
 # Plan: Tenant IaC — Self-Service Team Clusters on the Lab Platform
 
-> **Status: Approved v0.3 (2026-10-04).** P0–P3 are independently validated ([latest: validated-06](2026-10-04-tenant-iac-team-clusters-plan-validated-06.md)). P4 is implemented and awaiting independent validation ([implemented-05](2026-10-04-tenant-iac-team-clusters-plan-implemented-05.md)). The phase table below is the original execution plan.
+> **Status: Completed v0.3 (2026-10-06).** All phases P0–P5 are fully implemented and independently validated ([latest: validated-09](2026-10-04-tenant-iac-team-clusters-plan-validated-09.md)). The phase table below is the original execution plan.
 
 | | |
 |---|---|
@@ -139,8 +139,8 @@ No `apiVersion`/`kind`: the file is generator input, not a Kubernetes object.
 | **P1 Platform** | controllers in `addons-spoke`; moto env change (`MOTO_IAM_LOAD_MANAGED_POLICIES=true`); tier-1 network ApplicationSet + `platform-catalog/network/`; kro RBAC; monitoring. **Executor: Antigravity \| Validator: Claude** | controllers healthy on both spokes; both networks `Synced`; CI green; existing SQS tenants unaffected (smoke) | M |
 | **P2 Blueprint** | RGD `TeamEKSCluster` + VAP `teamekscluster-contract` (CEL compiled in CI); chart `team-cluster` 1.0.0 in `platform-charts` (PR + `chart-checks`). **Executor: Claude \| Validator: Antigravity** | scratch instance reaches `ready`; VAP denies each out-of-range case | M |
 | **P3 Tenant repo** | `brunobml/tenant-iac` (public): layout, README, JSON Schema, CODEOWNERS, `cluster-checks` workflow; ruleset after the check has run once | negative fixtures red, positive green; direct push to `main` refused | S |
-| **P4 Control plane** | AppProject `tenant-iac`; template + `scripts/tenant-iac-appset.sh`; `tenant-iac-team-data` ApplicationSet; `post-bootstrap`/orphan checks aware of `iac-*` and `platform-network`; CI stage extended | `team-data` gets `analytics-dev` end to end through a PR; then `analytics-prod` through a PR with CODEOWNERS review | M |
-| **P5 Operations** | Argo CD health for `TeamEKSCluster`; Grafana panel *Team clusters* (state, ARN, age); alert `TeamClusterNotReady`; runbook (request, change, delete, prod, moto restart); drills: out-of-band delete in moto (ACK recreates), removal of a prod file (record retained); smoke stage | drills executed and recorded; alert fired once; full rebuild runbook still passes | M |
+| **P4 Control plane** | AppProject `tenant-iac`; template + `scripts/tenant-iac-appset.sh`; `tenant-iac-team-data` ApplicationSet; `post-bootstrap`/orphan checks aware of `iac-*` and `platform-network`; CI stage extended. **Executor: Antigravity \| Validator: Codex** | **COMPLETE & VALIDATED.** `team-data` provisioned dev and prod end-to-end. [implemented-04](2026-10-04-tenant-iac-team-clusters-plan-implemented-04.md), [validated-07](2026-10-04-tenant-iac-team-clusters-plan-validated-07.md). | M (Done) |
+| **P5 Operations** | Argo CD health for `TeamEKSCluster`; Grafana panel *Team clusters* (state, ARN, age, readiness); alert `TeamClusterNotReady`; runbook (request, change, delete, prod, moto restart); drills: out-of-band delete in moto, removal of prod file; smoke stage; Bats test suite; full clean-slate rebuild drill. **Executor: Antigravity \| Validator: Codex** | **COMPLETE & VALIDATED.** All drills, alert rules, and clean rebuild passed. [implemented-08](2026-10-04-tenant-iac-team-clusters-plan-implemented-08.md), [validated-09](2026-10-04-tenant-iac-team-clusters-plan-validated-09.md). | M (Done) |
 
 ## 7. Changes per repo
 | Repo | Changes |
