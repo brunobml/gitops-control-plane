@@ -48,9 +48,10 @@ for acc in "111111111111" "222222222222" "123456789012"; do
         --role-session-name list-script \
         --query Credentials --output json 2>/dev/null || true)
     if [[ -n "$c" && "$c" != "null" ]]; then
-      export AWS_ACCESS_KEY_ID=$(jq -r .AccessKeyId <<<"$c")
-      export AWS_SECRET_ACCESS_KEY=$(jq -r .SecretAccessKey <<<"$c")
-      export AWS_SESSION_TOKEN=$(jq -r .SessionToken <<<"$c")
+      AWS_ACCESS_KEY_ID=$(jq -r .AccessKeyId <<<"$c")
+      AWS_SECRET_ACCESS_KEY=$(jq -r .SecretAccessKey <<<"$c")
+      AWS_SESSION_TOKEN=$(jq -r .SessionToken <<<"$c")
+      export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
     else
       echo "  (Could not assume role in ${acc}; querying with direct credentials)"
       export AWS_ACCESS_KEY_ID=mock AWS_SECRET_ACCESS_KEY=mock AWS_SESSION_TOKEN=""
