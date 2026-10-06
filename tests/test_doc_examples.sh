@@ -47,15 +47,21 @@ else
   bad "claim fails ci/check-clusters.py"
 fi
 
-# Step 3 executable validation: verify the documented bash block runs from tenant-iac
+# Step 3 executable validation: the documented bash block runs from a tenant-iac working directory.
+# It runs in a temporary sibling layout (a copy of tenant-iac next to a link to this repository),
+# never in the learner's real ../tenant-iac, so no existing claim can be overwritten or deleted
+# (validation-02 N-3). REPOS_DIR points the Makefile's ci-iac target at that layout (GNU make
+# resolves ../gitops-control-plane to the real path, so the link alone is not enough).
 block_after "$ROOT/docs/runbooks/tenant-iac-operations.md" "Validate Locally" bash > "$TMP/validate_step3.sh"
-target_claim="$REPOS/tenant-iac/teams/team-data/clusters/ml-feature-store-dev.yaml"
-cp "$claim" "$target_claim"
+layout="$TMP/repos"
+mkdir -p "$layout"
+cp -r "$REPOS/tenant-iac" "$layout/tenant-iac"
+ln -s "$ROOT" "$layout/gitops-control-plane"
+cp "$claim" "$layout/tenant-iac/teams/team-data/clusters/ml-feature-store-dev.yaml"
 step3_ok=false
-if out=$(cd "$REPOS/tenant-iac" && bash -e "$TMP/validate_step3.sh" 2>&1); then
-  step3_ok=true
+if out=$(cd "$layout/tenant-iac" && REPOS_DIR="$layout" bash -e "$TMP/validate_step3.sh" 2>&1); then
+  grep -q "ml-feature-store-dev" <<<"$out" && step3_ok=true   # proves the copy (with the claim) was checked
 fi
-rm -f "$target_claim"
 if $step3_ok; then
   ok "Step 3 validation block runs cleanly from the tenant-iac working directory"
 else
