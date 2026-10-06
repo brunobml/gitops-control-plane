@@ -5,15 +5,29 @@ setup() {
   load "common.bash"
 }
 
-@test "Gate 3a: All expected 42 Argo CD applications exist" {
+@test "Gate 3a: Platform baseline and dynamic tenant applications exist" {
   run kubectl --context k3d-hub-cluster -n argocd get applications -o jsonpath='{.items[*].metadata.name}'
   [ "$status" -eq 0 ]
-  for expected in "${EXPECTED_APPS[@]}"; do
-    [[ " $output " == *" $expected "* ]]
+  local all_apps="$output"
+
+  # Assert all 37 fixed platform baseline applications exist
+  for expected in "${PLATFORM_BASELINE_APPS[@]}"; do
+    [[ " $all_apps " == *" $expected "* ]]
+  done
+
+  # Dynamically discover tenant applications from tenant-workloads and tenant-iac
+  run kubectl --context k3d-hub-cluster -n argocd get applications -o json
+  [ "$status" -eq 0 ]
+  local tenant_apps
+  tenant_apps=$(jq -r '[.items[] | select(.spec.project=="tenant-workloads" or .spec.project=="tenant-iac") | .metadata.name] | join(" ")' <<< "$output")
+
+  # Require each known tenant application to be discovered (fail if any tenant app disappeared)
+  for required_tenant in "${REQUIRED_TENANT_APPS[@]}"; do
+    [[ " $tenant_apps " == *" $required_tenant "* ]]
   done
 }
 
-@test "Gate 3b: All 42 Argo CD applications are Synced and Healthy" {
+@test "Gate 3b: All platform baseline and dynamic tenant applications are Synced and Healthy" {
   run kubectl --context k3d-hub-cluster -n argocd get applications -o jsonpath='{range .items[*]}{.metadata.name}:{.status.sync.status}:{.status.health.status}{"\n"}{end}'
   [ "$status" -eq 0 ]
   local unready=""

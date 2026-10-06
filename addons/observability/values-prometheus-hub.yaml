@@ -317,6 +317,15 @@ serverFiles:
             annotations:
               summary: "Synthetic order probe on {{ $labels.cluster }} has not completed a run for 15 min"
               runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-ordersnotprocessed
+          - alert: SyntheticProbeDown
+            # Alert if agent is reporting from a spoke but synthetic-order-probe is down or absent
+            expr: count by (cluster) (up{job="agent"} == 1) unless count by (cluster) (up{job="synthetic-order-probe"} == 1)
+            for: 5m
+            labels: {severity: critical}
+            annotations:
+              summary: "Synthetic order probe is not running on {{ $labels.cluster }}: e2e and team cluster monitoring is interrupted"
+              runbook: docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-syntheticprobedown
+              logs: "http://grafana.localhost/d/lab-logs?var-cluster={{ $labels.cluster }}&var-namespace=platform-probes"
           - alert: ProbeFailed
             expr: probe_success{job="blackbox"} == 0
             for: 5m

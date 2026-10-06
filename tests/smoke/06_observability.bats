@@ -32,12 +32,26 @@ setup() {
   [ "$loki_up" -eq 1 ]
 }
 
-@test "Gate 12d: Team clusters analytics-dev and analytics-prod report ready in Prometheus" {
-  for exp in "analytics-dev" "analytics-prod"; do
-    local t0 r=""
+@test "Gate 12d: Discovered TeamEKSCluster claims report ready in Prometheus" {
+  local claims=()
+  for spoke in spoke-nonprod spoke-prod; do
+    local ctx="k3d-${spoke}"
+    run kubectl --context "$ctx" get teamekscluster -A -o jsonpath='{range .items[*]}{"'${spoke}'|"}{.metadata.namespace}{"|"}{.metadata.name}{"\n"}{end}'
+    [ "$status" -eq 0 ]
+    while IFS='|' read -r cl ns name; do
+      [[ -n "$name" ]] && claims+=("${cl}|${ns}|${name}")
+    done <<< "$output"
+  done
+
+  # Require at least 2 claims discovered matching registered tenant-iac applications
+  [ "${#claims[@]}" -ge 2 ]
+
+  for claim in "${claims[@]}"; do
+    local cl ns name t0 r=""
+    IFS='|' read -r cl ns name <<< "$claim"
     t0=$(date +%s)
     until [ -n "$r" ]; do
-      r=$(promq "lab_team_cluster_ready{name=\"${exp}\"}" | jq -r '.data.result[0].value[1] // empty')
+      r=$(promq "lab_team_cluster_ready{cluster=\"${cl}\",namespace=\"${ns}\",name=\"${name}\"}" | jq -r '.data.result[0].value[1] // empty')
       [ -n "$r" ] && break
       if [ $(( $(date +%s) - t0 )) -gt 60 ]; then
         break
@@ -47,8 +61,9 @@ setup() {
     [ -n "$r" ]
     [ "$r" = "1" ]
   done
+
   local team_unready
-  team_unready=$(promq 'lab_team_cluster_ready == 0' | jq -r '[.data.result[] | .metric.name] | join(",")')
+  team_unready=$(promq 'lab_team_cluster_ready == 0' | jq -r '[.data.result[] | "\(.metric.cluster)/\(.metric.namespace)/\(.metric.name)"] | join(",")')
   [ -z "$team_unready" ]
 }
 

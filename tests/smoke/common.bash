@@ -10,7 +10,7 @@ export SECRET_DIR="${GITOPS_LAB_SECRET_DIR:-$HOME/.config/gitops-lab}"
 export TOKEN_WARN_DAYS="${TOKEN_WARN_DAYS:-7}"
 export NOW_EPOCH="${SMOKE_NOW_EPOCH:-$(date +%s)}"
 
-export EXPECTED_APPS=(
+export PLATFORM_BASELINE_APPS=(
   "argo-cd" "addon-headlamp" "addon-keycloak" "addon-oauth2-proxy"
   "addon-kyverno-spoke-nonprod" "addon-kyverno-spoke-prod"
   "addon-prometheus" "addon-grafana" "addon-blackbox" "addon-lab-exporters"
@@ -27,10 +27,16 @@ export EXPECTED_APPS=(
   "addon-ack-credentials-spoke-nonprod" "addon-ack-credentials-spoke-prod"
   "platform-network-spoke-nonprod" "platform-network-spoke-prod"
   "kro-blueprints-spoke-nonprod" "kro-blueprints-spoke-prod"
-  "orders-dev" "orders-test" "orders-prod"
-  "team-data-analytics-dev" "team-data-analytics-prod"
   "root-control-plane"
 )
+
+export REQUIRED_TENANT_APPS=(
+  "orders-dev" "orders-test" "orders-prod"
+  "team-data-analytics-dev" "team-data-analytics-prod"
+)
+
+export EXPECTED_APPS=("${PLATFORM_BASELINE_APPS[@]}" "${REQUIRED_TENANT_APPS[@]}")
+
 
 list_queues_in_account() {
   local account="$1" creds

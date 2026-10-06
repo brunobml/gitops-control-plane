@@ -73,7 +73,7 @@ flowchart TD
 ```
 
 ### The Core Architectural Tenets
-1. **Git as Single Source of Truth:** Everything running on all 3 clusters is declared in Git across 5 repositories (`gitops-control-plane`, `platform-catalog`, `platform-charts`, `tenant-workloads`, `orders-processor`).
+1. **Git as Single Source of Truth:** Everything running on all 3 clusters is declared in Git across 6 repositories (`gitops-control-plane`, `platform-catalog`, `platform-charts`, `tenant-workloads`, `tenant-iac`, `orders-processor`).
 2. **Least Privilege Impersonation:** Argo CD connects to clusters using restricted ServiceAccounts with targeted RBAC rather than raw `cluster-admin`.
 3. **Supply-Chain Security:** Production container images are digest-pinned (`@sha256:…`), validated against supply-chain signatures by Kyverno, and constrained to approved registries by Kubernetes ValidatingAdmissionPolicy.
 4. **Canonical URLs & Trusted TLS:** Hub web applications answer on standard ports **80** (HTTP) and **443** (HTTPS) via `*.localhost`. No non-standard ports (like 8080 or 8443) are used on the hub.

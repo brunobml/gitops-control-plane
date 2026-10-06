@@ -74,9 +74,15 @@ AWS / Moto Cloud (http://localhost:5000)
 4. **Submit PR & Merge:**
    - Push branch and open PR against `main`.
    - CI workflow `cluster-checks` runs automatically: validates schema, ensures naming convention `teams/<team>/clusters/<name>-<env>.yaml`, enforces unique cluster names, checks allowed Kubernetes versions (`1.32`, `1.33`, `1.34`), and scans for secrets.
-   - For `prod` clusters, CODEOWNERS requests platform lead review. In single-contributor environments (e.g. personal GitHub repos where the author is the sole maintainer), GitHub ruleset `24519842` enforces the `cluster-checks` CI status check as the mandatory automated gate (`required_approving_review_count: 0`).
-   - Once checks pass and review is approved, merge PR to `main`.
+   - **Review Gates:**
+     - **Current Lab Reality (Single-Contributor):** GitHub ruleset `24519842` enforces a pull request and the required `cluster-checks` CI status check. Mandatory approval review count is `0` (`required_approving_review_count: 0`, `require_code_owner_review: false`) to avoid self-approval blocks in a single-maintainer repository.
+     - **Enterprise Target (Multi-Contributor):** Production claims (`teams/*/clusters/*-prod.yaml`) require formal code owner approval (`@brunobml`) before merge.
+   - Once automated CI checks pass (and reviews are approved in multi-contributor setups), merge the PR to `main`.
    - Hub Argo CD ApplicationSet automatically detects the file and deploys the cluster application within 3 minutes (or sync immediately via Argo CD UI).
+
+> [!NOTE]
+> **Two-Tier Acceptance Model (Moto API Simulation vs Production EKS):**  
+> In Moto, ACK EKS Cluster CRs report `status.status == ACTIVE` while `ACK.ResourceSynced` remains `False` due to simulated late-initialization fields. The platform blueprint intentionally defines `TeamEKSCluster` readiness as `ACTIVE` without `ACK.Terminal`. This validates declarative composition, CARM account boundaries, and GitOps lifecycle events. In contrast, real AWS EKS acceptance requires full Kubernetes API convergence: `ACK.ResourceSynced=True`, cluster endpoint authentication, worker nodes `Ready`, pod scheduling, and VPC CNI reachability.
 
 ---
 

@@ -242,6 +242,13 @@ The synthetic order probe on a spoke could not get a marker message processed fo
 2. Probe logs: `kubectl --context k3d-<spoke> -n platform-probes logs deploy/synthetic-order-probe`.
 *SyntheticProbeStale*: the probe itself stopped running; check that Deployment.
 
+### Alert: SyntheticProbeDown
+The synthetic order probe exporter is not running on a spoke cluster (`up{job="synthetic-order-probe"} == 0` or missing). Both end-to-end order processing verification and team cluster readiness telemetry (`lab_team_cluster_ready`) are interrupted.
+1. Check probe pod status: `kubectl --context k3d-<spoke> -n platform-probes get pods -l app.kubernetes.io/name=synthetic-order-probe`.
+2. Inspect probe logs: `kubectl --context k3d-<spoke> -n platform-probes logs deploy/synthetic-order-probe`.
+3. Reconcile deployment via Argo CD: `argocd app sync addon-observability-<spoke>`.
+
+
 ### Alert: LokiDown / LogShipperDown / LogsMissing
 Logs are not being collected or stored (Phase 5 Track F). Metrics and alerts keep working; only Grafana's log panels are affected.
 1. `LokiDown`: `kubectl --context k3d-hub-cluster -n monitoring get pods loki-0`; its volume: `get pvc storage-loki-0` (7-day retention, 5 GiB).

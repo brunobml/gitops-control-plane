@@ -17,8 +17,9 @@ flowchart TD
     subgraph Repos["GitHub repositories (github.com/brunobml)"]
         GCP["gitops-control-plane<br/>(ApplicationSets, addons, projects)"]
         PC["platform-catalog<br/>(kro blueprints, admission policies, controllers)"]
-        PCH["platform-charts<br/>(golden chart, OCI on GHCR)"]
-        TW["tenant-workloads<br/>(one registration file per app and env)"]
+        PCH["platform-charts<br/>(golden charts, OCI on GHCR)"]
+        TW["tenant-workloads<br/>(application workload claims)"]
+        TI["tenant-iac<br/>(team infrastructure claims)"]
         OP["orders-processor<br/>(app code, signed image, env values)"]
     end
 
@@ -146,16 +147,18 @@ make setup
 ```
 
 ### 2. Push Repositories to GitHub
-The lab reads five repositories under `https://github.com/brunobml`, checked out side by side:
+The lab reads six repositories under `https://github.com/brunobml`, checked out side by side:
 - `gitops-control-plane`
 - `platform-catalog`
 - `platform-charts`
 - `tenant-workloads`
+- `tenant-iac`
 - `orders-processor`
 
 ```bash
-# Push all five local lab repositories
+# Push all six local lab repositories (use --dry-run to simulate)
 make push
+# or: bash scripts/push-all.sh --dry-run
 ```
 
 ### 3. Bootstrap the Control Plane

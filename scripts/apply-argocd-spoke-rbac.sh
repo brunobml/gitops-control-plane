@@ -135,6 +135,34 @@ subjects:
   - kind: ServiceAccount
     name: argocd-manager
     namespace: kube-system
+---
+# 2026-10-06 Track 4 (Finding L4-1): Enforce namespace boundary for argocd-iac-deployer
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: iac-deployer-namespace-boundary
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["namespaces"]
+  matchConditions:
+    - name: is-argocd-iac-deployer
+      expression: 'request.userInfo.username == "system:serviceaccount:kube-system:argocd-iac-deployer"'
+  validations:
+    - expression: 'object.metadata.name.matches("^iac-.*$")'
+      message: "argocd-iac-deployer is only authorized to manage namespaces prefixed with iac-"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: iac-deployer-namespace-boundary-binding
+spec:
+  policyName: iac-deployer-namespace-boundary
+  validationActions: [Deny, Audit]
 EOF
 
 if [[ "$reduce" == "--reduce-manager" ]]; then
