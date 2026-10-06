@@ -47,6 +47,21 @@ else
   bad "claim fails ci/check-clusters.py"
 fi
 
+# Step 3 executable validation: verify the documented bash block runs from tenant-iac
+block_after "$ROOT/docs/runbooks/tenant-iac-operations.md" "Validate Locally" bash > "$TMP/validate_step3.sh"
+target_claim="$REPOS/tenant-iac/teams/team-data/clusters/ml-feature-store-dev.yaml"
+cp "$claim" "$target_claim"
+step3_ok=false
+if out=$(cd "$REPOS/tenant-iac" && bash -e "$TMP/validate_step3.sh" 2>&1); then
+  step3_ok=true
+fi
+rm -f "$target_claim"
+if $step3_ok; then
+  ok "Step 3 validation block runs cleanly from the tenant-iac working directory"
+else
+  bad "Step 3 validation block failed from tenant-iac: $(tail -1 <<<"$out")"
+fi
+
 echo "[2] developer tutorial: values file shown = real values file"
 block_after "$ROOT/docs/developer-tutorial.md" "**What you write**" yaml > "$TMP/values.yaml"
 if diff -q "$TMP/values.yaml" "$REPOS/orders-processor/deploy/values-dev.yaml" >/dev/null; then

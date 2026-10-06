@@ -14,4 +14,6 @@ Following the established repository pair-programming and verification standards
 
 ### Document Registry
 * **Remediation Plan:** [`2026-10-06-lab-learning-remediation-plan.md`](2026-10-06-lab-learning-remediation-plan.md) (v1.0 approved with corrections R-1…R-10)
-* **Implementation Report 01** (Tracks 1–4 + gates, Claude): [`2026-10-06-lab-learning-remediation-plan-implemented-01.md`](2026-10-06-lab-learning-remediation-plan-implemented-01.md), awaiting independent validation
+* **Implementation Report 01** (Tracks 1–4 + gates, Claude): [`2026-10-06-lab-learning-remediation-plan-implemented-01.md`](2026-10-06-lab-learning-remediation-plan-implemented-01.md)
+* **Validation Report 01** (Codex): [`2026-10-06-lab-learning-remediation-plan-validation-01.md`](2026-10-06-lab-learning-remediation-plan-validation-01.md) — Changes requested (findings V-1, V-2, V-3)
+* **Implementation Report 02** (V-1, V-2, V-3 closure, Antigravity): [`2026-10-06-lab-learning-remediation-plan-implemented-02.md`](2026-10-06-lab-learning-remediation-plan-implemented-02.md), awaiting independent validation 02

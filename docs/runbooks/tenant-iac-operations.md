@@ -84,9 +84,9 @@ AWS / Moto Cloud (http://localhost:5000)
    python3 -c "import json, jsonschema, yaml; jsonschema.validate(yaml.safe_load(open('teams/team-data/clusters/ml-feature-store-dev.yaml')), json.load(open('schema/cluster.schema.json')))" && echo "schema OK"
 
    # Full check = what the required CI check runs: schema, min <= desired <= max, team = folder,
-   # file name = <name>-<env>.yaml, clusters per team, render through the real ApplicationSet + chart
-   # (run from gitops-control-plane; it checks the tenant-iac working copy next to it, ../tenant-iac)
-   make ci-iac
+   # file name = <name>-<env>.yaml, clusters per team, render through the real ApplicationSet + chart.
+   # Run from your tenant-iac working directory via gitops-control-plane:
+   make -C ../gitops-control-plane ci-iac
    ```
 
 4. **Submit PR & Merge:**

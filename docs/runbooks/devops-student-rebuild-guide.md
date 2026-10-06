@@ -96,7 +96,7 @@ flowchart TD
 
 ### One change, four reconcilers
 
-"GitOps" is not one program. When a developer pushes `replicas: 3` to `orders-processor/deploy/values-dev.yaml`, **four independent controllers** act in turn. Each one watches one kind of object, writes another, and reports its own status. When something does not appear, the question is always: *which of the four stopped?*
+"GitOps" is not one monolithic program. In this lab, declaring, provisioning, and operating an enterprise workload relies on **four independent controllers** acting as a layered reconciliation chain. Each one watches one kind of object, writes another, and reports its own status. When something does not appear, the question is always: *which of the four stopped?*
 
 ```
 [ Git: tenant-workloads (registration) + orders-processor (values) ]
@@ -122,7 +122,9 @@ flowchart TD
 | ③ | kro | the `QueueBackedService` | the Deployment, Service, … and the ACK `Queue` objects | `kubectl --context k3d-spoke-nonprod -n orders-dev get queuebackedservice orders -o jsonpath='{.status.state}'` (`ACTIVE`) | `kubectl --context k3d-spoke-nonprod -n kro logs deploy/kro` |
 | ④ | ACK SQS controller | the `Queue` objects | the queues in moto | `kubectl --context k3d-spoke-nonprod -n orders-dev get queue.sqs.services.k8s.aws` (condition `ACK.ResourceSynced`, `status.queueURL`) | `kubectl --context k3d-spoke-nonprod -n ack-system logs deploy/ack-sqs-controller-sqs-chart` |
 
-**Which reconcilers does `replicas: 3` wake up?** ② (new values commit) and ③ (Deployment changed), then the built-in Deployment/ReplicaSet controllers start the pods. ① and ④ have nothing to do: the registration file did not change, so the Application stays the same, and no queue setting changed. Tenant IaC uses the same chain with a different blueprint: a `TeamEKSCluster` becomes ACK IAM `Role`, EKS `Cluster` and `Nodegroup` objects (see the [tenant IaC runbook](tenant-iac-operations.md)).
+**Reconciliation in action: Full provisioning vs values-only updates**
+- **Full provisioning chain (new workloads & infrastructure):** Registering a new application or modifying queue settings exercises all four tiers: ① ApplicationSet controller creates the Application &rarr; ② Application controller renders the chart and applies the `QueueBackedService` &rarr; ③ kro expands the blueprint into Deployment, Service, Ingress, ConfigMap, and ACK `Queue` CRs &rarr; ④ ACK creates and syncs the SQS queues in AWS/Moto.
+- **Values-only workload update (`replicas: 3`):** Pushing `replicas: 3` to `orders-processor/deploy/values-dev.yaml` does not exercise the full chain. It wakes up only **②** (Argo CD application controller notices the values commit and updates `QueueBackedService`) and **③** (kro updates the Deployment spec), followed by the core Kubernetes Deployment/ReplicaSet controllers starting the third pod (`readyReplicas` reaches 3). Controllers **①** and **④** have nothing to do: the registration file did not change, so the Application definition stays identical, and no queue settings were touched. Tenant IaC uses the same chain with a different blueprint: a `TeamEKSCluster` becomes ACK IAM `Role`, EKS `Cluster` and `Nodegroup` objects (see the [tenant IaC runbook](tenant-iac-operations.md)).
 
 ---
 
