@@ -1,6 +1,6 @@
 # Plan: Tenant IaC — Self-Service Team Clusters on the Lab Platform
 
-> **Status: Approved v0.3 (2026-10-04).** P0 spike executed ([implemented-01](2026-10-04-tenant-iac-team-clusters-plan-implemented-01.md)) and validated independently ([validated-01](2026-10-04-tenant-iac-team-clusters-plan-validated-01.md)). All 8 amendments from P0 incorporated. Ready for Phase P1 execution (Executor: Antigravity, Validator: Claude).
+> **Status: Approved v0.3 (2026-10-04).** P0–P3 are independently validated ([latest: validated-06](2026-10-04-tenant-iac-team-clusters-plan-validated-06.md)). P4 is implemented and awaiting independent validation ([implemented-05](2026-10-04-tenant-iac-team-clusters-plan-implemented-05.md)). The phase table below is the original execution plan.
 
 | | |
 |---|---|
