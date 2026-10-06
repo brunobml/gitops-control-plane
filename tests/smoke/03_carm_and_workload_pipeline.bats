@@ -38,15 +38,13 @@ setup() {
 
     local t0=$(date +%s)
     local found=false
-    until curl -s "http://${ns}.localhost:${port}/" | grep -q "$marker"; do
-      if (( $(date +%s) - t0 > 60 )); then
+    while (( $(date +%s) - t0 <= 60 )); do
+      if curl -s "http://${ns}.localhost:${port}/" | grep -q "$marker"; then
+        found=true
         break
       fi
-      sleep 2
+      sleep 1
     done
-    if curl -s "http://${ns}.localhost:${port}/" | grep -q "$marker"; then
-      found=true
-    fi
     [ "$found" = "true" ]
   done
 }

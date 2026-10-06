@@ -5,14 +5,22 @@
 
 | | |
 |---|---|
-| **Document version** | **3.0: evidence re-check and update** (supersedes 2.0) |
+| **Document version** | **4.0: independent post-remediation score re-evaluation** (v3.0 baseline preserved below) |
 | **Status** | Current |
 | **Assessment Date** | 2026-10-06 |
-| **Authors & Reviewers** | Codex (v1.0 draft), Agy (v2.0 review and enablement synthesis), **Claude (Opus 5.5) (v3.0: every v2.0 claim re-verified on the repository and the live lab; corrections, new gaps, answer guidance)** |
+| **Authors & Reviewers** | Codex (v1.0 draft and v4.0 independent score re-evaluation), Agy (v2.0 review and enablement synthesis), Claude (Opus 5.5, v3.0 evidence re-check) |
 | **Assessment Standard** | [`docs/ai-prompts/ai-agent-lab-expert-trainer-assessment-prompt.md`](../ai-prompts/ai-agent-lab-expert-trainer-assessment-prompt.md) |
-| **Repository Baseline** | `gitops-control-plane` `ce13239`. No learner-facing document changed since v2.0's baseline `595b249`, so v3.0 changes the assessment, not the lab. Live lab: 42 Applications Synced/Healthy |
+| **Repository Baseline** | v3.0 assessment: `ce13239`; v4.0 re-evaluation: learning remediation through `e7f8b72`, accepted in [validation 03](../remediation/2026-10-06-lab-learning-assessment/2026-10-06-lab-learning-remediation-plan-validation-03.md) |
 | **Target Documentation** | Root [`README.md`](../../README.md), [`devops-student-rebuild-guide.md`](../runbooks/devops-student-rebuild-guide.md), [`developer-tutorial.md`](../developer-tutorial.md), [`operational-drills-and-failure-injection.md`](../runbooks/operational-drills-and-failure-injection.md), [`tenant-iac-operations.md`](../runbooks/tenant-iac-operations.md), [`production-promotion-guardrails.md`](../production-promotion-guardrails.md), [`lab-progression-and-next-steps.md`](../lab-progression-and-next-steps.md) *(added in v3.0)*, [`argocd-cli.md`](../runbooks/argocd-cli.md) *(added in v3.0)*, [`host-reboot-and-cluster-lifecycle.md`](../runbooks/host-reboot-and-cluster-lifecycle.md) |
-| **Methodology** | The 5 enablement dimensions of the standard. **Every copyable example cited as evidence was executed** (schema validation, AWS CLI against moto, server-side dry-run admission tests, Argo CD resource tree). The commands and results are in §9 |
+| **Methodology** | v3.0: the 5 enablement dimensions and verification log in §9. v4.0: independent focused review of the revised teaching material and documentation checks; scope and limits in validation 03 |
+
+### v4.0 current verdict (after learning remediation)
+
+**Educational effectiveness: 8.0 / 10** (pre-remediation v3.0: 6.0 / 10). Independent validation accepted the remediation after three implementation rounds. The current learner path has accurate account-111 examples, a distinct Helm/kro/ACK chain, `Synced` versus `Healthy`, updated architecture and promotion guidance, predict/observe/explain checkpoints, a guided cloud-drift exercise, and a concepts and self-check reference. The five dimension ratings and evidence are in [validation 03](../remediation/2026-10-06-lab-learning-assessment/2026-10-06-lab-learning-remediation-plan-validation-03.md#independent-learning-score-re-evaluation-r-10).
+
+The remaining limit is the steep full-rebuild entry point. Drill 1 remains an operator drill until its current recovery path is reverified. This score reflects teaching-material quality; learner outcomes have not been measured.
+
+**Sections 1–9 below preserve the v3.0 pre-remediation findings and 6.0/10 score as historical evidence.** Their examples and recommendations describe the earlier learner documentation; the trainer answer to Question 4 was corrected during remediation.
 
 ### What changed in v3.0
 | | Change |
