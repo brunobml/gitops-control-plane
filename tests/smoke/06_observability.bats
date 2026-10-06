@@ -34,10 +34,22 @@ setup() {
 
 @test "Gate 12d: Team clusters analytics-dev and analytics-prod report ready in Prometheus" {
   for exp in "analytics-dev" "analytics-prod"; do
-    local r
-    r=$(promq "lab_team_cluster_ready{name=\"${exp}\"}" | jq -r '.data.result[0].value[1] // empty')
+    local t0 r=""
+    t0=$(date +%s)
+    until [ -n "$r" ]; do
+      r=$(promq "lab_team_cluster_ready{name=\"${exp}\"}" | jq -r '.data.result[0].value[1] // empty')
+      [ -n "$r" ] && break
+      if [ $(( $(date +%s) - t0 )) -gt 60 ]; then
+        break
+      fi
+      sleep 2
+    done
+    [ -n "$r" ]
     [ "$r" = "1" ]
   done
+  local team_unready
+  team_unready=$(promq 'lab_team_cluster_ready == 0' | jq -r '[.data.result[] | .metric.name] | join(",")')
+  [ -z "$team_unready" ]
 }
 
 @test "Gate 12e: No alerts persistently firing over 20 minutes" {

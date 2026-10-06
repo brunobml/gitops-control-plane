@@ -361,11 +361,18 @@ e2e=$(promq 'lab_order_e2e_success == 0' | jq -r '[.data.result[] | .metric.name
 [[ -n "$e2e" ]] && echo -e "${YELLOW}! synthetic order probe's last run failed for: ${e2e} (re-checked every 5 min)${NC}"
 # Phase P5: assert team EKS clusters are ready in Prometheus metrics
 for exp in "analytics-dev" "analytics-prod"; do
-  r=$(promq "lab_team_cluster_ready{name=\"${exp}\"}" | jq -r '.data.result[0].value[1] // empty')
-  if [[ -z "$r" ]]; then
-    echo -e "${RED}✘ Missing lab_team_cluster_ready metric for ${exp}${NC}"
-    exit 1
-  elif [[ "$r" != "1" ]]; then
+  t0=$(date +%s)
+  r=""
+  until [[ -n "$r" ]]; do
+    r=$(promq "lab_team_cluster_ready{name=\"${exp}\"}" | jq -r '.data.result[0].value[1] // empty')
+    [[ -n "$r" ]] && break
+    if (( $(date +%s) - t0 > 60 )); then
+      echo -e "${RED}✘ Missing lab_team_cluster_ready metric for ${exp} after 60s${NC}"
+      exit 1
+    fi
+    sleep 3
+  done
+  if [[ "$r" != "1" ]]; then
     echo -e "${RED}✘ Team cluster ${exp} not ready (lab_team_cluster_ready=${r})${NC}"
     exit 1
   fi
