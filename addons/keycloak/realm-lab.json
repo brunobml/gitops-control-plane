@@ -30,6 +30,9 @@
       "emailVerified": true,
       "firstName": "Platform",
       "lastName": "User",
+      "realmRoles": [
+        "default-roles-lab"
+      ],
       "groups": [
         "lab-platform-admins"
       ],
@@ -48,6 +51,9 @@
       "emailVerified": true,
       "firstName": "Tenant A",
       "lastName": "User",
+      "realmRoles": [
+        "default-roles-lab"
+      ],
       "groups": [
         "lab-tenant-a"
       ],
