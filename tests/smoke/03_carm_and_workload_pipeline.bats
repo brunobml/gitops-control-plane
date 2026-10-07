@@ -20,6 +20,18 @@ setup() {
   done
 }
 
+@test "Gate 6b: Each CARM account has exactly one platform VPC, the one Kubernetes references" {
+  for ctx in k3d-spoke-nonprod k3d-spoke-prod; do
+    local account live vpcs
+    account=$(kubectl --context "$ctx" get namespace platform-network -o jsonpath='{.metadata.annotations.services\.k8s\.aws/owner-account-id}')
+    live=$(kubectl --context "$ctx" -n platform-network get vpc platform-vpc -o jsonpath='{.status.vpcID}')
+    [[ -n "$account" && -n "$live" ]]
+    vpcs=$(platform_vpcs_in_account "$account")
+    # an orphan left by a moto restart shows up as a second ID (scripts/prune-orphan-platform-vpcs.sh)
+    [[ "$vpcs" == "$live" ]]
+  done
+}
+
 @test "Gate 9: Orders flow end-to-end and are processed across dev, test, and prod" {
   for triple in "k3d-spoke-nonprod:orders-dev:8081" "k3d-spoke-nonprod:orders-test:8081" "k3d-spoke-prod:orders-prod:8082"; do
     IFS=: read -r ctx ns port <<<"$triple"

@@ -48,6 +48,17 @@ list_queues_in_account() {
     aws --endpoint-url="$MOTO_ENDPOINT" --region "$DEFAULT_REGION" sqs list-queues --output json 2>/dev/null || echo "{}"
 }
 
+platform_vpcs_in_account() {  # VPC IDs ACK created for namespace platform-network in one account
+  local account="$1" creds
+  creds=$(AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url="$MOTO_ENDPOINT" --region "$DEFAULT_REGION" \
+    sts assume-role --role-arn "arn:aws:iam::${account}:role/smoke-test" --role-session-name smoke-test \
+    --query Credentials --output json 2>/dev/null) || return 1
+  AWS_ACCESS_KEY_ID=$(jq -r .AccessKeyId <<<"$creds") AWS_SECRET_ACCESS_KEY=$(jq -r .SecretAccessKey <<<"$creds") \
+    AWS_SESSION_TOKEN=$(jq -r .SessionToken <<<"$creds") \
+    aws --endpoint-url="$MOTO_ENDPOINT" --region "$DEFAULT_REGION" ec2 describe-vpcs \
+    --filters "Name=tag:services.k8s.aws/namespace,Values=platform-network" --query 'Vpcs[].VpcId' --output text
+}
+
 promq() {
   kubectl --context k3d-hub-cluster -n monitoring exec deploy/prometheus-server -c prometheus-server -- \
     wget -qO- "http://localhost:9090/api/v1/query?query=$(jq -rn --arg q "$1" '$q|@uri')" 2>/dev/null

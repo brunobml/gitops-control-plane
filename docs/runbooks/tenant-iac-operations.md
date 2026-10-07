@@ -174,7 +174,9 @@ make moto-restart
 7. **Resumes Argo CD Application Controller:** Unpauses reconciliation.
 8. **Re-syncs Applications:** Ensures platform network and tenant workloads reach `Healthy`.
 9. **Leak Verification:** Asserts that account `123456789012` has **zero** leaked VPCs, SGs, IGWs, SQS queues, or IAM roles.
-10. **Re-provisions Worker Credentials & Runs Smoke Gates:** Verifies end-to-end functionality.
+10. **Re-provisions Worker Credentials & Runs Smoke Gates:** Verifies end-to-end functionality (`post-bootstrap`).
+
+**After a host reboot** (`make start` + `make post-bootstrap`, not this script), the network is repaired while the ACK controllers are already running. The EC2 controller first recreates the VPC from its stale object, and the repair then creates a fresh one. `post-bootstrap` therefore runs `scripts/prune-orphan-platform-vpcs.sh`, which deletes a platform VPC only if no Kubernetes object references it **and** it is empty (no subnets, gateway, extra security groups or route tables); anything else is kept and reported. Smoke **Gate 6b** checks that each account has exactly one platform VPC, the one Kubernetes references. Run `bash scripts/prune-orphan-platform-vpcs.sh --dry-run` to see what it would do.
 
 ---
 

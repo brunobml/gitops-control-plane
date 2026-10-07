@@ -201,5 +201,13 @@ while IFS=$'\t' read -r app spoke ns; do
 done < <(kubectl --context k3d-hub-cluster -n argocd get applications -o json | jq -r \
   '.items[] | select(.spec.project=="tenant-iac") | [.metadata.name,.spec.destination.name,.spec.destination.namespace] | @tsv')
 
+# After a moto restart the platform network is re-created once (see the repair above, or
+# start-hub-spoke.sh), which can leave the VPC that ACK recreated from stale state behind:
+# one empty orphan per account. Delete it now that the live network is synced. Non-fatal here;
+# smoke Gate 6b fails if a platform VPC that is not empty is ever left over.
+echo "  Platform network: orphan VPCs left by a moto restart..."
+bash "${SCRIPT_DIR}/prune-orphan-platform-vpcs.sh" | sed 's/^/  /' \
+  || echo "  ⚠ a platform VPC that is not empty was kept: see above (smoke Gate 6b will fail)" >&2
+
 echo "[9/9] Smoke test..."
 bash "${SCRIPT_DIR}/smoke-test-hub-spoke.sh"

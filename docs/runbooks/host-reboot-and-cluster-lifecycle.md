@@ -39,6 +39,7 @@ Run the automated resume command from the repository root:
 make start
 make post-bootstrap   # mandatory after every start (see Issue F)
 ```
+`post-bootstrap` also repairs the tenant-IaC platform network after moto lost its state, and deletes the empty orphan VPC this leaves in each account (`scripts/prune-orphan-platform-vpcs.sh`; details in the [tenant IaC runbook](tenant-iac-operations.md#runbook-5-moto-cloud-restart--disaster-recovery-moto-restart)).
 *Equivalent manual commands:*
 ```bash
 # 1. Resume central Moto AWS mock
