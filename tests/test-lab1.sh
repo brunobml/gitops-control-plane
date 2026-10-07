@@ -78,13 +78,16 @@ $K label namespace "$NS" pod-security.kubernetes.io/enforce=restricted >/dev/nul
 
 echo "[1] the doc's step-1 blueprint without permissions, then the ClusterRole"
 # the YAML a learner copies from the doc is what is applied here (blocks marked <!-- lab1-file: ... -->)
-python3 - "${ROOT_DIR}/docs/lab-1-write-a-blueprint.md" "$work" <<'PY'
+python3 - "${ROOT_DIR}/docs/lab-1-write-a-blueprint.md" "$work" "${SOL}" <<'PY'
 import re, sys
-doc, out = sys.argv[1], sys.argv[2]
+doc, out, sol = sys.argv[1], sys.argv[2], sys.argv[3]
 blocks = dict(re.findall(r"<!-- lab1-file: (\S+) -->\n```yaml\n(.*?)```", open(doc).read(), re.S))
 for name in ("step1-rgd", "step1-instance", "step1-rbac-instance", "step1-rbac-children"):
     open(f"{out}/{name}.yaml", "w").write(blocks[name])
 open(f"{out}/step1-rbac.yaml", "w").write(blocks["step1-rbac-instance"] + blocks["step1-rbac-children"])
+# step 3's instance in the doc must be the solution's hello-public (applied below from the solution)
+if blocks["step3-instance"] not in open(f"{sol}/instances.yaml").read():
+    sys.exit("doc step3-instance differs from docs/lab-1-solution/instances.yaml")
 PY
 $K apply -f "$work/step1-rgd.yaml" >/dev/null
 wait_for 60 "kro created the CRD webgreetings.kro.run" $K get crd webgreetings.kro.run

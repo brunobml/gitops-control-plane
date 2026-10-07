@@ -14,7 +14,15 @@
 | 5 | **break it on purpose** twice | compile-time CEL checks; why the platform validates with a ValidatingAdmissionPolicy (incident D-14) |
 | 6 | *stretch:* a cloud queue (ACK + moto) | kro waits for another controller's status |
 
-Work in an empty directory. Each step: *predict*, run, compare with **Measured**, then open *Explain*.
+Each step: *predict*, run, compare with **Measured**, then open *Explain*. Blocks that start with `# output` show what you should **see**: compare them, do not run them.
+
+Work in your own empty directory, never inside a repository, and keep the path to the reference solution at hand. You will copy from it in steps 5 and 6:
+
+<!-- doc-test: covered by="check:test-lab1" -->
+```bash
+mkdir -p ~/lab1-work && cd ~/lab1-work
+SOL=~/repos/gitops-control-plane/docs/lab-1-solution     # reference solution (read-only: copy, do not edit)
+```
 
 ---
 
@@ -125,6 +133,7 @@ kubectl --context k3d-learn-sandbox -n lab1 get webgreeting,configmap,deployment
 **Measured:** the CRD `webgreetings.kro.run` existed within 3 s. (Applying the instance *before* that fails with `no matches for kind "WebGreeting"`: wait for the CRD.) The RGD then stayed `Inactive`. About 30 s later it showed:
 
 ```text
+# output (compare, do not run)
 ControllerReady=False add parent handler kro.run/v1alpha1, Resource=webgreetings: cache sync timeout for kro.run/v1alpha1, Resource=webgreetings
 ```
 
@@ -136,6 +145,7 @@ kubectl --context k3d-learn-sandbox -n kro logs deploy/kro --since=5m | grep for
 ```
 
 ```text
+# output (compare, do not run)
 webgreetings.kro.run is forbidden: User "system:serviceaccount:kro:kro" cannot list resource "webgreetings" in API group "kro.run" at the cluster scope
 ```
 
@@ -158,13 +168,16 @@ rules:
 <!-- doc-test: covered by="check:test-lab1" -->
 ```bash
 kubectl --context k3d-learn-sandbox apply -f rbac.yaml
+kubectl --context k3d-learn-sandbox -n lab1 get webgreeting hello -w -o custom-columns='STATE:.status.state'
+#   empty for about 30 s, then ERROR: press Ctrl-C and read why
 kubectl --context k3d-learn-sandbox -n lab1 get webgreeting hello \
-  -o jsonpath='{.status.state}{"\n"}{.status.conditions[?(@.type=="Ready")].message}{"\n"}'   # after about 30 s
+  -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}{"\n"}'
 ```
 
 **Measured:** the RGD became `Active` within 10 s; the instance went to `ERROR`:
 
 ```text
+# output (compare, do not run)
 resource reconciliation failed: deployments.apps "hello" is forbidden: User "system:serviceaccount:kro:kro" cannot get resource "deployments" in API group "apps" in the namespace "lab1"
 ```
 
@@ -245,13 +258,35 @@ Add a boolean to the schema and a Service that exists **only when it is true**:
           ports: [{port: 80, targetPort: 8000}]
 ```
 
-Apply `rgd.yaml`, then a second instance with `expose: true` and `replicas: 2` (named `hello-public`, message `hello, world`; see [`instances.yaml`](lab-1-solution/instances.yaml)).
+Apply `rgd.yaml`, then create a second instance, `instance-public.yaml`:
+
+<!-- lab1-file: step3-instance -->
+```yaml
+apiVersion: kro.run/v1alpha1
+kind: WebGreeting
+metadata:
+  name: hello-public
+  namespace: lab1
+spec:
+  message: "hello, world"
+  replicas: 2
+  expose: true
+```
+
+<!-- doc-test: covered by="check:test-lab1" -->
+```bash
+kubectl --context k3d-learn-sandbox apply -f rgd.yaml
+kubectl --context k3d-learn-sandbox apply -f instance-public.yaml
+kubectl --context k3d-learn-sandbox -n lab1 get webgreeting,service      # repeat for about 20 s
+```
+
+If `kubectl apply -f rgd.yaml` answers `spec.resources[N]: Invalid value: exactly one of template or externalRef must be provided` (seen in a pilot run), resource N, counting from 0, lost its `template:` line or its indentation. Compare it with the other resources.
 
 If the instance is rejected with `strict decoding error: unknown field "spec.expose"` (seen in one test run), kro has not yet updated the CRD; the RGD can already say `Active`. Wait a few seconds and apply again.
 
 **Predict:** what happens to `hello-public`? (Hint: step 1.)
 
-**Measured:** `hello-public` had **no status at all**, and no children appeared. kro's log repeated `services is forbidden: … cannot list resource "services"`. After `services` was added to the ClusterRole next to `configmaps` ([solution](lab-1-solution/rbac.yaml)), `hello-public` was `ACTIVE` 9 s later, with 2/2 pods and `service/hello-public`, which answered `hello, world`. `hello` got no Service. Toggling `expose` on `hello` with `kubectl patch` created, then deleted, `service/hello` within a second each time.
+**Measured:** `hello-public` had **no status at all**, and no children appeared. kro's log (step 1's command) repeated `services is forbidden: … cannot list resource "services"`. Add `services` next to `configmaps` in `rbac.yaml` (`resources: ["configmaps", "services"]`, as in [the solution](lab-1-solution/rbac.yaml)) and apply it. `hello-public` was `ACTIVE` 9 s later, with 2/2 pods and `service/hello-public`, which answered `hello, world`. `hello` got no Service. Toggling `expose` on `hello` with `kubectl patch` created, then deleted, `service/hello` within a second each time.
 
 <details><summary>Explain</summary>
 
@@ -300,6 +335,7 @@ kubectl --context k3d-learn-sandbox -n lab1 get webgreeting hello -w \
 **Measured:** the RGD became `Inactive` at once:
 
 ```text
+# output (compare, do not run)
 GraphAccepted=False failed to validate resource "deployment": failed to compile template expression "config.metadata.nmae" at path "spec.template.spec.volumes[0].configMap.name": ERROR: <input>:1:16: undefined field 'nmae'
 ```
 
@@ -310,6 +346,7 @@ Both instances stayed `ACTIVE` on the last good revision. Fix the typo and apply
 **Measured:**
 
 ```text
+# output (compare, do not run)
 KindReady=False cannot update CRD webgreetings.kro.run: breaking changes detected: Minimum constraint 1 was added; Maximum constraint 5 was added
 ```
 
@@ -317,6 +354,7 @@ The CRD kept its old schema (`{"default":1,"type":"integer"}`). Remove the marke
 
 <!-- doc-test: covered by="check:test-lab1" -->
 ```bash
+cp "$SOL/policy.yaml" .          # read it first: two CEL rules and a binding
 kubectl --context k3d-learn-sandbox apply -f policy.yaml
 kubectl --context k3d-learn-sandbox -n lab1 patch webgreeting hello --type merge -p '{"spec":{"replicas":9}}'
 ```
@@ -324,6 +362,7 @@ kubectl --context k3d-learn-sandbox -n lab1 patch webgreeting hello --type merge
 **Measured:**
 
 ```text
+# output (compare, do not run)
 The webgreetings "hello" is invalid: : ValidatingAdmissionPolicy 'webgreeting-contract' with binding 'webgreeting-contract' denied request: spec.replicas must be between 1 and 5
 ```
 
@@ -345,7 +384,16 @@ make -C ~/repos/gitops-control-plane sandbox-up WITH_MOTO=1     # on an existing
 
 **Measured:** 19 s; `moto-sandbox` on `127.0.0.1:5002` and the ACK SQS controller (the lab's chart version and values) in `ack-system`. Your instances stayed `ACTIVE`. (Running it again refuses: the sandbox already has moto.)
 
-Add an ACK `Queue` and write its URL into the page's ConfigMap and the instance's status. kro also needs permission for `queues.sqs.services.k8s.aws` ([`rbac-queue.yaml`](lab-1-solution/rbac-queue.yaml)). The complete RGD is [`rgd-with-queue.yaml`](lab-1-solution/rgd-with-queue.yaml). Try writing it yourself first: the new child, one `data` key, one `status` field.
+Add an ACK `Queue` and write its URL into the page's ConfigMap and the instance's status. kro also needs permission for `queues.sqs.services.k8s.aws` ([`rbac-queue.yaml`](lab-1-solution/rbac-queue.yaml)). The complete RGD is [`rgd-with-queue.yaml`](lab-1-solution/rgd-with-queue.yaml). Try writing it yourself first: the new child, one `data` key, one `status` field. Then apply your version, or the solution's:
+
+<!-- doc-test: covered by="check:test-lab1" -->
+```bash
+cp "$SOL/rbac-queue.yaml" .
+cp "$SOL/rgd-with-queue.yaml" .     # skip if you wrote your own; then apply yours instead
+kubectl --context k3d-learn-sandbox apply -f rbac-queue.yaml -f rgd-with-queue.yaml
+```
+
+Then observe, and delete one instance:
 
 <!-- doc-test: covered by="check:test-lab1" -->
 ```bash
@@ -369,6 +417,7 @@ The ConfigMap now depends on a field that **another controller** fills in: ACK w
 <!-- doc-test: covered by="check:test-lab1" -->
 ```bash
 make -C ~/repos/gitops-control-plane sandbox-down
+rm -r ~/lab1-work                                        # your files; nothing else was written
 ```
 
 **Measured:** this removes the cluster, its kube context, the Docker network and `moto-sandbox`, and checks that nothing is left: `✔ sandbox removed (no cluster, container, network or kube context left)`.
