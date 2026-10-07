@@ -48,7 +48,11 @@ graf = yaml.safe_load(open(os.path.join(root, "addons/observability/values-grafa
 g_oauth = graf["auth.generic_oauth"]
 
 prom = open(os.path.join(root, "addons/observability/values-prometheus-hub.yaml")).read()
-smoke = open(os.path.join(root, "scripts/smoke-test-hub-spoke.sh")).read()
+smoke_paths = [
+    os.path.join(root, "tests/smoke/common.bash"),
+    os.path.join(root, "scripts/smoke-test-hub-spoke.sh"),
+]
+smoke = "\n".join(open(p).read() for p in smoke_paths if os.path.exists(p))
 
 # --- 1. one issuer -----------------------------------------------------------------
 issuer_users = {
@@ -63,7 +67,7 @@ issuer_users["Grafana signout_redirect_url"] = graf["auth"]["signout_redirect_ur
 issuer_users["Argo CD logoutURL"] = argo_oidc.get("logoutURL")
 m = re.search(r'targets:\s*\["(http[^"]*\.well-known/openid-configuration)"\]', prom)
 issuer_users["blackbox target"] = m.group(1) if m else None
-m = re.search(r'^ISSUER="([^"]+)"', smoke, re.M)
+m = re.search(r'^(?:export\s+)?ISSUER="([^"]+)"', smoke, re.M)
 issuer_users["smoke ISSUER"] = m.group(1) if m else None
 for who, val in issuer_users.items():
     if not val:

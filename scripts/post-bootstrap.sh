@@ -211,5 +211,5 @@ if ! bash "${SCRIPT_DIR}/prune-orphan-platform-vpcs.sh" 2>&1 | sed 's/^/  /'; th
   exit 1
 fi
 
-echo "[9/9] Smoke test..."
-bash "${SCRIPT_DIR}/smoke-test-hub-spoke.sh"
+echo "[9/9] Smoke test (Bats suite)..."
+bash "${SCRIPT_DIR}/smoke-test-hub-spoke-bats.sh"

@@ -1,4 +1,4 @@
-.PHONY: maintain local-tls test-docs ci ci-tenants ci-catalog ci-charts ci-schemas test-alert-rules orphans all setup start stop push test bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints moto-restart restart-moto help
+.PHONY: maintain local-tls test-docs ci ci-tenants ci-catalog ci-charts ci-schemas test-alert-rules orphans all setup start stop push test test-bats bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints moto-restart restart-moto help
 
 ROOT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 REPOS_DIR ?= $(abspath $(ROOT_DIR)/..)
@@ -31,7 +31,8 @@ help:
 	@echo "  make open-dev            - Port-forward Orders DEV web dashboard to http://localhost:8001"
 	@echo "  make open-test           - Port-forward Orders TEST web dashboard to http://localhost:8002"
 	@echo "  make open-prod           - Port-forward Orders PROD web dashboard to http://localhost:8003"
-	@echo "  make test                - Run end-to-end smoke tests across Hub, Spokes, and Moto Cloud"
+	@echo "  make test                - Run end-to-end Bats smoke tests across Hub, Spokes, and Moto Cloud (ARGS supported)"
+	@echo "  make test-bats           - Alias for make test"
 	@echo "  make status              - Inspect cluster statuses, pods, and AWS SQS queues"
 	@echo "  make teardown            - Destroy all k3d clusters, Moto container, and network"
 
@@ -103,7 +104,9 @@ bootstrap:
 	@echo "✔ Projects & Root application deployed to Hub Argo CD"
 
 test:
-	@bash $(ROOT_DIR)/scripts/smoke-test-hub-spoke.sh
+	@bash $(ROOT_DIR)/scripts/smoke-test-hub-spoke-bats.sh $(ARGS)
+
+test-bats: test
 
 status:
 	@echo "=== HUB CLUSTER (Argo CD) ==="
