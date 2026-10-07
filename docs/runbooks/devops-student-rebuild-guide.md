@@ -140,11 +140,13 @@ Before running a rebuild, ensure the following are installed on your workstation
 
 ### Secrets & TLS Leaf Setup
 Secrets are **never** committed to Git. Instead, they reside in `~/.config/gitops-lab`:
+<!-- doc-test: run expect="^drwx------" -->
 ```bash
 # Check that your secrets directory exists and has secure permissions (0700)
 ls -ld ~/.config/gitops-lab
 ```
 The lab TLS certificate for `https://*.localhost` is created by `make setup` itself (`scripts/setup-local-tls.sh`). It is issued by **mkcert** when mkcert is installed, and is trusted by your browser after a one-time `mkcert -install` on Windows; otherwise it is a self-signed fallback. If you install mkcert later, run `make local-tls`:
+<!-- doc-test: skip reason="Windows commands (winget, mkcert -install) and a certificate reissue" -->
 ```bash
 winget install FiloSottile.mkcert   # Windows, once
 mkcert -install                     # Windows, once: trust the local CA
@@ -186,6 +188,7 @@ sequenceDiagram
 ---
 
 ### Step 1: Teardown
+<!-- doc-test: skip reason="deletes the lab (rebuild step 1)" -->
 ```bash
 make teardown
 ```
@@ -201,6 +204,7 @@ make teardown
 ---
 
 ### Step 2: Setup
+<!-- doc-test: skip reason="creates the clusters (rebuild step 2)" -->
 ```bash
 make setup
 ```
@@ -232,6 +236,7 @@ make setup
 ---
 
 ### Step 3: Bootstrap
+<!-- doc-test: skip reason="rebuild step 3" -->
 ```bash
 make bootstrap
 ```
@@ -254,6 +259,7 @@ make bootstrap
 ---
 
 ### Step 4: Post-Bootstrap
+<!-- doc-test: skip reason="rebuild step 4 (about 5 min); also runs in every moto recovery" -->
 ```bash
 make post-bootstrap
 ```
@@ -289,6 +295,7 @@ Once the rebuild completes, verify the state of your clusters using the followin
 
 ### 1. Verify Port Bindings (R-15 Compliance)
 Ensure the Hub load balancer uses canonical ports 80/443 without legacy ports (8080/8443):
+<!-- doc-test: run expect="k3d-hub-cluster-serverlb" -->
 ```bash
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 ```
@@ -302,10 +309,11 @@ docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 ### 2. Verify Argo CD Application Status
 **Every** Application must report `Synced` and `Healthy`. On 2026-10-06 there are **42**: 37 platform (projects `control-plane` 13, `platform-addons` 20, `platform-catalog` 4) + 3 tenant apps (`orders-dev/test/prod`) + 2 team clusters (`team-data-analytics-dev/prod`). The number grows when teams register apps or clusters, so count instead of memorising it:
+<!-- doc-test: run expect="all Applications Synced/Healthy" -->
 ```bash
 kubectl --context k3d-hub-cluster get applications -n argocd -o custom-columns=NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status
 kubectl --context k3d-hub-cluster get applications -n argocd --no-headers | wc -l                  # how many
-kubectl --context k3d-hub-cluster get applications -n argocd --no-headers | grep -v "Synced *Healthy"  # expect no output
+kubectl --context k3d-hub-cluster get applications -n argocd --no-headers | grep -v "Synced *Healthy" || echo "all Applications Synced/Healthy"
 ```
 
 ![Argo CD Applications Status](screenshots/terminal-argocd-apps.png)
@@ -349,6 +357,7 @@ It is **not** copied into the Application object: `kubectl get application order
 
 ### 3. Verify Pod Security Admission (Track C.1)
 Platform namespaces must be protected with `restricted` (or `baseline` for Headlamp):
+<!-- doc-test: run expect="restricted" -->
 ```bash
 kubectl --context k3d-hub-cluster get ns -L pod-security.kubernetes.io/enforce,pod-security.kubernetes.io/warn,pod-security.kubernetes.io/audit
 ```
@@ -362,6 +371,7 @@ kubectl --context k3d-hub-cluster get ns -L pod-security.kubernetes.io/enforce,p
 
 ### 4. Verify Least-Privilege Impersonation
 Confirm that Argo CD uses impersonation for sync operations across all clusters:
+<!-- doc-test: run expect="RESULT: PASS" -->
 ```bash
 bash scripts/audit-impersonation.sh
 ```
@@ -372,6 +382,7 @@ bash scripts/audit-impersonation.sh
 
 ### 5. Run the Automated Smoke Test Suite
 Execute the automated end-to-end smoke test suite:
+<!-- doc-test: covered by="bats:Gate 1" -->
 ```bash
 make test
 ```
@@ -387,18 +398,20 @@ The most important behaviour in this lab, in five minutes. You will delete a clo
 > 2. Which component brings the queue back, and how long will it take?
 
 **Act** (account 111111111111 is the nonprod account; `aws_as` is the helper from [developer tutorial Step 4](../developer-tutorial.md#step-4-interacting-with-simulated-aws-via-aws-cli)):
+<!-- doc-test: mutating with="aws_as 111111111111" -->
 ```bash
 aws_as 111111111111
 aws --endpoint-url=http://localhost:5000 sqs delete-queue --queue-url http://localhost:5000/111111111111/orders-dev-dlq
 ```
 
 **Observe** (repeat every 20 s):
+<!-- doc-test: run with="aws_as 111111111111" expect="orders-dev-dlq" -->
 ```bash
 aws --endpoint-url=http://localhost:5000 sqs get-queue-url --queue-name orders-dev-dlq --output text   # NonExistentQueue … until it is back
 kubectl --context k3d-hub-cluster -n argocd get application orders-dev -o jsonpath='{.status.sync.status}/{.status.health.status}{"\n"}'
 kubectl --context k3d-spoke-nonprod -n orders-dev get queue.sqs.services.k8s.aws orders-dev-dlq \
   -o jsonpath='{.status.conditions[?(@.type=="ACK.ResourceSynced")].status}{"\n"}'
-kubectl --context k3d-spoke-nonprod -n ack-system logs deploy/ack-sqs-controller-sqs-chart --since=10m | grep '"created new resource".*orders-dev-dlq'
+kubectl --context k3d-spoke-nonprod -n ack-system logs deploy/ack-sqs-controller-sqs-chart --since=10m | grep '"created new resource".*orders-dev-dlq' || echo "not recreated yet (no log line in the last 10 min)"
 ```
 
 <details><summary><b>Explain</b>: what was observed on 2026-10-06, and why</summary>
@@ -444,6 +457,7 @@ Drill 4 changed one queue. Now the whole cloud forgets everything: moto keeps it
 In real-world DevOps environments, ServiceAccount tokens expire (in our lab, they have a 30-day lifetime). Running a full post-bootstrap every week is disruptive and unnecessary.
 
 Instead, run the streamlined upkeep command:
+<!-- doc-test: mutating timeout="600" -->
 ```bash
 make maintain
 ```

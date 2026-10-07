@@ -57,6 +57,7 @@ AWS / Moto Cloud (http://localhost:5000)
 ### Runbook 1: Requesting a New Cluster (`request`)
 
 1. **Clone & Branch:**
+   <!-- doc-test: skip reason="clones tenant-iac and creates a branch in your workspace" -->
    ```bash
    git clone git@github.com:brunobml/tenant-iac.git
    cd tenant-iac
@@ -79,6 +80,7 @@ AWS / Moto Cloud (http://localhost:5000)
    ```
 
 3. **Validate Locally:**
+   <!-- doc-test: covered by="check:tenant-iac-step3" -->
    ```bash
    # Quick check: the JSON schema only (fields, allowed values, size limits per environment)
    python3 -c "import json, jsonschema, yaml; jsonschema.validate(yaml.safe_load(open('teams/team-data/clusters/ml-feature-store-dev.yaml')), json.load(open('schema/cluster.schema.json')))" && echo "schema OK"
@@ -159,6 +161,7 @@ When the host machine reboots or the `moto-cloud` Docker container restarts, Mot
 
 #### Automated Recovery:
 Run the official recovery script from repository root:
+<!-- doc-test: skip reason="restarts moto (about 5 min); exercised by the Drill 1 recovery" -->
 ```bash
 make moto-restart
 # OR: bash scripts/moto-restart.sh
@@ -187,29 +190,32 @@ make moto-restart
 #### Symptoms:
 - Prometheus alert `TeamClusterNotReady` is firing (Critical).
 - Grafana *Platform Overview* dashboard (*Team clusters* panel) displays `Readiness` as `NotReady` (and/or state `UNKNOWN`/`FAILED`).
-- Hub Argo CD displays application `team-<team>-<name>-<env>` in `Degraded` or `Progressing` status.
+- Hub Argo CD displays application `<team>-<name>-<env>` (e.g. `team-data-analytics-dev`) in `Degraded` or `Progressing` status.
 
 #### Investigation:
 1. **Check Team Cluster Status on Spoke:**
+   <!-- doc-test: run subst="<team>=team-data,<env>=dev,<name>=analytics" expect="analytics-prod" -->
    ```bash
    # Nonprod:
    kubectl --context k3d-spoke-nonprod -n iac-<team>-<env> get teameksclusters
    kubectl --context k3d-spoke-nonprod -n iac-<team>-<env> describe teamekscluster <name>-<env>
 
-   # Prod:
-   kubectl --context k3d-spoke-prod -n iac-<team>-<env> get teameksclusters
-   kubectl --context k3d-spoke-prod -n iac-<team>-<env> describe teamekscluster <name>-<env>
+   # Prod (the prod spoke only hosts -prod claims):
+   kubectl --context k3d-spoke-prod -n iac-<team>-prod get teameksclusters
+   kubectl --context k3d-spoke-prod -n iac-<team>-prod describe teamekscluster <name>-prod
    ```
 
 2. **Check Child Resource Status:**
+   <!-- doc-test: run subst="<ctx>=k3d-spoke-nonprod,<team>=team-data,<env>=dev" expect="team-data-analytics-dev" -->
    ```bash
    kubectl --context <ctx> -n iac-<team>-<env> get cluster.eks,nodegroup.eks,role.iam
    ```
 
 3. **Check ACK Controller Logs:**
+   <!-- doc-test: run subst="<ctx>=k3d-spoke-nonprod" expect="level" -->
    ```bash
-   kubectl --context <ctx> -n ack-system logs -l app.kubernetes.io/name=eks-controller --tail=100
-   kubectl --context <ctx> -n ack-system logs -l app.kubernetes.io/name=iam-controller --tail=100
+   kubectl --context <ctx> -n ack-system logs -l app.kubernetes.io/name=eks-chart --tail=100
+   kubectl --context <ctx> -n ack-system logs -l app.kubernetes.io/name=iam-chart --tail=100
    ```
 
 4. **Common Causes & Remediation:**

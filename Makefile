@@ -13,7 +13,7 @@ help:
 	@echo "  make moto-restart        - Gracefully restart Moto Cloud with zero-leak recovery & smoke test"
 	@echo "  make list-moto-resources - Inspect Moto Cloud resources across accounts (parallel, multi-account; ARGS supported)"
 	@echo "  make moto-resources      - Alias for make list-moto-resources"
-	@echo "  make test-docs           - Run the learner-facing doc examples (tutorial, tenant-iac runbook) against the lab"
+	@echo "  make test-docs           - Run the learner-facing doc examples against the lab (MODE=live-mutating: also the self-reverting ones)"
 	@echo "  make build-app           - Build & push orders-processor container image to local registry (TAG=v1.0.0)"
 	@echo "  make push                - Push all repositories to GitHub (origin main)"
 	@echo "  make bootstrap           - Apply root-control-plane Argo CD application to Hub"
@@ -139,7 +139,7 @@ post-bootstrap:
 	@bash $(ROOT_DIR)/scripts/post-bootstrap.sh
 
 test-docs:
-	@bash $(ROOT_DIR)/tests/test_doc_examples.sh
+	@bash $(ROOT_DIR)/tests/test_doc_examples.sh $(if $(filter live-mutating,$(MODE)),--mutating,)
 
 moto-restart:
 	@bash $(ROOT_DIR)/scripts/moto-restart.sh

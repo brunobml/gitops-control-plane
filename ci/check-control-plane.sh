@@ -15,6 +15,8 @@
 #   iac-appsets tenant-iac-<team>.yaml files equal scripts/tenant-iac-appset.sh output
 #   sso-urls     one OIDC issuer everywhere, every relying-party URL registered in the realm, no
 #                old 8080/8443 hub URLs (Track I, review remark R-10; ci/check-sso-urls.py)
+#   doc-markers  every bash block in the learner documents carries a valid doc-test marker
+#                (learner on-ramp plan, Track C; tests/doc_tests.py --markers-only; no lab needed)
 #
 # usage: ci/check-control-plane.sh [stage...]     (no stage = all)
 CI_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
@@ -129,6 +131,10 @@ fi
 
 if stage sso-urls "SSO URL consistency (Keycloak, Argo CD, oauth2-proxy, Grafana)"; then
   python3 "${CI_DIR}/check-sso-urls.py" "$REPO" || fail "SSO URLs"
+fi
+
+if stage doc-markers "Doc-test markers on every learner bash block (Track C)"; then
+  python3 "$REPO/tests/doc_tests.py" --markers-only || fail "doc-test markers"
 fi
 
 if stage alloy "Alloy configuration"; then

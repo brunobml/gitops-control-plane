@@ -144,6 +144,7 @@ kro does **not** create the SQS queue in the cloud. It creates Kubernetes object
 ### Step 3: Inspecting Your Running Microservice
 
 #### Check the Non-Prod Cluster (Dev & Test):
+<!-- doc-test: run expect="orders-dev-worker" -->
 ```bash
 # View pods in dev namespace
 kubectl --context k3d-spoke-nonprod -n orders-dev get pods
@@ -153,12 +154,14 @@ kubectl --context k3d-spoke-nonprod -n orders-test get pods
 ```
 
 #### Check the Prod Cluster:
+<!-- doc-test: run expect="orders-prod-worker" -->
 ```bash
 # View pods in prod namespace (notice 2 replicas in production!)
 kubectl --context k3d-spoke-prod -n orders-prod get pods
 ```
 
 #### Check Pod Logs (Real-Time SQS Message Processing):
+<!-- doc-test: run expect="dev on orders-dev-worker" -->
 ```bash
 kubectl --context k3d-spoke-nonprod -n orders-dev logs -l app=orders-dev-worker --tail=10
 ```
@@ -179,6 +182,7 @@ Every `QueueBackedService` automatically includes an internal Kubernetes `Servic
 
 To view your microservice in your web browser:
 
+<!-- doc-test: skip reason="opens a browser through a port-forward (interactive)" -->
 ```bash
 # In gitops-control-plane:
 make open-dev
@@ -199,6 +203,7 @@ Open your browser at **http://localhost:8001**:
 
 Each environment has its **own AWS account**: dev and test live in `111111111111`, prod in `222222222222` (ACK's cross-account resource management, CARM: the namespace annotation `services.k8s.aws/owner-account-id` decides the account). Moto, like AWS, answers **in the account of the credentials you call with**. So first get credentials for the account you want to look at:
 
+<!-- doc-test: covered by="check:tutorial-sqs" -->
 ```bash
 # Credentials for one moto account, the way the platform's controllers get them (STS AssumeRole)
 aws_as() {
@@ -243,6 +248,7 @@ Want to scale `orders-dev` from 1 replica to 3 replicas?
    ```
 
 2. Commit and push:
+   <!-- doc-test: skip reason="changes a shared repository (orders-processor main); optional exercise" -->
    ```bash
    git add deploy/values-dev.yaml
    git commit -m "scale orders dev workers to 3"
@@ -250,6 +256,7 @@ Want to scale `orders-dev` from 1 replica to 3 replicas?
    ```
 
 3. Argo CD detects the commit on GitHub and automatically scales the deployment in `spoke-nonprod`:
+   <!-- doc-test: run expect="orders-dev-worker" -->
    ```bash
    kubectl --context k3d-spoke-nonprod -n orders-dev get pods
    ```

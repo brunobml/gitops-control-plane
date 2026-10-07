@@ -142,6 +142,7 @@ flowchart TD
 ### 1. Provision Multi-Cluster Environment
 Create the Docker network, the moto mock cloud, the three k3d clusters and Argo CD, and register the spokes:
 
+<!-- doc-test: skip reason="creates the three clusters (part of the rebuild; see the full rebuild runbook)" -->
 ```bash
 make setup
 ```
@@ -155,6 +156,7 @@ The lab reads six repositories under `https://github.com/brunobml`, checked out 
 - `tenant-iac`
 - `orders-processor`
 
+<!-- doc-test: skip reason="pushes all six repositories to GitHub" -->
 ```bash
 # Push all six local lab repositories (use --dry-run to simulate)
 make push
@@ -162,6 +164,7 @@ make push
 ```
 
 ### 3. Bootstrap the Control Plane
+<!-- doc-test: skip reason="part of the rebuild; post-bootstrap also runs in every moto recovery" -->
 ```bash
 make bootstrap        # AppProjects + root application; Argo CD deploys everything else from Git
 make post-bootstrap   # Mandatory: worker cloud credentials, SSO prerequisites, Argo CD self-management,
@@ -174,6 +177,7 @@ Without `make post-bootstrap` the lab is not complete:
 * smoke stages 9 and 12 fail.
 
 ### 4. Verify & Test
+<!-- doc-test: run timeout="900" expect="ok [0-9]+ Gate" -->
 ```bash
 make test     # End-to-end smoke test: the Bats suite in tests/smoke/ (post-bootstrap already ran it once)
 make status   # Applications, spoke controllers and moto queues
@@ -223,6 +227,7 @@ See the [operational drills](docs/runbooks/operational-drills-and-failure-inject
 
 To pause or resume your local multi-cluster environment without losing state or re-provisioning:
 
+<!-- doc-test: skip reason="stops and restarts the whole lab" -->
 ```bash
 # Gracefully stop clusters and Moto before host shutdown/reboot
 make stop
@@ -240,6 +245,7 @@ For troubleshooting hanging Docker daemons, spoke connection errors, or token ro
 
 To completely clean up all clusters, mock cloud containers, and networks:
 
+<!-- doc-test: skip reason="deletes the lab" -->
 ```bash
 make teardown
 ```

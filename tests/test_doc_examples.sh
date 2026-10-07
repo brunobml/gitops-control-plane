@@ -9,11 +9,17 @@
 #   3. developer-tutorial.md, Step 4: the AWS CLI block resolves the dev queue in account 111111111111
 #      and publishes a message (live)
 #   4. no stale "32 Applications" baselines in learner documents
+#   5. doc-test markers (learner on-ramp plan, Track C): every bash block in the learner path is
+#      marked run / mutating / covered / skip; the run blocks are executed (tests/doc_tests.py).
+#      --offline: markers only. --mutating (make test-docs MODE=live-mutating): also the
+#      self-reverting blocks, then wait until the lab has repaired itself and run the Bats suite.
 set -uo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 REPOS=$(cd "$ROOT/.." && pwd)
 OFFLINE=false
+MUTATING=false
 [[ "${1:-}" == "--offline" ]] && OFFLINE=true
+[[ "${1:-}" == "--mutating" ]] && MUTATING=true
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 failed=0
@@ -103,6 +109,15 @@ if stale=$(grep -rn -E "12 stages|12/12 smoke stages|12-stage smoke|All Core Smo
   bad "stale smoke reference: $stale"
 else
   ok "no '12-stage smoke' references in learner documents"
+fi
+
+echo "[5] doc-test markers and runnable blocks"
+if $OFFLINE; then
+  python3 "$ROOT/tests/doc_tests.py" --markers-only || failed=$((failed + 1))
+elif $MUTATING; then
+  python3 "$ROOT/tests/doc_tests.py" --mutating || failed=$((failed + 1))
+else
+  python3 "$ROOT/tests/doc_tests.py" || failed=$((failed + 1))
 fi
 
 if (( failed )); then echo "✘ $failed doc example check(s) failed"; exit 1; fi

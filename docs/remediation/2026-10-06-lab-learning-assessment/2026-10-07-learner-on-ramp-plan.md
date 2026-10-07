@@ -1,6 +1,6 @@
 # Learner On-Ramp Plan (2026-10-07)
 
-> **Status: Proposed (v1.0).** Awaiting peer review (Codex or Antigravity) and owner decisions (§7). Nothing implemented yet. Author: Claude (Opus 5.5). The implementer and the validator will be different parties, as usual.
+> **Status: Approved (v1.0, owner, 2026-10-07).** Phase 1 (Track C) authorized; implementer Claude, validator a different party. Owner decisions O-1…O-5 apply from Phase 2 on (Track C does not depend on them); O-6 (order C → A → B → D) is followed. Author: Claude (Opus 5.5).
 
 | | |
 |---|---|

@@ -37,6 +37,7 @@ Client and server versions (client 3.5.0, server 3.5.3, compatible):
 ## 3. Logging in
 
 ### 3.1 Single sign-on (normal use)
+<!-- doc-test: skip reason="interactive browser SSO login" -->
 ```bash
 argocd login localhost --sso --grpc-web --plaintext --skip-test-tls
 ```
@@ -56,6 +57,7 @@ The Argo CD UI shows the same identity under **User Info**:
 
 ### 3.2 Break-glass local account
 `platform-admin` is the only local account; the built-in `admin` is disabled. It works while Keycloak is down, and the lab's scripts use it. Take the password from its file and never type it on the command line:
+<!-- doc-test: covered by="bats:Gate 10d" -->
 ```bash
 argocd login localhost --username platform-admin \
   --password "$(cat ~/.config/gitops-lab/argocd-platform-admin.password)" \
@@ -119,6 +121,7 @@ A tenant session, captured with the temporary tenant user from §7. It sees only
 ## 7. Temporary SSO user (Keycloak, Argo CD, Headlamp, Grafana)
 For a demo, screenshots or a pairing session, create a short-lived user instead of sharing `platform-user`'s password.
 
+<!-- doc-test: mutating subst="<name>=doctest-learner,[lab-tenant-a|lab-platform-admins]=lab-tenant-a,[hours]=1" expect="doctest-learner" -->
 ```bash
 scripts/temp-sso-user.sh create <name> [lab-tenant-a|lab-platform-admins] [hours]   # default lab-tenant-a, 8 h
 scripts/temp-sso-user.sh list                                                      # leftovers, with expiry
