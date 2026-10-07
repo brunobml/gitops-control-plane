@@ -174,7 +174,7 @@ make post-bootstrap   # Mandatory: worker cloud credentials, SSO prerequisites, 
 Without `make post-bootstrap` the lab is not complete:
 * the workers have no SQS credentials;
 * the `argo-cd` Application stays OutOfSync;
-* smoke stages 9 and 12 fail.
+* the Bats smoke suite fails, at least *Gate 9* (orders end to end) and the *Gate 12* observability checks.
 
 ### 4. Verify & Test
 <!-- doc-test: run timeout="900" expect="ok [0-9]+ Gate" -->

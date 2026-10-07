@@ -1,6 +1,6 @@
 # Learner On-Ramp Plan (2026-10-07)
 
-> **Status: Approved (v1.0, owner, 2026-10-07).** Phase 1 (Track C) authorized; implementer Claude, validator a different party. Owner decisions O-1…O-5 apply from Phase 2 on (Track C does not depend on them); O-6 (order C → A → B → D) is followed. Author: Claude (Opus 5.5).
+> **Status: Approved (v1.0, owner, 2026-10-07).** Phase 1 (Track C) authorized; implementer Claude, validator a different party. **Owner decisions (2026-10-07): O-1…O-6 as recommended**: Lab 0 as `tenant-a-user`, its required tour Git-free (optional Git step at the end); Lab 1 kro-only with moto + ACK as the `--with-moto` stretch; pilot = the owner plus one or two people new to the lab (agents do not count); `make test-lab1` local only; order C → A → B → D. Phase 1 (Track C) accepted in [validation-01](2026-10-07-learner-on-ramp-plan-validation-01.md). Author: Claude (Opus 5.5).
 
 | | |
 |---|---|

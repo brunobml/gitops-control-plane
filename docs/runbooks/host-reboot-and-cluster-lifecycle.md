@@ -13,7 +13,7 @@ This runbook outlines operational procedures for managing the multi-cluster Hub-
 | **Start Lab** | `make start` | Resumes Moto and all 3 k3d clusters (`hub-cluster`, `spoke-nonprod`, `spoke-prod`), waiting for API responsiveness. | **Preserved:** All etcd state, CRDs, workloads, and Argo CD sync records intact. |
 | **Stop Lab** | `make stop` | Gracefully pauses all 3 k3d clusters and the Moto container without deleting containers or volumes. | **Preserved:** Full lab state is retained on disk. Ready for host reboot. |
 | **Inspect State** | `make status` | Checks Argo CD applications, spoke workloads, and Moto SQS queues. | Read-only. |
-| **Run Smoke Tests**| `make test` | Executes the 8-stage comprehensive test suite across Hub, Spokes, and Moto Cloud. | Non-destructive verification. |
+| **Run Smoke Tests**| `make test` | Runs the Bats smoke suite (`tests/smoke/`) across Hub, Spokes and Moto Cloud; success = every line `ok`, none `not ok`. | Non-destructive verification. |
 | **Rotate Tokens** | `make rotate-spoke-tokens` | Re-issues 30-day `TokenRequest` tokens for spoke clusters and Headlamp dashboard. | Refreshes Kubernetes authentication tokens. |
 | **Full Teardown** | `make teardown` | Destroys all k3d clusters, Moto container, and Docker network. | ⚠️ **Destructive:** Completely deletes all cluster state and local data. |
 
@@ -161,7 +161,7 @@ kubectl --context k3d-spoke-nonprod get nodes   # Ready within seconds
 Use the same procedure for `k3d-spoke-prod-agent-0` if it shows the symptom. With the 300 s ACK resync, missing queues are recreated automatically once the controller is healthy (observed: within seconds of the node recovering).
 
 ### Issue F: Orders Accepted but Never Processed (worker keys lost after moto restart)
-**Seen on 2026-10-01 after a host reboot** (all three environments; caught by smoke stage 9, now Bats Gate 9).
+**Seen on 2026-10-01 after a host reboot** (all three environments; caught by the smoke test's end-to-end order check, today *Bats Gate 9*).
 
 **Symptoms:** the dashboards accept orders but none appear as processed; `make test` fails at `Gate 9: Orders flow end-to-end …` (`not ok`). Worker logs show auth errors or reads from an empty queue.
 
@@ -181,7 +181,7 @@ Run it after every `make start`.
 
 ### Issue G: Single Sign-On Unavailable (Keycloak down or misconfigured)
 CLI logins (SSO and break-glass) and temporary SSO users: [`argocd-cli.md`](argocd-cli.md).
-**Symptoms:** "Log in via Keycloak" in Argo CD fails or loops; Headlamp redirects to a Keycloak error page; smoke stage 10 fails.
+**Symptoms:** "Log in via Keycloak" in Argo CD fails or loops; Headlamp redirects to a Keycloak error page; the SSO gates of the Bats suite fail (*Gate 10a*–*10e*: issuer, Argo CD SSO, login forms, break-glass, Headlamp).
 
 **Break-glass (always available):** log in to Argo CD with the **local `platform-admin`** account (`make password`). It does not depend on Keycloak. Automation (`post-bootstrap.sh`, `register-spokes.sh`) only ever uses this local account. Headlamp has no local fallback; use `kubectl` until SSO is back.
 

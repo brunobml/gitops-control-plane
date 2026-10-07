@@ -105,10 +105,12 @@ else
   ok "no '32 Applications' baselines in learner documents"
 fi
 # The 12-stage smoke script was replaced by the Bats suite (9134041); its banner no longer exists
-if stale=$(grep -rn -E "12 stages|12/12 smoke stages|12-stage smoke|All Core Smoke Tests Passed" "$ROOT/README.md" "$ROOT/docs"/*.md "$ROOT/docs/runbooks"/*.md); then
+# Also stage numbers of the old scripts ("[8/12]", "8-stage …", "smoke stage 10", "stage 6, and Gate 6b")
+# and the TOKEN_WARN_DAYS tip, which Bats Gate 8 ignores (validation-04 V4-1/V4-2)
+if stale=$(grep -rn -E "12 stages|12/12 smoke stages|12-stage smoke|All Core Smoke Tests Passed|\[[0-9]+/12\]|[0-9]+-stage (comprehensive |smoke |test)|smoke stages? [0-9]|\(stage [0-9]+|stage [0-9]+ fails|TOKEN_WARN_DAYS=" "$ROOT/README.md" "$ROOT/docs"/*.md "$ROOT/docs/runbooks"/*.md); then
   bad "stale smoke reference: $stale"
 else
-  ok "no '12-stage smoke' references in learner documents"
+  ok "no stale smoke-stage references (old stage numbers, 12-stage banner, TOKEN_WARN_DAYS tip)"
 fi
 
 echo "[5] doc-test markers and runnable blocks"
