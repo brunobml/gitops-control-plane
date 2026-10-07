@@ -27,7 +27,13 @@ make test        # every line "ok", none "not ok"
 
 If anything says `not ok`, stop here and fix it with the [student guide](runbooks/devops-student-rebuild-guide.md#4-verification--health-inspection) first. Station 6 deletes a cloud queue and must not overlap a moto restart or another drill.
 
-**Log in as a tenant, not as an admin.** You tour the platform as `tenant-a-user`, a member of team *tenant-a*. Get its password with `make password` (it reads `~/.config/gitops-lab`, never Git).
+**Log in as a tenant, not as an admin.** You tour the platform as `tenant-a-user`, a member of team *tenant-a*. `make password` lists the SSO users and **where** their passwords are; it does not show them. The password is the file `~/.config/gitops-lab/keycloak-tenant-a-user.password` (mode 600, outside Git). Show it only in your own terminal, and never paste it into notes, screenshots, tickets or chat:
+
+<!-- doc-test: skip reason="prints a password; doc tests never display secrets" -->
+```bash
+make password                                              # where the files are
+cat ~/.config/gitops-lab/keycloak-tenant-a-user.password; echo   # WSL: clip.exe < that file copies it instead
+```
 
 * **Browser:** open `http://localhost`, choose *Log in via Keycloak*, sign in as `tenant-a-user`.
 * **CLI:** use a separate config file, so the session does not replace an admin session you already have:
@@ -296,9 +302,11 @@ Answer without looking back, then open the answer.
 
 ---
 
-## Optional: the Git side (5 min)
+## Optional: the Git side (15 min)
 
-Station 2 used the local copy of the registration file. To see which commit Argo CD rendered, compare the values revision with the branch it follows:
+The required tour stays Git-free (owner decision O-2). This optional step makes the **real** change that station 5 imitated: scaling through Git. It changes the shared `orders-processor` repository, so do it only if you may push there, keep it short, and always finish with the revert. The tests never run it.
+
+**First, read only:** which commit did Argo CD render, and is it the tip of the branch it follows?
 
 <!-- doc-test: run expect="refs/heads/main" -->
 ```bash
@@ -306,7 +314,47 @@ kubectl --context k3d-hub-cluster -n argocd get application orders-dev -o jsonpa
 git ls-remote https://github.com/brunobml/orders-processor.git refs/heads/main
 ```
 
-If they differ, Argo CD has not polled yet (every 3 minutes by default) or a webhook is missing. Proposing a change to `tenant-workloads` or `orders-processor` is a pull request. The [developer tutorial](developer-tutorial.md) walks through one; do not push to the shared repositories from this tour.
+If they differ, Argo CD has not polled yet (every 3 minutes by default).
+
+**Question:** you set `replicas: 2` in Git. Besides a second pod, what else appears? (Hint: the developer tutorial's Step 1 explains the blueprint's `includeWhen`.)
+
+**Change** (in your clone of `orders-processor`, up to date with `main`):
+
+<!-- doc-test: skip reason="pushes to a shared repository (orders-processor main); optional by owner decision O-2, never automated" -->
+```bash
+cd ../orders-processor && git pull --ff-only
+sed -i 's/^replicas: 1$/replicas: 2/' deploy/values-dev.yaml
+git diff --stat                      # exactly one line changed in deploy/values-dev.yaml
+git commit -am "lab 0: scale orders dev to 2 (revert follows)"
+git push origin main
+```
+
+**Observe** (repeat until the new commit shows; up to 3 minutes, or press *Refresh* on `orders-dev` in the UI):
+
+<!-- doc-test: run expect="rendered values commit" -->
+```bash
+kubectl --context k3d-hub-cluster -n argocd get application orders-dev -o jsonpath='rendered values commit: {.status.sync.revisions[1]} {.status.sync.status}/{.status.health.status}{"\n"}'
+kubectl --context k3d-spoke-nonprod -n orders-dev get deployment orders-dev-worker -o jsonpath='replicas: {.spec.replicas}{"\n"}'
+kubectl --context k3d-spoke-nonprod -n orders-dev get poddisruptionbudget -o name
+```
+
+**Revert** (always, as a new commit; never rewrite the shared history):
+
+<!-- doc-test: skip reason="pushes to a shared repository (orders-processor main); optional by owner decision O-2, never automated" -->
+```bash
+cd ../orders-processor
+git revert --no-edit HEAD            # only if HEAD is your lab 0 commit: check with git log -1
+git push origin main
+```
+
+Run the observe block again until `replicas: 1` and no PodDisruptionBudget.
+
+<details><summary>Explain</summary>
+
+This time Argo CD **does** act: the values commit changed, so the rendered `QueueBackedService` changed (`spec.replicas: 2`), and Argo CD synced it. kro then updated its Deployment, and, because the blueprint includes a `PodDisruptionBudget` only `when replicas > 1`, it **created a new child**. After the revert, kro **deleted** the PDB again. Compare station 5: a hand edit is reverted within a second, while a Git edit becomes the new desired state. The revert is a new commit, so the history shows what happened and who undid it.
+</details>
+
+**How it goes back:** your revert commit. If you cannot push the revert, ask the owner. Do not leave `replicas: 2` behind.
 
 ## Next
 
