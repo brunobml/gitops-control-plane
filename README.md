@@ -2,6 +2,8 @@
 
 This repository serves as the central GitOps control plane for a multi-cluster **Hub-and-Spoke** architecture using **Argo CD**, **Kro (K8s Resource Orchestrator)**, and **AWS Controllers for Kubernetes (ACK)** against a local centralized mock AWS cloud (**Moto**).
 
+> **Start here:** if the lab is already running, take [Lab 0: Tour the Running Lab](docs/lab-0-guided-tour.md) (about 60 minutes, no rebuild, nothing to break). It follows one tenant app from Git to the mock cloud. To build the lab yourself, continue with the [student guide](docs/runbooks/devops-student-rebuild-guide.md).
+
 ---
 
 ## 🏛 Architecture Overview
@@ -108,6 +110,7 @@ flowchart TD
 ├── projects/                         # 🛡️ AppProject boundaries
 ├── docs/
 │   ├── developer-tutorial.md         # Developer onboarding guide
+│   ├── lab-0-guided-tour.md          # Start here: 60-min tour of the running lab
 │   ├── production-promotion-guardrails.md # Promotion patterns and guardrails
 │   ├── argocd-visual-design-and-naming-standards.md # UI standards, labels, deep links, naming
 │   ├── aws-well-architected-production-guide.md # Well-Architected review and production transition
@@ -219,7 +222,7 @@ The 20 alert rules are unit-tested with `make test-alert-rules` (and in CI, `mak
 
 See the [operational drills](docs/runbooks/operational-drills-and-failure-injection.md).
 
-**Learning the concepts** (not just the commands): start with the [student guide](docs/runbooks/devops-student-rebuild-guide.md) (objectives, checkpoints, *one change, four reconcilers*, the Drill 4 milestone), then the [developer tutorial](docs/developer-tutorial.md), and keep [Concepts, Glossary & Self-Check](docs/concepts-and-glossary.md) at hand.
+**Learning the concepts** (not just the commands): on a running lab, start with [Lab 0: Tour the Running Lab](docs/lab-0-guided-tour.md); then the [student guide](docs/runbooks/devops-student-rebuild-guide.md) (objectives, checkpoints, *one change, four reconcilers*, the Drill 4 milestone), then the [developer tutorial](docs/developer-tutorial.md), and keep [Concepts, Glossary & Self-Check](docs/concepts-and-glossary.md) at hand.
 
 ---
 

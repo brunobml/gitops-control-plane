@@ -13,6 +13,8 @@ fence) by exactly one marker:
 
 Attributes for run/mutating:
   with="aws_as <account>"     prepend the tutorial's aws_as helper (developer-tutorial.md Step 4) and call it
+  with="argocd-session"       log in to Argo CD as break-glass platform-admin into a temporary --config
+                              (ARGOCD_OPTS), for blocks that need any CLI session; removed afterwards
   subst="<a>=x,<b>=y"         replace placeholders before running (e.g. "<team>=team-data")
   expect="regex"              the combined output must match (catches commands that "succeed" silently)
   cwd="../tenant-iac"         working directory relative to the repository root (default: the root)
@@ -20,13 +22,14 @@ Attributes for run/mutating:
 
 usage:
   doc_tests.py --markers-only          static: every block marked, attributes valid (CI, no lab)
-  doc_tests.py [--mutating]            run the run blocks (and the mutating ones) against the lab
+  doc_tests.py [--mutating]            run the run blocks (and the mutating ones, each from a repaired lab)
 """
 import os, re, shlex, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS = [
     "README.md",
+    "docs/lab-0-guided-tour.md",
     "docs/runbooks/devops-student-rebuild-guide.md",
     "docs/developer-tutorial.md",
     "docs/concepts-and-glossary.md",
@@ -35,6 +38,12 @@ DOCS = [
 ]
 KINDS = {"run", "mutating", "covered", "skip"}
 DEDICATED_CHECKS = {"tenant-iac-claim", "tenant-iac-step3", "tutorial-values", "tutorial-sqs"}
+ARGOCD_SESSION = r"""
+_doctest_argocd=$(mktemp -d); trap 'rm -rf "$_doctest_argocd"' EXIT
+export ARGOCD_OPTS="--config $_doctest_argocd/config"
+argocd login localhost --username platform-admin --password "$(cat ~/.config/gitops-lab/argocd-platform-admin.password)" \
+  --grpc-web --plaintext --skip-test-tls >/dev/null
+"""
 FENCE = re.compile(r"^(\s*)```(\S*)\s*$")
 MARKER = re.compile(r"^\s*<!--\s*doc-test:\s*(\w+)(.*?)-->\s*$")
 ATTR = re.compile(r'(\w+)="([^"]*)"')
@@ -87,6 +96,7 @@ def aws_as_definition():
 def inventory():
     """Parse all markers; return (entries, errors)."""
     entries, errors, gates = [], [], bats_gates()
+    tutorial_aws_as = aws_as_definition()
     for doc in DOCS:
         for line, lang, prev, body in blocks(doc):
             if lang != "bash":
@@ -110,7 +120,12 @@ def inventory():
                     pass
                 else:
                     errors.append(f"{where}: covered by=\"{by}\" is not a known check:<id> or bats:<gate>")
+            if "aws_as() {" in body and doc != "docs/developer-tutorial.md" and tutorial_aws_as not in body:
+                errors.append(f"{where}: copy of aws_as() differs from developer-tutorial.md Step 4")
             if kind in ("run", "mutating"):
+                w = attrs.get("with", "")
+                if w and w != "argocd-session" and not re.fullmatch(r"aws_as [0-9]{12}", w):
+                    errors.append(f"{where}: unknown with=\"{w}\" (aws_as <account> or argocd-session)")
                 left = re.findall(r"<[a-z][a-z-]*>", apply_subst(body, attrs.get("subst", "")))
                 if left:
                     errors.append(f"{where}: unsubstituted placeholders {sorted(set(left))} (add subst=\"...\" or skip)")
@@ -135,6 +150,8 @@ def run(entry, aws_as):
     script = "set -o pipefail\n"
     if a.get("with", "").startswith("aws_as "):
         script += aws_as + "\n" + a["with"] + "\n"
+    elif a.get("with") == "argocd-session":
+        script += ARGOCD_SESSION
     script += apply_subst(entry["body"], a.get("subst", ""))
     cwd = os.path.normpath(os.path.join(ROOT, a.get("cwd", ".")))
     env = {"HOME": os.environ["HOME"], "PATH": os.environ["PATH"], "TERM": "dumb"}
@@ -173,6 +190,11 @@ def main():
             if kind == "mutating" and not mutating:
                 print(f"  - mutating {e['where']}: not run (use MODE=live-mutating)")
                 continue
+            # each mutating block starts from a repaired lab, as a learner would after station 0
+            # (Lab 0 station 6 and Drill 4 delete the same queue)
+            if kind == "mutating" and not settle(aws_as, bats=False, quiet=True):
+                failed += 1
+                continue
             ok, why = run(e, aws_as)
             print(f"  {'✔' if ok else '✘'} {kind:8} {e['where']}{'' if ok else ': ' + why}")
             failed += 0 if ok else 1
@@ -186,12 +208,15 @@ apps=$(kubectl --context k3d-hub-cluster -n argocd get applications --no-headers
 aws_as 111111111111
 dlq=$(aws --endpoint-url=http://localhost:5000 sqs get-queue-url --queue-name orders-dev-dlq --output text 2>/dev/null || true)
 users=$(scripts/temp-sso-user.sh list 2>/dev/null | grep -c doctest-learner || true)
-echo "apps-not-green=$apps dlq=${dlq:-missing} doctest-users=$users"
-[[ "$apps" == 0 && -n "$dlq" && "$users" == 0 ]]
+# Lab 0 station 5: kro restores the hand-scaled worker and the deleted ConfigMap
+replicas=$(kubectl --context k3d-spoke-nonprod -n orders-dev get deployment orders-dev-worker -o jsonpath='{.spec.replicas}' || true)
+cm=$(kubectl --context k3d-spoke-nonprod -n orders-dev get configmap orders-dev-config -o name 2>/dev/null || true)
+echo "apps-not-green=$apps dlq=${dlq:-missing} doctest-users=$users worker-replicas=${replicas:-?} config=${cm:-missing}"
+[[ "$apps" == 0 && -n "$dlq" && "$users" == 0 && "$replicas" == 1 && -n "$cm" ]]
 """
 
 
-def settle(aws_as, limit=480):
+def settle(aws_as, limit=480, bats=True, quiet=False):
     """After the mutating blocks, wait until the lab has repaired itself, then confirm with Bats."""
     import time
     env = {"HOME": os.environ["HOME"], "PATH": os.environ["PATH"], "TERM": "dumb"}
@@ -200,12 +225,16 @@ def settle(aws_as, limit=480):
         p = subprocess.run(["bash", "-c", aws_as + "\n" + SETTLE], cwd=ROOT, env=env, capture_output=True, text=True)
         state = (p.stdout.strip().splitlines() or ["?"])[-1]
         if p.returncode == 0:
-            print(f"  ✔ settle: lab repaired after {int(time.time() - t0)} s ({state})")
+            waited = int(time.time() - t0)
+            if not quiet or waited:
+                print(f"  ✔ settle: lab repaired after {waited} s ({state})")
             break
         if time.time() - t0 > limit:
             print(f"  ✘ settle: lab not repaired after {limit} s ({state})")
             return False
         time.sleep(20)
+    if not bats:
+        return True
     b = subprocess.run(["bash", "scripts/smoke-test-hub-spoke-bats.sh"], cwd=ROOT, env=env, capture_output=True, text=True)
     notok = sum(1 for l in b.stdout.splitlines() if l.startswith("not ok"))
     good = b.returncode == 0 and notok == 0

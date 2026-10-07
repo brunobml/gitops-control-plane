@@ -6,6 +6,8 @@
 > **Repository:** [`gitops-control-plane`](../../README.md)  
 > **Platform Version:** Lab Assessment v1.2 (Post-Remediation Acceptance)
 
+> **Start here if the lab is already running:** [Lab 0: Tour the Running Lab](../lab-0-guided-tour.md) (about 60 minutes) shows the core loop (Git → Application → kro → ACK → cloud) without a rebuild. This guide then teaches you to rebuild, verify and break the lab on purpose.
+
 ### What you will be able to explain after this guide
 1. Why one root Application on the hub ends with every platform component, tenant app and team cluster running on three clusters (*app of apps*, ApplicationSets).
 2. Which of the **four reconcilers** (ApplicationSet controller, application controller, kro, ACK) owns a given object, and where each one reports its status.
