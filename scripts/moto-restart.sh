@@ -12,12 +12,58 @@
 # 8. Re-syncs platform-network Applications in Argo CD and waits for ACK resources to sync.
 # 9. Asserts that Moto default account 123456789012 is completely empty of platform/tenant resources.
 # 10. Runs post-bootstrap.sh to re-provision tenant worker credentials, restart workers, and run smoke tests.
+# If any step fails or the run is interrupted, an EXIT trap scales the ACK controllers and the
+# Argo CD application controller back to 1 and says whether moto was restarted (R-a); the
+# default-account check fails when a read fails (R-b).
 
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SECRET_DIR="${GITOPS_LAB_SECRET_DIR:-$HOME/.config/gitops-lab}"
 SPOKES=("spoke-nonprod" "spoke-prod")
+
+# R-a (validated-03): never leave the lab frozen. If any step fails or the run is interrupted
+# while Argo CD's application controller or the ACK controllers are scaled to 0, the EXIT trap
+# scales them back to 1 and says what state moto is in.
+ARGO_PAUSED=false
+ACK_SCALED_DOWN=false
+MOTO_STARTED_BEFORE=$(docker inspect moto-cloud --format "{{.State.StartedAt}}" 2>/dev/null || echo unknown)
+ARGOCD_CFG=""
+restore_on_exit() {
+  local rc=$? msgs=()
+  # Restore first, report last: if the run was interrupted, the reader of our output (a pipe
+  # such as `| tee`) may already be gone, and writing to it would kill this trap with SIGPIPE
+  # before anything is restored (observed under `timeout … | tail`).
+  trap '' PIPE INT TERM
+  [[ -n "$ARGOCD_CFG" ]] && rm -f "$ARGOCD_CFG"
+  (( rc == 0 )) && return 0
+  msgs+=("" "❌ moto-restart stopped (exit ${rc}). Restoring controllers...")
+  if $ACK_SCALED_DOWN; then
+    for spoke in "${SPOKES[@]}"; do
+      if kubectl --context "k3d-${spoke}" -n ack-system scale deploy --all --replicas=1 >/dev/null 2>&1; then
+        msgs+=("  ↻ ${spoke}: ACK controllers scaled back to 1")
+      else
+        msgs+=("  ✘ ${spoke}: could not scale the ACK controllers back; run: kubectl --context k3d-${spoke} -n ack-system scale deploy --all --replicas=1")
+      fi
+    done
+  fi
+  if $ARGO_PAUSED; then
+    if kubectl --context k3d-hub-cluster -n argocd scale statefulset/argo-cd-argocd-application-controller --replicas=1 >/dev/null 2>&1; then
+      msgs+=("  ↻ hub: Argo CD application controller scaled back to 1")
+    else
+      msgs+=("  ✘ hub: could not resume Argo CD; run: kubectl --context k3d-hub-cluster -n argocd scale statefulset/argo-cd-argocd-application-controller --replicas=1")
+    fi
+  fi
+  if [[ "$(docker inspect moto-cloud --format '{{.State.StartedAt}}' 2>/dev/null || echo unknown)" == "$MOTO_STARTED_BEFORE" && "$MOTO_STARTED_BEFORE" != unknown ]]; then
+    msgs+=("  moto was not restarted; the cloud state is unchanged.")
+  else
+    msgs+=("  ⚠ moto was restarted (or its state is unknown) and the recovery did not finish: run 'make moto-restart' again.")
+  fi
+  printf '%s\n' "${msgs[@]}" >&2 2>/dev/null || true
+  return "$rc"
+}
+trap restore_on_exit EXIT
+trap 'exit 130' INT TERM
 
 echo "=========================================================="
 echo " Starting Safe Moto Restart & Control Plane Recovery"
@@ -39,20 +85,22 @@ echo "✔ Pre-flight: Docker and all cluster APIs are reachable"
 
 # 1. Pause Argo CD application controller (so self-heal does not undo ACK scale-down)
 echo "[1/10] Pausing Argo CD application controller on Hub..."
+ARGO_PAUSED=true
 kubectl --context k3d-hub-cluster -n argocd scale statefulset/argo-cd-argocd-application-controller --replicas=0 >/dev/null
 kubectl --context k3d-hub-cluster -n argocd wait --for=delete pod/argo-cd-argocd-application-controller-0 --timeout=60s >/dev/null 2>&1 || true
 echo "  ✔ Argo CD application controller paused (0 replicas)"
 
 # 2. Scale down ACK deployments on both spokes (prevents F-6 leak into default account 123456789012)
 echo "[2/10] Scaling down ACK controllers on both spokes..."
+ACK_SCALED_DOWN=true
 for spoke in "${SPOKES[@]}"; do
   ctx="k3d-${spoke}"
   kubectl --context "$ctx" -n ack-system scale deploy --all --replicas=0 >/dev/null
   t0=$(date +%s)
   until [[ "$(kubectl --context "$ctx" -n ack-system get pods --no-headers 2>/dev/null | wc -l)" -eq 0 ]]; do
     if (( $(date +%s) - t0 > 60 )); then
-      echo "  ⚠ Timed out waiting for ack-system pods to terminate on ${spoke}" >&2
-      break
+      echo "  ✘ Timed out waiting for ack-system pods to terminate on ${spoke}; not restarting moto while they run" >&2
+      exit 1
     fi
     sleep 1
   done
@@ -110,17 +158,18 @@ for spoke in "${SPOKES[@]}"; do
   kubectl --context "$ctx" -n ack-system rollout status deploy --timeout=180s >/dev/null
   echo "  ✔ ${spoke}: all ACK deployments ready (1/1)"
 done
+ACK_SCALED_DOWN=false
 
 # 7. Resume Argo CD application controller
 echo "[7/10] Resuming Argo CD application controller on Hub..."
 kubectl --context k3d-hub-cluster -n argocd scale statefulset/argo-cd-argocd-application-controller --replicas=1 >/dev/null
 kubectl --context k3d-hub-cluster -n argocd rollout status statefulset/argo-cd-argocd-application-controller --timeout=120s >/dev/null
+ARGO_PAUSED=false
 echo "  ✔ Argo CD application controller running (1 replica)"
 
 # 8. Re-sync platform-network in Argo CD and wait for ACK resources to sync
 echo "[8/10] Triggering sync and asserting platform-network sync on spokes..."
 ARGOCD_CFG=$(mktemp)
-trap 'rm -f "$ARGOCD_CFG"' EXIT
 argocd login localhost --plaintext --grpc-web --skip-test-tls --config "$ARGOCD_CFG" \
   --username platform-admin --password "$(cat "${SECRET_DIR}/argocd-platform-admin.password")" </dev/null >/dev/null
 A=(argocd --config "$ARGOCD_CFG")
@@ -147,13 +196,23 @@ done
 # 9. Assert Moto default account 123456789012 is clean (no leaked resources, F-6 verification)
 echo "[9/10] Asserting Moto default account 123456789012 is empty..."
 export AWS_ACCESS_KEY_ID=mock AWS_SECRET_ACCESS_KEY=mock AWS_DEFAULT_REGION=us-east-1
+unset AWS_SESSION_TOKEN
 E=(--endpoint-url=http://localhost:5000)
 
-leaked_vpcs=$(aws "${E[@]}" ec2 describe-vpcs --query 'Vpcs[?!IsDefault].VpcId' --output text 2>/dev/null || true)
-leaked_sgs=$(aws "${E[@]}" ec2 describe-security-groups --query "SecurityGroups[?GroupName=='platform-cluster-sg'].GroupId" --output text 2>/dev/null || true)
-leaked_igws=$(aws "${E[@]}" ec2 describe-internet-gateways --query "InternetGateways[?Tags[?Key=='services.k8s.aws/namespace']].InternetGatewayId" --output text 2>/dev/null || true)
-leaked_sqs=$(aws "${E[@]}" sqs list-queues --query 'QueueUrls' --output text 2>/dev/null || true)
-leaked_roles=$(aws "${E[@]}" iam list-roles --query "Roles[?starts_with(RoleName, 'team-') || starts_with(RoleName, 'ack-')].RoleName" --output text 2>/dev/null || true)
+# R-b (validated-03): every read must succeed; a failed read is "cannot verify", never "empty".
+read_default_account() {
+  local out
+  if ! out=$(aws "${E[@]}" "$@" 2>&1); then
+    echo "❌ Cannot verify the default account: 'aws $1 $2' failed: ${out##*$'\n'}" >&2
+    return 1
+  fi
+  printf '%s' "$out"
+}
+leaked_vpcs=$(read_default_account ec2 describe-vpcs --query 'Vpcs[?!IsDefault].VpcId' --output text)
+leaked_sgs=$(read_default_account ec2 describe-security-groups --query "SecurityGroups[?GroupName=='platform-cluster-sg'].GroupId" --output text)
+leaked_igws=$(read_default_account ec2 describe-internet-gateways --query "InternetGateways[?Tags[?Key=='services.k8s.aws/namespace']].InternetGatewayId" --output text)
+leaked_sqs=$(read_default_account sqs list-queues --query 'QueueUrls' --output text)
+leaked_roles=$(read_default_account iam list-roles --query "Roles[?starts_with(RoleName, 'team-') || starts_with(RoleName, 'ack-')].RoleName" --output text)
 
 if [[ -n "$leaked_vpcs" || -n "$leaked_sgs" || -n "$leaked_igws" || ("$leaked_sqs" != "None" && -n "$leaked_sqs") || -n "$leaked_roles" ]]; then
   echo "❌ Error: leaked resources found in Moto default account 123456789012!" >&2
