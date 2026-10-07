@@ -1,4 +1,4 @@
-.PHONY: maintain local-tls test-docs ci ci-tenants ci-catalog ci-charts ci-schemas test-alert-rules orphans all setup start stop push test test-bats bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints moto-restart restart-moto help
+.PHONY: maintain local-tls test-docs ci ci-tenants ci-catalog ci-charts ci-schemas test-alert-rules orphans all setup start stop push test test-bats bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints moto-restart restart-moto list-moto-resources moto-resources help
 
 ROOT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 REPOS_DIR ?= $(abspath $(ROOT_DIR)/..)
@@ -11,6 +11,8 @@ help:
 	@echo "  make start               - Resume Moto and all k3d clusters after host reboot"
 	@echo "  make stop                - Gracefully stop Moto and k3d clusters (preserving state)"
 	@echo "  make moto-restart        - Gracefully restart Moto Cloud with zero-leak recovery & smoke test"
+	@echo "  make list-moto-resources - Inspect Moto Cloud resources across accounts (parallel, multi-account; ARGS supported)"
+	@echo "  make moto-resources      - Alias for make list-moto-resources"
 	@echo "  make test-docs           - Run the learner-facing doc examples (tutorial, tenant-iac runbook) against the lab"
 	@echo "  make build-app           - Build & push orders-processor container image to local registry (TAG=v1.0.0)"
 	@echo "  make push                - Push all repositories to GitHub (origin main)"
@@ -144,8 +146,10 @@ moto-restart:
 
 restart-moto: moto-restart
 
-moto-resources:
-	@bash $(ROOT_DIR)/scripts/list-moto-resources.sh
+list-moto-resources:
+	@bash $(ROOT_DIR)/scripts/list-moto-resources.sh $(ARGS)
+
+moto-resources: list-moto-resources
 
 teardown:
 	@bash $(ROOT_DIR)/scripts/teardown-hub-spoke.sh
