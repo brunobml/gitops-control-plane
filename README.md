@@ -123,7 +123,7 @@ flowchart TD
 │   ├── setup-hub-spoke.sh            # Docker network, moto, 3 k3d clusters, Argo CD; registers the spokes
 │   ├── register-spokes.sh            # Spoke tokens and Argo CD cluster secrets
 │   ├── post-bootstrap.sh             # Mandatory after bootstrap and after every start (credentials, SSO, sync, smoke test)
-│   ├── smoke-test-hub-spoke.sh       # End-to-end checks (12 stages)
+│   ├── smoke-test-hub-spoke.sh       # End-to-end checks: runs the Bats suite in tests/smoke/
 │   ├── promote-blueprints.sh         # Applies clusters/blueprint-revisions.env
 │   ├── audit-impersonation.sh        # Checks that every Application syncs as its project's identity
 │   ├── orphans.sh                    # Lists objects no Application owns
@@ -175,7 +175,7 @@ Without `make post-bootstrap` the lab is not complete:
 
 ### 4. Verify & Test
 ```bash
-make test     # End-to-end smoke test (12 stages; post-bootstrap already ran it once)
+make test     # End-to-end smoke test: the Bats suite in tests/smoke/ (post-bootstrap already ran it once)
 make status   # Applications, spoke controllers and moto queues
 ```
 

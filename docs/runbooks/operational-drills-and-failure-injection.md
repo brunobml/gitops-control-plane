@@ -60,56 +60,61 @@ moto111() {  # credentials for moto account 111111111111 (nonprod), as the smoke
 ## 2. Pre-Drill Health Check
 
 ```bash
-make test        # 12/12 smoke stages
+make test        # Bats smoke suite: every gate ok, none 'not ok'
 alerts           # nothing firing
 ```
 In Grafana (http://grafana.localhost, Keycloak user `platform-user`), open *Dashboards → Platform overview* and *Logs & events*.
 
 Expected baseline:
-* 12/12 smoke stages pass;
+* every Bats smoke gate passes (`make test`, no `not ok`);
 * no firing alerts;
 * every Application `Synced / Healthy` (42 on 2026-10-06): `kubectl --context k3d-hub-cluster -n argocd get applications --no-headers | grep -v "Synced *Healthy"` prints nothing.
 
 ---
 
-## 3. Drill 1: Cloud Restart Wipes Worker Keys (Failure Mode F-1)
+## 3. Drill 1: The Cloud Loses Its State (moto restart; failure modes F-1, F-6, F-7)
+
+> **Re-verified 2026-10-07** on the current lab (tenant IaC and platform network included). It replaces the 2026-10-03 version, whose recovery (`make post-bootstrap` alone) is no longer sufficient.
 
 ### Scenario Context
-Moto keeps everything in memory. A restart (host reboot, container restart) loses every queue, table and IAM key. The workers keep running with keys that no longer exist, so orders are accepted but never processed.
+Moto keeps everything in memory. An unplanned restart (container crash, `docker restart`, a host reboot without `make start` + `make post-bootstrap`) loses every queue, table, IAM key and VPC. Three things then go wrong at once, and Kubernetes shows almost none of it:
+* **F-1 worker keys:** the workers keep running with IAM keys that no longer exist, so orders are accepted but never processed.
+* **F-6 wrong account:** the ACK controllers keep the temporary STS credentials they got from moto before the restart. Moto no longer knows them and answers as its **default account `123456789012`**, so ACK recreates the queues **in the wrong account**.
+* **F-7 network:** the EC2 controller recreates the platform VPC, but not the internet gateway or security group, so the rest of the platform network stays unsynced.
 
 ### Action: Induce Failure
 ```bash
 docker restart moto-cloud
 ```
 
-### Expected signal
-* **Synthetic order probe:** `lab_order_e2e_success` drops to **0** at the probe's next run. It runs every 5 min per environment. Observed after the restart at 07:58:55: nonprod at 07:59:44, prod at 08:01:50.
-* **`OrdersNotProcessed{cluster=…}`** (critical): pending at once, **firing after 10 min** (`for: 10m`). Observed: nonprod firing 08:10:03, prod 08:12:34. It is visible in Grafana *Platform overview → Firing alerts*.
-* **Not a signal:**
-  * `ProbeFailed{probe="moto"}` does not fire, because moto is back within seconds and the rule needs 5 min.
-  * The workers log **nothing** while their keys are invalid. Loki shows no error lines for `orders-*` during the outage. This silence is why F-1 needs the synthetic probe.
+### Expected signal (observed 2026-10-07, restart at 07:00:37 UTC)
+| Time after restart | What you can see |
+|---|---|
+| ~40 s | `platform-network` on `spoke-nonprod`: only **1 of 6** objects synced (the VPC); 2 Applications no longer `Synced/Healthy` |
+| ~110 s | synthetic order probe `lab_order_e2e_success` drops to **0** (runs every 5 min per environment) |
+| ~280 s (ACK resync, ≤ 300 s) | **6 queues appear in the default account 123456789012**, none in 111111111111 / 222222222222 |
+| 10 min | `OrdersNotProcessed` (critical) fires (`for: 10m`; observed on 2026-10-03) |
+
+Not a signal: `ProbeFailed{probe="moto"}` (moto is back within seconds), and the worker logs (they log nothing while their keys are invalid; only the synthetic probe sees F-1).
+
+Watch it yourself (`aws_as` is the helper from [developer tutorial Step 4](../developer-tutorial.md#step-4-interacting-with-simulated-aws-via-aws-cli)):
+```bash
+aws_as 111111111111; aws --endpoint-url=http://localhost:5000 sqs list-queues        # empty
+AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret AWS_SESSION_TOKEN= \
+  aws --endpoint-url=http://localhost:5000 --region us-east-1 sqs list-queues        # after ~5 min: the queues, in the wrong account
+kubectl --context k3d-spoke-nonprod -n platform-network get vpc,subnet,internetgateway,securitygroup   # most not synced
+```
 
 ### Remediation & Recovery
 ```bash
-make post-bootstrap
+make moto-restart
 ```
-*What happens:*
-* ACK recreates the queues on its own (resync ≤ 5 min).
-* `post-bootstrap.sh` step `[4/9]` finds that each worker Secret's key no longer authenticates, and creates a new IAM key in the namespace's account (111111111111 nonprod, 222222222222 prod).
-* Step `[5/9]` restarts only the workers whose running key differs from their Secret.
-* Step `[9/9]` runs the smoke test, including one end-to-end order per environment.
+Not `make post-bootstrap` alone: it would provision new worker keys, but leave the ACK controllers with their stale credentials and the queues in the wrong account. `make moto-restart` pauses Argo CD, stops the ACK controllers, restarts moto **again** (which also wipes the wrong-account queues), re-creates the platform network, brings the controllers back with fresh credentials, checks that the default account is empty, then runs `post-bootstrap` (worker keys, orphan VPCs, Bats smoke suite). Details: [tenant IaC Runbook 5](tenant-iac-operations.md#runbook-5-moto-cloud-restart--disaster-recovery-moto-restart).
 
-### Validation
-```bash
-promq 'lab_order_e2e_success' | jq -c '[.data.result[] | {(.metric.namespace): .value[1]}] | add'   # all 1
-alerts   # OrdersNotProcessed cleared
-```
-Observed:
-* `post-bootstrap` ran 08:10:04 to 08:12:17 (rc 0, smoke 12/12);
-* the probe reported 1 again at nonprod 08:14:40 and prod 08:17:02;
-* all alerts cleared at 08:17:33.
-
-Expect up to one probe interval (5 min) after `post-bootstrap` before the alert clears.
+### Validation (observed 2026-10-07)
+* `make moto-restart` **rc 0 in 270 s**: "Moto default account 123456789012 is completely empty", one platform VPC per account, Bats smoke **28/28 ok**.
+* Queues: 4 in 111111111111 (dev, test), 2 in 222222222222 (prod), none in the default account; every Application `Synced/Healthy`.
+* The probe reports `1` again at its next run (≤ 5 min); `OrdersNotProcessed` clears after that.
 
 ---
 

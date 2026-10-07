@@ -64,7 +64,7 @@ On 2026-10-04 the whole sequence took **484 s, with no manual step**.
 | 3 | ApplicationSets | `kubectl --context k3d-hub-cluster -n argocd get applicationsets` | one `tenant-workloads-<tenant>` per tenant; no legacy `tenant-workloads` |
 | 4 | Pod Security | `for c in k3d-hub-cluster k3d-spoke-nonprod k3d-spoke-prod; do kubectl --context $c get ns -L pod-security.kubernetes.io/enforce; done` | `restricted` on the platform and tenant namespaces, `baseline` on `headlamp` |
 | 5 | Impersonation | `bash scripts/audit-impersonation.sh` | `RESULT: PASS` |
-| 6 | End to end | `make test` (already run by step 4) | `All Core Smoke Tests Passed!` (12 stages) |
+| 6 | End to end | `make test` (already run by step 4) | exit code 0 and every line `ok N Gate …`, none `not ok` (Bats, `tests/smoke/`; 28 tests on 2026-10-07). Quick check: `make test \| grep -c '^not ok'` → `0` |
 | 7 | URLs and HTTPS | `curl -s -o /dev/null -w '%{http_code}\n' http://argocd.localhost/` and `curl -sk -o /dev/null -w '%{http_code} %{redirect_url}\n' https://argocd.localhost/` | `200`; HTTPS answers `302 http://argocd.localhost/` (`-k` because WSL does not use the Windows trust store; the browser check (10) shows the certificate is trusted). A `HEAD` request (`curl -I`) gets `307` instead, which is equally fine |
 | 8 | Upkeep | `make maintain` | `shortest credential lifetime left: 29 days`, `no orphaned credentials or namespaces`, rc 0 |
 | 9 | Alerts | Grafana → *Platform overview* → *Firing alerts* | none (a fresh lab may show `OrdersNotProcessed` until the synthetic probe's next run, at most 5 min) |

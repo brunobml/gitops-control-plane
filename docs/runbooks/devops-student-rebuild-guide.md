@@ -10,7 +10,7 @@
 1. Why one root Application on the hub ends with every platform component, tenant app and team cluster running on three clusters (*app of apps*, ApplicationSets).
 2. Which of the **four reconcilers** (ApplicationSet controller, application controller, kro, ACK) owns a given object, and where each one reports its status.
 3. The difference between **`Synced`** and **`Healthy`**, and where Argo CD shows health for custom resources.
-4. Why a resource deleted in the cloud comes back without Git changing, and who notices (Drill, §4.6).
+4. Why a resource deleted in the cloud comes back without Git changing, and who notices (Drill 4, §4.6), and why self-healing can make things worse when the cloud loses its state (Drill 1, §4.7).
 5. Which state is deliberately **not** in Git (credentials, worker keys, moto's memory), and why.
 
 **You should already know:** `kubectl` basics (contexts, namespaces, `get`/`logs`/`describe`), what a Kubernetes controller and a Custom Resource Definition are, Git branches and pull requests, Docker containers. Helm and AWS SQS help but are explained where they appear.
@@ -171,15 +171,15 @@ sequenceDiagram
     Teardown-->>DevOps: Exit 0 (1s)
 
     DevOps->>Setup: make setup
-    Note over Setup: Creates Docker network, moto-cloud,<br/>k3d-hub-cluster (:80, :443),<br/>spoke-nonprod (:8081), spoke-prod (:8082)
+    Note over Setup: Creates Docker network, moto-cloud,<br/>k3d-hub-cluster (:80, :443),<br/>spoke-nonprod (:8081), spoke-prod (:8082),<br/>installs Argo CD on the hub, registers the spokes
     Setup-->>DevOps: Exit 0 (~3m)
 
     DevOps->>Bootstrap: make bootstrap
-    Note over Bootstrap: Installs Argo CD on Hub & creates root-control-plane
+    Note over Bootstrap: Applies root-control-plane:<br/>Argo CD deploys everything else from Git<br/>(kro, ACK, Kyverno, observability, tenants, ...)
     Bootstrap-->>DevOps: Exit 0 (1s)
 
     DevOps->>Post: make post-bootstrap
-    Note over Post: Generates spoke tokens, imports Keycloak realm,<br/>registers clusters, applies SSO, seeds Moto queues,<br/>and executes full 12-stage smoke test
+    Note over Post: Renews tokens only if < 7 days left,<br/>SSO prerequisites (CoreDNS, Keycloak, TLS),<br/>worker IAM keys in moto (ACK already made the queues),<br/>repairs the platform network, runs the Bats smoke suite
     Post-->>DevOps: Exit 0 (~5m)
 ```
 
@@ -265,7 +265,7 @@ make post-bootstrap
   5. Restarts worker pods to pick up their new AWS credentials.
   6. Cleans up what deregistered tenant apps left behind (orphans).
   7. Adopts the self-managed `argo-cd` application (manual sync by design) and re-syncs anything stuck.
-  8. Runs the full 12-stage smoke test.
+  8. Runs the Bats smoke suite (`tests/smoke/`, 28 tests on 2026-10-07; e.g. *Gate 9*: one order end to end per environment). Success: every line `ok`, none `not ok`.
 * **Expected duration:** ~4–5 minutes (exit code 0).
 * **Terminal output:**
 
@@ -412,7 +412,29 @@ kubectl --context k3d-spoke-nonprod -n ack-system logs deploy/ack-sqs-controller
 * **The ACK object did not change either**, until the ACK SQS controller's **periodic resync** (every 300 s; `reconcile.defaultResyncPeriod` in `platform-catalog/controllers/ack/values-sqs.yaml`) read the real queue, found it missing and created it again. Controllers react to *watch events* on Kubernetes objects instantly, but cloud state is only re-read on the resync schedule, so recovery takes between a few seconds and 5 minutes (observed 11 s, 50 s and 150 s in different runs).
 * **Lesson:** "GitOps is green" means *the cluster matches Git*. Whether the *cloud* matches the cluster is the cloud controller's job, on its own clock. In production you would watch the cloud side separately (here: the synthetic order probe and `OrdersNotProcessed`).
 
-More failure drills, with timings and alerts: [operational drills](operational-drills-and-failure-injection.md). *Drill 1 (moto restart) predates the tenant-IaC platform network: use [`make moto-restart`](tenant-iac-operations.md#runbook-5-moto-cloud-restart--disaster-recovery-moto-restart) as recovery, and treat it as an operator drill, not a first exercise.*
+More failure drills, with timings and alerts: [operational drills](operational-drills-and-failure-injection.md).
+</details>
+
+### 7. Milestone: Lose the Cloud (Drill 1)
+
+Drill 4 changed one queue. Now the whole cloud forgets everything: moto keeps its state in memory, and a restart wipes queues, IAM keys and the platform network. It takes about 15 minutes, most of it waiting. Do it after the Drill 4 milestone.
+
+> **Predict** (write it down): you run `docker restart moto-cloud`.
+> 1. Will Argo CD show anything red? After how long?
+> 2. The ACK SQS controller recreated a deleted queue by itself in Drill 4. Will it do the same now, and *where* will the queues appear?
+> 3. Will `make post-bootstrap` alone fix everything?
+
+**Act and observe:** follow [Drill 1](operational-drills-and-failure-injection.md#3-drill-1-the-cloud-loses-its-state-moto-restart-failure-modes-f-1-f-6-f-7). Run the `list-queues` checks about 5 minutes after the restart, both with `aws_as 111111111111` and with plain `mock-key` credentials (the default account).
+
+**Recover:** `make moto-restart` (not `make post-bootstrap` alone).
+
+<details><summary><b>Explain</b>: what was observed on 2026-10-07, and why</summary>
+
+* **Argo CD turned partly red, but late and only for the network:** after about 40 s, the `platform-network` objects were no longer synced (1 of 6), and 2 Applications left `Synced/Healthy`. The tenant apps stayed green; their Kubernetes objects did not change.
+* **The orders stopped silently:** the workers' IAM keys no longer existed, but the workers logged nothing. Only the synthetic order probe dropped to 0 (after about 110 s); the `OrdersNotProcessed` alert needs 10 minutes.
+* **The queues came back in the wrong account.** At the next resync (≈ 280 s), ACK recreated all 6 queues in moto's **default account `123456789012`**, not in 111/222. ACK still used the temporary STS credentials it got before the restart; moto had forgotten them and treated the calls as coming from its default account. **The same self-healing loop that fixed Drill 4 made things worse here**, because its *identity* was stale.
+* **`post-bootstrap` alone would not fix it:** it provisions worker keys, but it does not restart the ACK controllers, so their credentials stay stale. `make moto-restart` stops the controllers, restarts moto again (which also wipes the misplaced queues), and brings everything back with fresh credentials; then it checks the default account is empty and runs the smoke suite (observed: 270 s, 28/28).
+* **Lesson:** a controller is only as correct as the *identity and state* it works with. Self-healing assumes the controller still talks to the right account; after the cloud loses its state, recovery has to reset the controllers too. On real AWS the same class of problem appears as expired or wrong credentials after an account or role change.
 </details>
 
 ---

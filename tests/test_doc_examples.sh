@@ -92,11 +92,17 @@ else
   fi
 fi
 
-echo "[4] stale application baselines"
+echo "[4] stale baselines"
 if stale=$(grep -rn -E "32 Applications|32/32 Applications|all 32 [Aa]pplications" "$ROOT/README.md" "$ROOT/docs"/*.md "$ROOT/docs/runbooks"/*.md); then
   bad "stale baseline: $stale"
 else
   ok "no '32 Applications' baselines in learner documents"
+fi
+# The 12-stage smoke script was replaced by the Bats suite (9134041); its banner no longer exists
+if stale=$(grep -rn -E "12 stages|12/12 smoke stages|12-stage smoke|All Core Smoke Tests Passed" "$ROOT/README.md" "$ROOT/docs"/*.md "$ROOT/docs/runbooks"/*.md); then
+  bad "stale smoke reference: $stale"
+else
+  ok "no '12-stage smoke' references in learner documents"
 fi
 
 if (( failed )); then echo "✘ $failed doc example check(s) failed"; exit 1; fi
