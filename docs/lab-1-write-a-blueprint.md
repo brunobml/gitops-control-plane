@@ -22,11 +22,11 @@ Work in an empty directory. Each step: *predict*, run, compare with **Measured**
 
 <!-- doc-test: covered by="check:test-lab1" -->
 ```bash
-make -C ~/repos/gitops-control-plane sandbox-up WITH_MOTO=1     # WITH_MOTO=1 only for step 6; about 40 s
+make -C ~/repos/gitops-control-plane sandbox-up     # kro only; about 40 s
 kubectl --context k3d-learn-sandbox get pods -A
 ```
 
-**Measured:** ready in 38 s: one k3d cluster `learn-sandbox` (API `127.0.0.1:6560`), kro 0.9.4 in namespace `kro`, the ACK SQS controller and `moto-sandbox` on `127.0.0.1:5002`. Your current kube context is **not** switched; always pass `--context k3d-learn-sandbox`. kro runs exactly as on the spokes: the chart version from `applicationsets/addons-spoke.yaml`, the values from `platform-catalog/controllers/kro/values-kro.yaml`, including `rbac.mode: aggregation`.
+**Measured:** ready in 34 s: one k3d cluster `learn-sandbox` (API `127.0.0.1:6560`) with kro 0.9.4 in namespace `kro`; no moto and no ACK until step 6. Your current kube context is **not** switched; always pass `--context k3d-learn-sandbox`. kro runs exactly as on the spokes: the chart version from `applicationsets/addons-spoke.yaml`, the values from `platform-catalog/controllers/kro/values-kro.yaml`, including `rbac.mode: aggregation`.
 
 Create the namespace for your instances, with the same Pod Security level as tenant namespaces:
 
@@ -334,7 +334,16 @@ The webgreetings "hello" is invalid: : ValidatingAdmissionPolicy 'webgreeting-co
 
 ---
 
-## Step 6 (stretch): A cloud resource (10 min, needs `WITH_MOTO=1`)
+## Step 6 (stretch): A cloud resource (10 min)
+
+Add moto and the ACK SQS controller to your running sandbox; your blueprint and instances stay:
+
+<!-- doc-test: covered by="check:test-lab1" -->
+```bash
+make -C ~/repos/gitops-control-plane sandbox-up WITH_MOTO=1     # on an existing sandbox: adds moto-sandbox + ACK SQS only
+```
+
+**Measured:** 19 s; `moto-sandbox` on `127.0.0.1:5002` and the ACK SQS controller (the lab's chart version and values) in `ack-system`. Your instances stayed `ACTIVE`. (Running it again refuses: the sandbox already has moto.)
 
 Add an ACK `Queue` and write its URL into the page's ConfigMap and the instance's status. kro also needs permission for `queues.sqs.services.k8s.aws` ([`rbac-queue.yaml`](lab-1-solution/rbac-queue.yaml)). The complete RGD is [`rgd-with-queue.yaml`](lab-1-solution/rgd-with-queue.yaml). Try writing it yourself first: the new child, one `data` key, one `status` field.
 

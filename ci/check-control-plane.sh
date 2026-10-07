@@ -17,6 +17,8 @@
 #                old 8080/8443 hub URLs (Track I, review remark R-10; ci/check-sso-urls.py)
 #   doc-markers  every bash block in the learner documents carries a valid doc-test marker
 #                (learner on-ramp plan, Track C; tests/doc_tests.py --markers-only; no lab needed)
+#   sandbox-guards  Lab 1 sandbox-down and the test-lab1 queue check fail closed on read errors
+#                (tests/test-sandbox-guards.sh, stubbed docker/k3d/kubectl/aws; no lab needed)
 #
 # usage: ci/check-control-plane.sh [stage...]     (no stage = all)
 CI_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
@@ -135,6 +137,10 @@ fi
 
 if stage doc-markers "Doc-test markers on every learner bash block (Track C)"; then
   python3 "$REPO/tests/doc_tests.py" --markers-only || fail "doc-test markers"
+fi
+
+if stage sandbox-guards "Lab 1 sandbox guards fail closed (validation-04 V3-1, V3-2)"; then
+  bash "$REPO/tests/test-sandbox-guards.sh" || fail "sandbox guards"
 fi
 
 if stage alloy "Alloy configuration"; then

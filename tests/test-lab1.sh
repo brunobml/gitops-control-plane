@@ -14,9 +14,12 @@ K="kubectl --context ${CTX}"
 NS=lab1
 work=$(mktemp -d)
 passed=0
+# shellcheck source=tests/lab1-lib.bash
+source "${ROOT_DIR}/tests/lab1-lib.bash"
+exec 3>&2   # fail() reports on fd 3: wait_for silences its predicates' stderr
 
 ok()   { passed=$((passed + 1)); echo "  ✔ $*"; }
-fail() { echo "  ✘ $*" >&2; exit 1; }
+fail() { echo "  ✘ $*" >&3; exit 1; }
 # wait_for <seconds> <description> <command...>: poll until the command succeeds
 wait_for() {
   local limit=$1 what=$2; shift 2
@@ -32,8 +35,27 @@ istate() { $K -n "$NS" get webgreeting "$1" -o jsonpath='{.status.state}/{.statu
 is_active() { [[ "$(istate "$1")" == "ACTIVE/True" ]]; }
 rgd_active() { [[ "$($K get rgd web-greeting -o jsonpath='{.status.state}')" == "Active" ]]; }
 cond_has() { [[ "$(cond "$1" status)" == "$2" && "$(cond "$1" message)" == *"$3"* ]]; }
-moto() { AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret AWS_SESSION_TOKEN='' \
-  aws --endpoint-url=http://localhost:5002 --region us-east-1 "$@"; }
+# Fail closed (validation-04 V3-2): an "absent" check must come from a successful read that also
+# shows a control object; a failed read aborts the test instead of counting as "absent".
+services() { local out; out=$($K -n "$NS" get service -o name) || fail "cannot list services in ${NS}"; printf '%s\n' "$out"; }
+service_hello_gone() {
+  local svcs; svcs=$(services)
+  grep -qx service/hello-public <<<"$svcs" || fail "control Service hello-public missing"
+  ! grep -qx service/hello <<<"$svcs"
+}
+policy_denies_9() {
+  local out
+  if out=$($K -n "$NS" patch webgreeting hello --type merge -p '{"spec":{"replicas":9}}' --dry-run=server 2>&1); then return 1; fi
+  [[ "$out" == *"spec.replicas must be between 1 and 5"* ]]
+}
+control_queue_listed() { [[ "$(queue_state lab1-hello-public-jobs lab1-hello-public-jobs)" == present ]]; }
+queue_gone() {
+  case "$(queue_state lab1-hello-jobs lab1-hello-public-jobs)" in
+    absent) return 0 ;;
+    present) return 1 ;;
+    *) fail "cannot read the queues in moto-sandbox (a read error is not proof of deletion)" ;;
+  esac
+}
 
 contexts_before=$(kubectl config get-contexts -o name | sort | tr '\n' ' ')
 current_before=$(kubectl config current-context 2>/dev/null || true)
@@ -47,8 +69,10 @@ cleanup() {
 echo "[0] sandbox"
 k3d cluster list learn-sandbox >/dev/null 2>&1 && fail "a sandbox already exists; run make sandbox-down first (test-lab1 starts from a clean state)"
 trap cleanup EXIT
-bash "$SANDBOX" up --with-moto >/dev/null
-ok "sandbox up (kro + moto-sandbox + ACK SQS)"
+bash "$SANDBOX" up >/dev/null
+containers=$(docker ps -a --format '{{.Names}}') || fail "docker ps failed"
+grep -qx moto-sandbox <<<"$containers" && fail "kro-only sandbox started moto-sandbox"
+ok "sandbox up, kro only (the default; moto is added for step 6)"
 $K create namespace "$NS" >/dev/null
 $K label namespace "$NS" pod-security.kubernetes.io/enforce=restricted >/dev/null
 
@@ -95,19 +119,21 @@ wait_for 60 "CRD has the new field spec.expose" bash -c \
   "$K get crd webgreetings.kro.run -o jsonpath='{.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.expose.type}' | grep -qx boolean"
 $K apply -f "${SOL}/instances.yaml" >/dev/null
 sleep 20
-[[ -z "$($K -n "$NS" get webgreeting hello-public -o jsonpath='{.status.state}')" ]] && ok "without services RBAC: hello-public has no status" || fail "hello-public has a status without services RBAC"
+state=$($K -n "$NS" get webgreeting hello-public -o jsonpath='{.status.state}') || fail "cannot read hello-public"
+[[ -z "$state" ]] && ok "without services RBAC: hello-public has no status" || fail "hello-public has status '${state}' without services RBAC"
 kro_log=$($K -n kro logs deploy/kro --since=2m)   # not piped into grep -q: SIGPIPE + pipefail
 [[ "$kro_log" == *"services is forbidden"* ]] && ok "kro log: services is forbidden" || fail "no 'services is forbidden' in the kro log"
 $K apply -f "${SOL}/rbac.yaml" >/dev/null
 wait_for 120 "with services: hello-public ACTIVE/Ready" is_active hello-public
 order=$($K get rgd web-greeting -o jsonpath='{.status.topologicalOrder}')
 [[ "$order" == '["config","deployment","service"]' ]] && ok "solution topologicalOrder ${order}" || fail "topologicalOrder ${order}"
-$K -n "$NS" get service hello-public >/dev/null 2>&1 && ok "expose: true → Service hello-public" || fail "no Service hello-public"
-$K -n "$NS" get service hello >/dev/null 2>&1 && fail "Service hello exists although expose is false" || ok "expose: false → no Service hello"
+svcs=$(services)
+grep -qx service/hello-public <<<"$svcs" && ok "expose: true → Service hello-public" || fail "no Service hello-public"
+grep -qx service/hello <<<"$svcs" && fail "Service hello exists although expose is false" || ok "expose: false → no Service hello"
 $K -n "$NS" patch webgreeting hello --type merge -p '{"spec":{"expose":true}}' >/dev/null
 wait_for 30 "expose toggled on → Service hello created" $K -n "$NS" get service hello
 $K -n "$NS" patch webgreeting hello --type merge -p '{"spec":{"expose":false}}' >/dev/null
-wait_for 30 "expose toggled off → Service hello deleted" bash -c "! $K -n $NS get service hello"
+wait_for 30 "expose toggled off → Service hello deleted" service_hello_gone
 
 echo "[4] readyWhen and status"
 $K -n "$NS" patch webgreeting hello --type merge -p '{"spec":{"replicas":3}}' >/dev/null
@@ -129,14 +155,17 @@ wait_for 60 "KindReady=False: breaking changes detected" cond_has KindReady Fals
 $K apply -f "${SOL}/rgd.yaml" >/dev/null
 wait_for 60 "original RGD Active again" rgd_active
 $K apply -f "${SOL}/policy.yaml" >/dev/null
-wait_for 30 "policy registered" bash -c "! $K -n $NS patch webgreeting hello --type merge -p '{\"spec\":{\"replicas\":9}}' --dry-run=server"
+wait_for 30 "policy registered (server dry-run denies replicas 9 with the policy message)" policy_denies_9
 if out=$($K -n "$NS" patch webgreeting hello --type merge -p '{"spec":{"replicas":9}}' 2>&1); then
   fail "replicas 9 was accepted"
 fi
 [[ "$out" == *"spec.replicas must be between 1 and 5"* ]] && ok "ValidatingAdmissionPolicy denies replicas 9" || fail "unexpected: ${out}"
 $K -n "$NS" patch webgreeting hello --type merge -p '{"spec":{"replicas":2}}' >/dev/null && ok "replicas 2 accepted"
 
-echo "[6] stretch: an ACK Queue child"
+echo "[6] stretch: an ACK Queue child (moto added to the running sandbox, as in the doc)"
+bash "$SANDBOX" up --with-moto >/dev/null
+ok "make sandbox-up WITH_MOTO=1 added moto-sandbox and ACK SQS; the learner's work is kept"
+is_active hello && is_active hello-public && ok "instances still ACTIVE after adding moto" || fail "instances changed by adding moto"
 $K apply -f "${SOL}/rbac-queue.yaml" -f "${SOL}/rgd-with-queue.yaml" >/dev/null
 wait_for 120 "status.queueURL set" bash -c "[[ -n \"\$($K -n $NS get webgreeting hello -o jsonpath='{.status.queueURL}')\" ]]"
 [[ "$($K -n "$NS" get configmap hello-page -o jsonpath='{.data.queue-url}')" == http://moto-sandbox:5000/*/lab1-hello-jobs ]] \
@@ -144,9 +173,13 @@ wait_for 120 "status.queueURL set" bash -c "[[ -n \"\$($K -n $NS get webgreeting
 moto sqs get-queue-url --queue-name lab1-hello-jobs >/dev/null && ok "queue lab1-hello-jobs exists in moto-sandbox"
 
 echo "[7] delete cascades to the cloud"
+wait_for 120 "control queue lab1-hello-public-jobs listed" control_queue_listed
+[[ "$(queue_state lab1-hello-jobs lab1-hello-public-jobs)" == present ]] || fail "queue lab1-hello-jobs not readable as present before the delete"
 $K -n "$NS" delete webgreeting hello --timeout=120s >/dev/null
-wait_for 120 "queue lab1-hello-jobs deleted from moto-sandbox" bash -c "! AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5002 --region us-east-1 sqs get-queue-url --queue-name lab1-hello-jobs"
-[[ -z "$($K -n "$NS" get deploy,configmap,service -o name | grep -E '/hello(-page)?$' || true)" ]] && ok "kro removed hello's children" || fail "hello children left"
+wait_for 120 "queue lab1-hello-jobs deleted from moto-sandbox (control queue lab1-hello-public-jobs still listed)" queue_gone
+names=$($K -n "$NS" get deploy,configmap,service -o name) || fail "cannot list hello's children"
+grep -qx deployment.apps/hello-public <<<"$names" || fail "control Deployment hello-public missing"
+grep -Eq '/hello(-page)?$' <<<"$names" && fail "hello children left: ${names}" || ok "kro removed hello's children (hello-public kept)"
 
 echo "[8] teardown"
 trap - EXIT
