@@ -8,13 +8,17 @@
 # a second VPC is created and the first is left behind (observed 2026-10-07: one empty orphan
 # VPC per account). Harmless in moto, a leak on real AWS.
 #
-# A VPC is deleted only if ALL hold:
-#   - the spoke's VPC object (platform-network/platform-vpc) is ACK.ResourceSynced=True and has a
-#     status.vpcID, in the account named by the namespace's CARM annotation;
-#   - the VPC is tagged services.k8s.aws/namespace=platform-network and is not that vpcID;
+# Candidates are only VPCs that ACK created for namespace platform-network (tag
+# services.k8s.aws/namespace=platform-network) in the account named by that namespace's CARM
+# annotation. A candidate is deleted only if ALL hold:
+#   - every VPC object in namespace platform-network on the spoke is ACK.ResourceSynced=True with a
+#     status.vpcID (otherwise the account is not checked and the script fails), and the candidate
+#     is none of those IDs: no VPC object in that namespace references it;
 #   - it is empty: no subnets, no attached internet gateway, only the default security group,
 #     only the main route table.
-# Anything else is reported and kept.
+# Fail-closed (validated-10): a VPC that is not empty is kept and reported, an unsynced network or
+# a failed AWS read is reported, and in all these cases the script exits 1. It never reports an
+# account as clean without having read it.
 #
 # usage: scripts/prune-orphan-platform-vpcs.sh [--dry-run]
 set -euo pipefail
@@ -24,7 +28,7 @@ DRY_RUN=false
 ENDPOINT="${MOTO_ENDPOINT:-http://localhost:5000}"
 E=(--endpoint-url="$ENDPOINT" --region "${AWS_DEFAULT_REGION:-us-east-1}")
 SPOKES=(spoke-nonprod spoke-prod)
-kept=0
+problems=0
 
 as_account() {  # credentials for one moto account (STS AssumeRole, as the ACK controllers do)
   local creds
@@ -41,19 +45,31 @@ for spoke in "${SPOKES[@]}"; do
   ctx="k3d-${spoke}"
   account=$(kubectl --context "$ctx" get ns platform-network \
     -o jsonpath='{.metadata.annotations.services\.k8s\.aws/owner-account-id}' 2>/dev/null || true)
-  vpc_json=$(kubectl --context "$ctx" -n platform-network get vpc platform-vpc -o json 2>/dev/null || true)
-  live=$(jq -r '.status.vpcID // empty' <<<"${vpc_json:-{\}}")
-  synced=$(jq -r '[.status.conditions[]? | select(.type=="ACK.ResourceSynced")][0].status // empty' <<<"${vpc_json:-{\}}")
-  if [[ -z "$account" || -z "$live" || "$synced" != "True" ]]; then
-    echo "  - ${spoke}: platform VPC not synced yet (account='${account}', vpcID='${live}', synced='${synced}'); nothing pruned"
-    continue
+  if ! vpcs_json=$(kubectl --context "$ctx" -n platform-network get vpc.ec2.services.k8s.aws -o json 2>/dev/null); then
+    echo "  ✘ ${spoke}: cannot read the VPC objects in namespace platform-network" >&2
+    problems=$((problems + 1)); continue
+  fi
+  # IDs of every VPC object in the namespace; all must be synced with an ID, or nothing is pruned
+  unsynced=$(jq -r '[.items[] | select(([.status.conditions[]? | select(.type=="ACK.ResourceSynced")][0].status // "") != "True" or (.status.vpcID // "") == "") | .metadata.name] | join(",")' <<<"$vpcs_json")
+  mapfile -t referenced < <(jq -r '.items[].status.vpcID // empty' <<<"$vpcs_json")
+  if [[ -z "$account" || ${#referenced[@]} -eq 0 || -n "$unsynced" ]]; then
+    echo "  ✘ ${spoke}: platform network not verifiable (account='${account}', VPC objects with an ID: ${#referenced[@]}, not synced: '${unsynced}'); nothing pruned" >&2
+    problems=$((problems + 1)); continue
   fi
   as_account "$account"
-  mapfile -t candidates < <(aws "${E[@]}" ec2 describe-vpcs \
-    --filters "Name=tag:services.k8s.aws/namespace,Values=platform-network" \
-    --query 'Vpcs[].VpcId' --output text | tr '\t' '\n' | grep -v -x -e "$live" -e '' || true)
+  # Read the account's platform VPCs; a failed read is an error, never "no orphan"
+  if ! all_ids=$(aws "${E[@]}" ec2 describe-vpcs \
+        --filters "Name=tag:services.k8s.aws/namespace,Values=platform-network" \
+        --query 'Vpcs[].VpcId' --output text); then
+    echo "  ✘ ${spoke} (account ${account}): describe-vpcs failed; nothing pruned" >&2
+    problems=$((problems + 1)); continue
+  fi
+  candidates=()
+  for vpc in $all_ids; do
+    [[ " ${referenced[*]} " == *" ${vpc} "* ]] || candidates+=("$vpc")
+  done
   if (( ${#candidates[@]} == 0 )); then
-    echo "  ✔ ${spoke} (account ${account}): only ${live}, no orphan platform VPC"
+    echo "  ✔ ${spoke} (account ${account}): only ${referenced[*]}, no orphan platform VPC"
     continue
   fi
   for vpc in "${candidates[@]}"; do
@@ -63,16 +79,16 @@ for spoke in "${SPOKES[@]}"; do
     rts=$(aws "${E[@]}" ec2 describe-route-tables --filters "Name=vpc-id,Values=${vpc}" --query 'length(RouteTables[?!(Associations[?Main])])' --output text)
     if [[ "$subnets" == 0 && "$igws" == 0 && "$sgs" == 0 && "$rts" == 0 ]]; then
       if $DRY_RUN; then
-        echo "  ↻ ${spoke} (account ${account}): would delete empty orphan VPC ${vpc} (live: ${live})"
+        echo "  ↻ ${spoke} (account ${account}): would delete empty orphan VPC ${vpc} (referenced: ${referenced[*]})"
       else
         aws "${E[@]}" ec2 delete-vpc --vpc-id "$vpc"
-        echo "  ✔ ${spoke} (account ${account}): deleted empty orphan VPC ${vpc} (live: ${live})"
+        echo "  ✔ ${spoke} (account ${account}): deleted empty orphan VPC ${vpc} (referenced: ${referenced[*]})"
       fi
     else
-      echo "  ⚠ ${spoke} (account ${account}): kept ${vpc}, not empty (subnets=${subnets} igws=${igws} non-default SGs=${sgs} extra route tables=${rts}); investigate" >&2
-      kept=$((kept + 1))
+      echo "  ✘ ${spoke} (account ${account}): kept ${vpc}, not empty (subnets=${subnets} igws=${igws} non-default SGs=${sgs} extra route tables=${rts}); investigate" >&2
+      problems=$((problems + 1))
     fi
   done
 done
 
-(( kept == 0 )) || exit 1
+(( problems == 0 )) || { echo "✘ prune-orphan-platform-vpcs: ${problems} problem(s), see above" >&2; exit 1; }

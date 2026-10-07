@@ -154,6 +154,24 @@ for pair in "k3d-spoke-nonprod:orders-dev" "k3d-spoke-nonprod:orders-test" "k3d-
 done
 echo -e "${GREEN}✔ All 6 expected SQS queues (3 queues + 3 DLQs) verified in Moto Cloud${NC}"
 
+# Tenant-IaC tier-1 network: exactly one platform VPC per account, the one Kubernetes references
+# (a moto restart can leave an orphan; scripts/prune-orphan-platform-vpcs.sh). Same check as Bats Gate 6b.
+for ctx in k3d-spoke-nonprod k3d-spoke-prod; do
+  account=$(kubectl --context "$ctx" get namespace platform-network -o jsonpath='{.metadata.annotations.services\.k8s\.aws/owner-account-id}' 2>/dev/null || true)
+  live=$(kubectl --context "$ctx" -n platform-network get vpc platform-vpc -o jsonpath='{.status.vpcID}' 2>/dev/null || true)
+  creds=$(AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret aws --endpoint-url=http://localhost:5000 --region us-east-1 \
+    sts assume-role --role-arn "arn:aws:iam::${account:-0}:role/smoke-test" --role-session-name smoke-test --query Credentials --output json 2>/dev/null || true)
+  vpcs=$(AWS_ACCESS_KEY_ID=$(jq -r '.AccessKeyId // empty' <<<"${creds:-{\}}") AWS_SECRET_ACCESS_KEY=$(jq -r '.SecretAccessKey // empty' <<<"${creds:-{\}}") \
+    AWS_SESSION_TOKEN=$(jq -r '.SessionToken // empty' <<<"${creds:-{\}}") \
+    aws --endpoint-url=http://localhost:5000 --region us-east-1 ec2 describe-vpcs \
+    --filters "Name=tag:services.k8s.aws/namespace,Values=platform-network" --query 'Vpcs[].VpcId' --output text 2>/dev/null || echo "READ-FAILED")
+  if [[ -z "$account" || -z "$live" || "$vpcs" != "$live" ]]; then
+    echo -e "${RED}✘ ${ctx}: platform VPCs in account '${account}' are [${vpcs}], expected exactly the referenced '${live}'${NC}"
+    exit 1
+  fi
+  echo -e "  Platform VPC: ${GREEN}${live}${NC} is the only one in account ${account}"
+done
+
 # 7. GitOps Workload Pods (L3-4, C-2)
 echo -e "\n${YELLOW}[7/12] Asserting Workload Pods...${NC}"
 DEV_PODS=$(kubectl --context k3d-spoke-nonprod -n orders-dev get pods --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l | tr -d ' ')
