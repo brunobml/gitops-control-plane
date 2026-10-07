@@ -44,7 +44,11 @@ k() { kubectl --context "$CTX" "$@"; }
 k3d_clusters() {
   local out names
   out=$(k3d cluster list -o json) || die "could not verify: k3d cluster list failed"
-  names=$(jq -r '.[].name' <<<"$out") || die "could not verify: k3d cluster list returned no JSON"
+  # an empty answer is not an inventory (jq exits 0 on empty input; validation-05 V3-4): require a
+  # JSON array, where [] is a real "no clusters"
+  [[ -n "$out" ]] || die "could not verify: k3d cluster list returned nothing"
+  jq -e 'type == "array"' <<<"$out" >/dev/null 2>&1 || die "could not verify: k3d cluster list returned no JSON array"
+  names=$(jq -r '.[].name' <<<"$out") || die "could not verify: k3d cluster list returned no JSON array"
   printf '%s\n' "$names"
 }
 docker_containers() { docker ps -a --format '{{.Names}}' || die "could not verify: docker ps failed"; }

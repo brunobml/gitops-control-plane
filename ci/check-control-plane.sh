@@ -139,7 +139,7 @@ if stage doc-markers "Doc-test markers on every learner bash block (Track C)"; t
   python3 "$REPO/tests/doc_tests.py" --markers-only || fail "doc-test markers"
 fi
 
-if stage sandbox-guards "Lab 1 sandbox guards fail closed (validation-04 V3-1, V3-2)"; then
+if stage sandbox-guards "Lab 1 sandbox guards fail closed (validation-04 V3-1, V3-2; validation-05 V3-4)"; then
   bash "$REPO/tests/test-sandbox-guards.sh" || fail "sandbox guards"
 fi
 

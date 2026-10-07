@@ -19,7 +19,7 @@ cat > "$stubs/stub" <<'EOF'
 op="$(basename "$0") $*"
 fails() { [[ " ${STUB_FAIL:-} " == *" $1 "* ]]; }
 case "$op" in
-  "k3d cluster list -o json")          fails k3d-list && exit 77; echo "${STUB_K3D:-[]}" ;;
+  "k3d cluster list -o json")          fails k3d-list && exit 77; printf '%s' "${STUB_K3D-[]}" ;;
   "k3d cluster delete "*)              fails k3d-delete && exit 77; exit 0 ;;
   "docker ps -a "*)                    fails docker-ps && exit 77; printf '%s' "${STUB_CONTAINERS:-}" ;;
   "docker network ls "*)               fails docker-net && exit 77; printf '%s' "${STUB_NETWORKS:-}" ;;
@@ -53,7 +53,11 @@ case_down "docker ps fails"                nonzero "could not verify: docker ps"
 case_down "k3d cluster list fails"         nonzero "could not verify: k3d"     "${clean[@]}" STUB_FAIL="k3d-list"
 case_down "docker network ls fails"        nonzero "could not verify: docker network" "${clean[@]}" STUB_FAIL="docker-net"
 case_down "kube contexts unreadable"       nonzero "could not verify: kubectl" "${clean[@]}" STUB_FAIL="kubectl"
-case_down "k3d answers no JSON"            nonzero "could not verify: k3d cluster list returned no JSON" "${clean[@]}" STUB_K3D="FATA no nodes"
+case_down "k3d answers no JSON"            nonzero "could not verify: k3d cluster list returned no JSON array" "${clean[@]}" STUB_K3D="FATA no nodes"
+case_down "k3d answers nothing, exit 0"    nonzero "could not verify: k3d cluster list returned nothing" "${clean[@]}" STUB_K3D=""
+case_down "k3d answers a JSON object"      nonzero "could not verify: k3d cluster list returned no JSON array" "${clean[@]}" STUB_K3D="{}"
+case_down "all reads empty, exit 0 (V3-4)" nonzero "could not verify" STUB_K3D="" STUB_CONTAINERS="" STUB_NETWORKS="" STUB_CONTEXTS=""
+case_down "k3d answers [] (no clusters)"   0       "sandbox removed"           "${clean[@]}" STUB_K3D="[]"
 case_down "network left behind"            nonzero "leftovers: network"        "${clean[@]}" STUB_NETWORKS=$'bridge\nk3d-learn-sandbox'
 case_down "kube context left behind"       nonzero "leftovers: kube-context"   "${clean[@]}" STUB_CONTEXTS=$'k3d-hub-cluster\nk3d-learn-sandbox'
 case_down "moto-sandbox cannot be removed" nonzero "could not remove container moto-sandbox" \
