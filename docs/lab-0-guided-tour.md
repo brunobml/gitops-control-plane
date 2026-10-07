@@ -360,4 +360,4 @@ This time Argo CD **does** act: the values commit changed, so the rendered `Queu
 
 * **[Student guide](runbooks/devops-student-rebuild-guide.md):** rebuild the lab yourself, then Drill 1 (*Lose the Cloud*), the disruptive drill this tour avoids.
 * **[Developer tutorial](developer-tutorial.md):** ship a change as a tenant.
-* **Lab 1 (coming next):** write your own kro blueprint in a disposable sandbox cluster.
+* **[Lab 1: Write a Blueprint](lab-1-write-a-blueprint.md):** write your own kro blueprint in a disposable sandbox cluster (about 60 minutes).

@@ -8,7 +8,8 @@ fence) by exactly one marker:
   <!-- doc-test: mutating [attributes] -->   changes state but reverts by itself (kro/ACK repair, a
                                              create followed by a delete): executed with --mutating
   <!-- doc-test: covered by="..." -->        exercised elsewhere: a check of tests/test_doc_examples.sh
-                                             (by="check:<id>") or a Bats gate (by="bats:Gate 10d")
+                                             (by="check:<id>"), make test-lab1 (by="check:test-lab1")
+                                             or a Bats gate (by="bats:Gate 10d")
   <!-- doc-test: skip reason="..." -->       not executed, with the reason (disruptive, interactive, ...)
 
 Attributes for run/mutating:
@@ -30,6 +31,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS = [
     "README.md",
     "docs/lab-0-guided-tour.md",
+    "docs/lab-1-write-a-blueprint.md",
     "docs/runbooks/devops-student-rebuild-guide.md",
     "docs/developer-tutorial.md",
     "docs/concepts-and-glossary.md",
@@ -37,7 +39,8 @@ DOCS = [
     "docs/runbooks/argocd-cli.md",
 ]
 KINDS = {"run", "mutating", "covered", "skip"}
-DEDICATED_CHECKS = {"tenant-iac-claim", "tenant-iac-step3", "tutorial-values", "tutorial-sqs"}
+# check:test-lab1 = make test-lab1 (Lab 1 in a fresh sandbox; local only, not part of make test-docs)
+DEDICATED_CHECKS = {"tenant-iac-claim", "tenant-iac-step3", "tutorial-values", "tutorial-sqs", "test-lab1"}
 ARGOCD_SESSION = r"""
 _doctest_argocd=$(mktemp -d); trap 'rm -rf "$_doctest_argocd"' EXIT
 export ARGOCD_OPTS="--config $_doctest_argocd/config"

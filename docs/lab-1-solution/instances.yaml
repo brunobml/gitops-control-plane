@@ -1,0 +1,18 @@
+# Lab 1 reference solution: one private and one exposed greeting.
+apiVersion: kro.run/v1alpha1
+kind: WebGreeting
+metadata:
+  name: hello
+  namespace: lab1
+spec:
+  message: "hello from my first blueprint"
+---
+apiVersion: kro.run/v1alpha1
+kind: WebGreeting
+metadata:
+  name: hello-public
+  namespace: lab1
+spec:
+  message: "hello, world"
+  replicas: 2
+  expose: true

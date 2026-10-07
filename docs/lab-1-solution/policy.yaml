@@ -1,0 +1,28 @@
+# Lab 1 step 5b: the input contract as a ValidatingAdmissionPolicy instead of schema markers
+# (kro refuses to add constraints to an existing CRD: incident D-14). The platform's version:
+# platform-catalog/blueprints/queue-backed-service-policy.yaml.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: webgreeting-contract
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["kro.run"]
+        apiVersions: ["*"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["webgreetings"]
+  validations:
+    - expression: "!has(object.spec.replicas) || (object.spec.replicas >= 1 && object.spec.replicas <= 5)"
+      message: "spec.replicas must be between 1 and 5"
+    - expression: "!has(object.spec.message) || size(object.spec.message) <= 200"
+      message: "spec.message must be at most 200 characters"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: webgreeting-contract
+spec:
+  policyName: webgreeting-contract
+  validationActions: ["Deny"]

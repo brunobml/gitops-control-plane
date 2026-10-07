@@ -1,0 +1,81 @@
+# Lab 1 stretch (step 6): rgd.yaml plus an ACK SQS Queue whose URL kro writes into the ConfigMap.
+# Needs make sandbox-up WITH_MOTO=1 and rbac-queue.yaml.
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: web-greeting
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: WebGreeting
+    spec:
+      message: string | default="hello from kro"
+      replicas: integer | default=1
+      expose: boolean | default=false
+    status:
+      availableReplicas: ${deployment.status.availableReplicas}
+      queueURL: ${queue.status.queueURL}
+  resources:
+    # declared first, created second: it references config (step 2)
+    - id: deployment
+      readyWhen:
+        - ${has(deployment.status.availableReplicas) && deployment.status.availableReplicas == deployment.spec.replicas}
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${schema.metadata.name}
+        spec:
+          replicas: ${schema.spec.replicas}
+          selector:
+            matchLabels: {app: "${schema.metadata.name}"}
+          template:
+            metadata:
+              labels: {app: "${schema.metadata.name}"}
+            spec:
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 65534
+                seccompProfile: {type: RuntimeDefault}
+              containers:
+                - name: web
+                  image: busybox:1.37@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+                  command: ["httpd", "-f", "-p", "8000", "-h", "/www"]
+                  ports: [{containerPort: 8000}]
+                  securityContext:
+                    allowPrivilegeEscalation: false
+                    capabilities: {drop: ["ALL"]}
+                  volumeMounts: [{name: page, mountPath: /www}]
+              volumes:
+                - name: page
+                  configMap: {name: "${config.metadata.name}"}
+    - id: config
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${schema.metadata.name}-page
+        data:
+          index.html: ${schema.spec.message}
+          queue-url: ${queue.status.queueURL}
+    # step 6: a cloud resource; ACK creates it in moto-sandbox, kro waits for its status
+    - id: queue
+      template:
+        apiVersion: sqs.services.k8s.aws/v1alpha1
+        kind: Queue
+        metadata:
+          name: ${schema.metadata.name}-jobs
+        spec:
+          queueName: ${schema.metadata.namespace}-${schema.metadata.name}-jobs
+    # step 3: only when the instance asks for it
+    - id: service
+      includeWhen:
+        - ${schema.spec.expose}
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${schema.metadata.name}
+        spec:
+          selector: {app: "${schema.metadata.name}"}
+          ports: [{port: 80, targetPort: 8000}]

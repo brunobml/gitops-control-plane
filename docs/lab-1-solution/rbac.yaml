@@ -1,0 +1,18 @@
+# Lab 1 reference solution: what kro may do for WebGreeting (aggregated into kro's controller role,
+# the platform's pattern: platform-catalog/blueprints/kro-rbac-queue-backed-service.yaml).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kro-web-greeting
+  labels:
+    rbac.kro.run/aggregate-to-controller: "true"
+rules:
+  - apiGroups: ["kro.run"]
+    resources: ["webgreetings", "webgreetings/status", "webgreetings/finalizers"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: ["configmaps", "services"]
+    verbs: ["*"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["*"]

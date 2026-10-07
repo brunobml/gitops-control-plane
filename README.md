@@ -111,6 +111,8 @@ flowchart TD
 ├── docs/
 │   ├── developer-tutorial.md         # Developer onboarding guide
 │   ├── lab-0-guided-tour.md          # Start here: 60-min tour of the running lab
+│   ├── lab-1-write-a-blueprint.md    # Lab 1: write a kro blueprint in a sandbox (make sandbox-up, make test-lab1)
+│   ├── lab-1-solution/               # Lab 1 reference solution
 │   ├── production-promotion-guardrails.md # Promotion patterns and guardrails
 │   ├── argocd-visual-design-and-naming-standards.md # UI standards, labels, deep links, naming
 │   ├── aws-well-architected-production-guide.md # Well-Architected review and production transition
@@ -222,7 +224,7 @@ The 20 alert rules are unit-tested with `make test-alert-rules` (and in CI, `mak
 
 See the [operational drills](docs/runbooks/operational-drills-and-failure-injection.md).
 
-**Learning the concepts** (not just the commands): on a running lab, start with [Lab 0: Tour the Running Lab](docs/lab-0-guided-tour.md); then the [student guide](docs/runbooks/devops-student-rebuild-guide.md) (objectives, checkpoints, *one change, four reconcilers*, the Drill 4 milestone), then the [developer tutorial](docs/developer-tutorial.md), and keep [Concepts, Glossary & Self-Check](docs/concepts-and-glossary.md) at hand.
+**Learning the concepts** (not just the commands): on a running lab, start with [Lab 0: Tour the Running Lab](docs/lab-0-guided-tour.md), then write your own blueprint in [Lab 1](docs/lab-1-write-a-blueprint.md) (a disposable sandbox cluster: `make sandbox-up`); then the [student guide](docs/runbooks/devops-student-rebuild-guide.md) (objectives, checkpoints, *one change, four reconcilers*, the Drill 4 milestone), then the [developer tutorial](docs/developer-tutorial.md), and keep [Concepts, Glossary & Self-Check](docs/concepts-and-glossary.md) at hand.
 
 ---
 

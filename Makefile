@@ -1,4 +1,4 @@
-.PHONY: maintain local-tls test-docs ci ci-tenants ci-catalog ci-charts ci-schemas test-alert-rules orphans all setup start stop push test test-bats bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints moto-restart restart-moto list-moto-resources moto-resources help
+.PHONY: maintain local-tls test-docs sandbox-up sandbox-down sandbox-status test-lab1 ci ci-tenants ci-catalog ci-charts ci-schemas test-alert-rules orphans all setup start stop push test test-bats bootstrap teardown status password open-argocd open-headlamp open-dev open-test open-prod rotate-spoke-tokens promote-blueprints moto-restart restart-moto list-moto-resources moto-resources help
 
 ROOT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 REPOS_DIR ?= $(abspath $(ROOT_DIR)/..)
@@ -14,6 +14,8 @@ help:
 	@echo "  make list-moto-resources - Inspect Moto Cloud resources across accounts (parallel, multi-account; ARGS supported)"
 	@echo "  make moto-resources      - Alias for make list-moto-resources"
 	@echo "  make test-docs           - Run the learner-facing doc examples against the lab (MODE=live-mutating: also the self-reverting ones)"
+	@echo "  make sandbox-up          - Lab 1 sandbox: k3d cluster learn-sandbox with kro (WITH_MOTO=1: plus moto + ACK SQS); sandbox-down removes it"
+	@echo "  make test-lab1           - Lab 1 end to end in a fresh sandbox (local only, about 3 min)"
 	@echo "  make build-app           - Build & push orders-processor container image to local registry (TAG=v1.0.0)"
 	@echo "  make push                - Push all repositories to GitHub (origin main)"
 	@echo "  make bootstrap           - Apply root-control-plane Argo CD application to Hub"
@@ -145,6 +147,19 @@ moto-restart:
 	@bash $(ROOT_DIR)/scripts/moto-restart.sh
 
 restart-moto: moto-restart
+
+# Lab 1 sandbox (learner on-ramp Track B): a disposable k3d cluster with kro, apart from the lab.
+sandbox-up:
+	@bash $(ROOT_DIR)/scripts/learning-sandbox.sh up $(if $(filter 1 true yes,$(WITH_MOTO)),--with-moto,)
+
+sandbox-down:
+	@bash $(ROOT_DIR)/scripts/learning-sandbox.sh down
+
+sandbox-status:
+	@bash $(ROOT_DIR)/scripts/learning-sandbox.sh status
+
+test-lab1:
+	@bash $(ROOT_DIR)/tests/test-lab1.sh
 
 list-moto-resources:
 	@bash $(ROOT_DIR)/scripts/list-moto-resources.sh $(ARGS)
