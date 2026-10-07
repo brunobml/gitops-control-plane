@@ -12,13 +12,13 @@ spec:
       message: string | default="hello from kro"
       replicas: integer | default=1
       expose: boolean | default=false
-    status:
+    status:                                     # step 4: copied from a child
       availableReplicas: ${deployment.status.availableReplicas}
-      queueURL: ${queue.status.queueURL}
+      queueURL: ${queue.status.queueURL}            # step 6
   resources:
     # declared first, created second: it references config (step 2)
     - id: deployment
-      readyWhen:
+      readyWhen:                                # step 4: ready only when all pods are available
         - ${has(deployment.status.availableReplicas) && deployment.status.availableReplicas == deployment.spec.replicas}
       template:
         apiVersion: apps/v1
@@ -57,7 +57,7 @@ spec:
           name: ${schema.metadata.name}-page
         data:
           index.html: ${schema.spec.message}
-          queue-url: ${queue.status.queueURL}
+          queue-url: ${queue.status.queueURL}            # step 6: written once ACK has created the queue
     # step 6: a cloud resource; ACK creates it in moto-sandbox, kro waits for its status
     - id: queue
       template:

@@ -11,12 +11,12 @@ spec:
       message: string | default="hello from kro"
       replicas: integer | default=1
       expose: boolean | default=false
-    status:
+    status:                                     # step 4: copied from a child
       availableReplicas: ${deployment.status.availableReplicas}
   resources:
     # declared first, created second: it references config (step 2)
     - id: deployment
-      readyWhen:
+      readyWhen:                                # step 4: ready only when all pods are available
         - ${has(deployment.status.availableReplicas) && deployment.status.availableReplicas == deployment.spec.replicas}
       template:
         apiVersion: apps/v1
