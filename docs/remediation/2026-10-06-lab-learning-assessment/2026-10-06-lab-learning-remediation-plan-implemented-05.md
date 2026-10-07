@@ -17,8 +17,8 @@ A repository-wide search (`\[[0-9]+/12\]`, `[0-9]+-stage`, `stage [0-9]+`, `smok
 ## V4-2: the guard missed these forms
 `tests/test_doc_examples.sh` check [4] now also rejects `[N/12]`, `N-stage comprehensive/smoke/test`, `smoke stage(s) N`, `(stage N`, `stage N fails` and `TOKEN_WARN_DAYS=`. **Negative test:** each of the five phrases (`[8/12]`, `8-stage comprehensive test suite`, `smoke stage 10 fails`, `(stage 6, and Bats Gate 6b)`, `TOKEN_WARN_DAYS=40 make test`) appended to a runbook makes the check fail (`caught=1` each); runbook restored.
 
-## Observation (not changed here)
-Bats Gate 8 no longer gives the early token warning the old script had (`TOKEN_WARN_DAYS`, default 7 days). `SpokeTokenExpiringSoon` covers it in monitoring, so nothing is unobserved; but if a pre-expiry failure or warning in `make test` is wanted, Gate 8 needs to use `TOKEN_WARN_DAYS` again. Owner's call; it is a test change, not a doc change.
+## Addendum: early token warning restored (owner request, 2026-10-07)
+Bats Gate 8 honours `TOKEN_WARN_DAYS` again (default 7), as the 12-stage script did: an **expired** credential fails the gate; fewer than `TOKEN_WARN_DAYS` days left prints `# ⚠ <credential>: Nd left (<date>); renew now: make rotate-spoke-tokens (make maintain renews below 7 days)` per credential plus a summary, and the gate **passes**; otherwise one line `# credentials: shortest lifetime left Nd`. Output goes to Bats fd 3, so it shows in `make test`. Verified: default → summary "28d", `ok`; `TOKEN_WARN_DAYS=40` → 8 warnings + summary, `ok` (also through `make test`: `ok 14 Gate 8`); `SMOKE_NOW_EPOCH` = now + 60 days → every credential `EXPIRED`, **`not ok`**, rc 1. Drill 2's text describes this again and its `TOKEN_WARN_DAYS=40 make test` tip works; the `TOKEN_WARN_DAYS=` pattern is removed from the stale-wording guard.
 
 ## Gates
 `make test-docs` (live) all passed; `make ci` all passed (doc-markers: 36 blocks, 0 unmarked). Owner decisions O-1…O-6 for the learner on-ramp plan are recorded in its header.

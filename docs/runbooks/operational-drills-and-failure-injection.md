@@ -132,7 +132,7 @@ kubectl --context k3d-hub-cluster -n monitoring patch cm credential-expiry --typ
 
 ### Expected signal
 * **`SpokeTokenExpiringSoon{credential="argocd-spoke-nonprod"}`**: pending at once, **firing after 5 min** (`for: 5m`). Observed: pending 07:41, firing 07:46.
-* The smoke test does **not** react here. *Bats Gate 8* reads the `exp` claim of the real tokens, which are still valid, and fails only once a token **has expired**; since the Bats consolidation it gives no early warning (`TOKEN_WARN_DAYS` is no longer used). The early warning is this alert.
+* The smoke test does **not** react here. *Bats Gate 8* reads the `exp` claim of the **real** tokens, which are still valid (this drill only moved the recorded expiry). Gate 8 fails once a token has expired, and prints a `⚠ … d left` warning (while passing) when fewer than `TOKEN_WARN_DAYS` days are left, default 7. To see that warning now, run `TOKEN_WARN_DAYS=40 make test`.
 
 ### Remediation & Recovery
 ```bash

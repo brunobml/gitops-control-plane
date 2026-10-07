@@ -23,14 +23,30 @@ setup() {
     rows+="headlamp-pod/${user} ${exp}"$'\n'
   done < <(kubectl --context k3d-hub-cluster -n headlamp exec "$headlamp_pod" -- cat /home/headlamp/.kube/config | kubeconfig_exps)
 
-  local failed=0
+  # Expired -> the gate fails. Fewer than TOKEN_WARN_DAYS (default 7) days left -> a warning on
+  # fd 3 (shown in the Bats output) but the gate passes, as the 12-stage script did before the
+  # Bats consolidation. Test the warning with TOKEN_WARN_DAYS=40 make test, the failure with
+  # SMOKE_NOW_EPOCH set to a time after the expiry.
+  local failed=0 warned=0 min_days=""
   while read -r name exp; do
     [[ -z "$name" ]] && continue
-    local remaining=$(( exp - NOW_EPOCH ))
+    local remaining=$(( exp - NOW_EPOCH )) days expires_at
+    days=$(( remaining / 86400 ))
+    expires_at=$(date -u -d "@${exp}" +%FT%TZ)
+    [[ -z "$min_days" || "$days" -lt "$min_days" ]] && min_days=$days
     if (( remaining <= 0 )); then
+      echo "# ✘ ${name}: EXPIRED (${expires_at}); renew now: make rotate-spoke-tokens" >&3
       failed=1
+    elif (( days < TOKEN_WARN_DAYS )); then
+      echo "# ⚠ ${name}: ${days}d left (${expires_at}); renew now: make rotate-spoke-tokens (make maintain renews below 7 days)" >&3
+      warned=1
     fi
   done <<< "$rows"
+  if (( warned && ! failed )); then
+    echo "# ⚠ credentials expire within ${TOKEN_WARN_DAYS} days (gate passes; renew soon)" >&3
+  elif (( ! failed )); then
+    echo "# credentials: shortest lifetime left ${min_days}d (warning below ${TOKEN_WARN_DAYS}d)" >&3
+  fi
 
   [ "$failed" -eq 0 ]
 }
