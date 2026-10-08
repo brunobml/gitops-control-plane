@@ -10,6 +10,31 @@ passwords: `make password`). The cluster selector at the top switches between `s
 and `spoke-prod`. Policy results of the ImageValidatingPolicy `tenant-images-signed` are under
 the source *KyvernoImageValidatingPolicy*.
 
+## Policies
+
+All policies live in `platform-catalog/blueprints/` and reach the spokes through `kro-blueprints-<spoke>`
+(spoke-nonprod follows `main`, spoke-prod a pinned tag in `clusters/blueprint-revisions.env`).
+
+| Policy | Mode | Category, severity |
+|---|---|---|
+| `tenant-images-signed` (ImageValidatingPolicy) | **Deny** | Supply Chain Security, high |
+| `require-resource-limits` | Audit | Best Practices, medium |
+| `require-health-probes` | Audit | Best Practices, medium |
+| `require-image-digest` | Audit | Supply Chain Security, medium |
+| `require-recommended-labels` | Audit | Best Practices, low |
+| `restrict-service-types` | Audit | Network Security, medium |
+
+The Audit policies (`audit-policies.yaml`, 2026-10-08) only report, with `failurePolicy: Ignore`; they are
+on spoke-nonprod (`main`) and reach spoke-prod with the next catalog tag after v1.9.0. Policy
+Reporter's **Policy Dashboard** lists every policy by title, grouped by its `policies.kyverno.io/category`
+annotation, with pass/fail counts and the severity badge. A new policy needs those annotations
+(`title`, `category`, `severity`, `description`), otherwise it lands in category "Other".
+
+**Enforcing an Audit policy:** when its row shows 0 failures on both spokes for a while, set
+`validationActions: [Deny]` and `failurePolicy: Fail` in the catalog, verify on spoke-nonprod, then
+promote prod: tag the catalog (`git tag -a v1.X.0`), set `spoke-prod=v1.X.0` in
+`clusters/blueprint-revisions.env`, `make promote-blueprints`.
+
 ## How it is built
 
 ```
