@@ -2,6 +2,8 @@
 # The core is scaled to 0 (no Kyverno, no PolicyReports on the hub); the UI reads the spokes'
 # APIs. ui.name equals a listed cluster, so the chart adds no "Default" (hub) cluster.
 replicaCount: 0
+image:
+  tag: "3.9.0@sha256:a4db11f3c9259fd22fece5f86661c159232c1f4316243de6aa14e26a1cb966a0"
 
 plugin:
   kyverno:
@@ -9,6 +11,9 @@ plugin:
 
 ui:
   enabled: true
+  # pinned by multi-arch index digest (lab rule L3-1); bump together with the chart version
+  image:
+    tag: "2.7.0@sha256:3b56a0a2393b0dcf20243d4ab4bdd1f4ff6ba2ba4dd5ab6538d4fbeaf8e99fb1"
   name: spoke-nonprod
   clusters:
     - name: spoke-nonprod
@@ -34,4 +39,17 @@ ui:
             pathType: Prefix
   resources:
     requests: {cpu: 10m, memory: 64Mi}
-    limits: {memory: 256Mi}
+    limits: {cpu: 200m, memory: 256Mi}
+  # Two views: tenant compliance and platform hygiene (the audit policies cover all namespaces
+  # except kube-system, kyverno, kube-public, kube-node-lease)
+  customBoards:
+    - name: Tenants
+      namespaces:
+        list: [orders-dev, orders-test, orders-prod]
+      clusterScope:
+        enabled: false
+    - name: Platform
+      namespaces:
+        list: [ack-system, kro, monitoring, platform-probes, policy-reporter, platform-network, admission-probes]
+      clusterScope:
+        enabled: false

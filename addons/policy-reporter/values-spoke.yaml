@@ -25,9 +25,13 @@ metrics:
   enabled: true
   mode: simple   # no per-resource names in time series
 
+# images pinned by multi-arch index digest (lab rule L3-1); bump together with the chart version
+image:
+  tag: "3.9.0@sha256:a4db11f3c9259fd22fece5f86661c159232c1f4316243de6aa14e26a1cb966a0"
+
 resources:
   requests: {cpu: 10m, memory: 64Mi}
-  limits: {memory: 256Mi}
+  limits: {cpu: 200m, memory: 256Mi}
 
 ingress:
   enabled: true
@@ -41,9 +45,11 @@ ui:
 plugin:
   kyverno:
     enabled: true
+    image:
+      tag: "0.7.0@sha256:971973638341f695e2e1911def80122c6c52ae1692d0a676fb70f2826372d415"
     resources:
       requests: {cpu: 10m, memory: 64Mi}
-      limits: {memory: 256Mi}
+      limits: {cpu: 200m, memory: 256Mi}
     ingress:
       enabled: true
       className: traefik
