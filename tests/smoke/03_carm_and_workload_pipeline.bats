@@ -60,3 +60,19 @@ setup() {
     [ "$found" = "true" ]
   done
 }
+
+@test "Gate 9b: Each spoke load balancer routes every request (no stale upstream after a restart)" {
+  # Gate 9 retries for 60 s and would pass a route that fails every second request; here 6
+  # requests in a row must all reach the tenant app (fix: docker exec k3d-<spoke>-serverlb nginx -s reload,
+  # done by make start).
+  for pair in "orders-dev:8081" "orders-test:8081" "orders-prod:8082"; do
+    IFS=: read -r ns port <<<"$pair"
+    local codes="" i
+    for i in 1 2 3 4 5 6; do
+      codes+="$(curl -s -o /dev/null -w '%{http_code}' "http://${ns}.localhost:${port}/") "
+    done
+    echo "# ${ns}: ${codes}" >&3
+    [ "$codes" = "200 200 200 200 200 200 " ]
+  done
+}
+

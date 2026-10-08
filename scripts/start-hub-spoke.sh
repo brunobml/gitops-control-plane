@@ -66,6 +66,18 @@ for CONTEXT in "k3d-hub-cluster" "k3d-spoke-nonprod" "k3d-spoke-prod"; do
   fi
 done
 
+# 4b. Re-resolve the load balancers' upstreams. k3d's serverlb (nginx) resolves the node names
+# once at its own start; when the nodes come back with different IPs on k3d-cloud-net, a spoke LB
+# keeps sending every second request to a stale address (another cluster's node: 404 for the
+# tenant apps and the Policy Reporter routes; found 2026-10-08). A reload re-resolves them.
+for CLUSTER in "${CLUSTERS[@]}"; do
+  if docker exec "k3d-${CLUSTER}-serverlb" nginx -s reload >/dev/null 2>&1; then
+    echo "  ✔ ${CLUSTER}: load balancer re-resolved its nodes"
+  else
+    echo "  ⚠ ${CLUSTER}: could not reload k3d-${CLUSTER}-serverlb"
+  fi
+done
+
 # 5. Refresh platform-network resources after Moto start (finding F-7)
 echo "🔄 Refreshing platform-network resources after Moto start..."
 for SPOKE in "spoke-nonprod" "spoke-prod"; do
