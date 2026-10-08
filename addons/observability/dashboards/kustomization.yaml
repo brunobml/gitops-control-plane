@@ -9,3 +9,4 @@ configMapGenerator:
     files:
       - platform-overview.json
       - logs-and-events.json
+      - kyverno.json
