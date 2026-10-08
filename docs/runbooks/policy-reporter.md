@@ -25,7 +25,7 @@ All policies live in `platform-catalog/blueprints/` and reach the spokes through
 | `restrict-service-types` | Audit | Network Security, medium |
 
 The Audit policies (`audit-policies.yaml`, 2026-10-08) only report, with `failurePolicy: Ignore`; they are
-on spoke-nonprod (`main`) and reach spoke-prod with the next catalog tag after v1.9.0. Policy
+on both spokes (spoke-nonprod `main`, spoke-prod tag `v1.10.0`). Policy
 Reporter's **Policy Dashboard** lists every policy by title, grouped by its `policies.kyverno.io/category`
 annotation, with pass/fail counts and the severity badge. A new policy needs those annotations
 (`title`, `category`, `severity`, `description`), otherwise it lands in category "Other".
