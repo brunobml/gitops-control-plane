@@ -11,7 +11,7 @@
   "graphTooltip": 1,
   "refresh": "1m",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "time": {
     "from": "now-24h",
     "to": "now"
@@ -81,7 +81,7 @@
     {
       "id": 2,
       "type": "row",
-      "title": "Latest Status",
+      "title": "Latest Status (last 24 h)",
       "collapsed": false,
       "panels": [],
       "gridPos": {
@@ -94,7 +94,7 @@
     {
       "id": 3,
       "type": "gauge",
-      "title": "Policy evaluation failure rate (24 h)",
+      "title": "Evaluation failure rate",
       "description": "Share of tenant policy evaluations that failed in the last 24 h (upstream: 'Rule Execution Failure Rate').",
       "datasource": {
         "type": "prometheus",
@@ -160,7 +160,7 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "Policies evaluated (24 h)",
+      "title": "Policies",
       "description": "Distinct policies that evaluated at least one resource in the last 24 h (upstream counted ClusterPolicies from kyverno_policy_rule_info_total, which ImageValidatingPolicies do not export).",
       "datasource": {
         "type": "prometheus",
@@ -223,7 +223,7 @@
     {
       "id": 5,
       "type": "stat",
-      "title": "Enforcing (Deny)",
+      "title": "Deny",
       "description": "Policies evaluated in the last 24 h whose validation action is Deny.",
       "datasource": {
         "type": "prometheus",
@@ -286,7 +286,7 @@
     {
       "id": 6,
       "type": "stat",
-      "title": "Audit only",
+      "title": "Audit",
       "description": "Policies evaluated in the last 24 h that only audit (do not block).",
       "datasource": {
         "type": "prometheus",
@@ -349,7 +349,7 @@
     {
       "id": 7,
       "type": "stat",
-      "title": "Image checks (24 h)",
+      "title": "Checks",
       "description": "Tenant image-policy evaluations in the last 24 h (upstream: 'Validate Rules', a rule count; here an activity count).",
       "datasource": {
         "type": "prometheus",
@@ -412,7 +412,7 @@
     {
       "id": 8,
       "type": "stat",
-      "title": "Failed checks (24 h)",
+      "title": "Failed",
       "description": "Tenant image-policy evaluations that failed in the last 24 h.",
       "datasource": {
         "type": "prometheus",
@@ -479,8 +479,8 @@
     {
       "id": 9,
       "type": "stat",
-      "title": "Kyverno version",
-      "description": "kyverno_info per spoke (upstream had mutate/generate rule counts; this lab has neither rule type).",
+      "title": "Version",
+      "description": "Kyverno version running on the selected spokes, from kyverno_info (upstream had mutate/generate rule counts; this lab has neither rule type).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -495,7 +495,7 @@
         "colorMode": "background",
         "graphMode": "none",
         "justifyMode": "center",
-        "textMode": "auto",
+        "textMode": "name",
         "orientation": "auto",
         "wideLayout": true,
         "reduceOptions": {
@@ -522,38 +522,28 @@
           },
           "color": {
             "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "1": {
-                  "text": "running"
-                }
-              }
-            }
-          ]
+          }
         },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (cluster, version) (kyverno_info{cluster=~\"$cluster\"})",
+          "expr": "count by (version) (kyverno_info{cluster=~\"$cluster\"})",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "instant": true,
           "range": false,
-          "legendFormat": "{{cluster}} {{version}}"
+          "legendFormat": "{{version}}"
         }
       ]
     },
     {
       "id": 10,
       "type": "gauge",
-      "title": "Admission denial rate (24 h)",
+      "title": "Admission denial rate",
       "description": "Share of tenant admission requests Kyverno denied in the last 24 h (upstream: 'Background Scans Failure Rate'; this lab runs no background scans).",
       "datasource": {
         "type": "prometheus",
@@ -1103,6 +1093,54 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "Spoke"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Policy"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 230
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Mode"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Background"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "Failures"
             },
             "properties": [
@@ -1174,6 +1212,14 @@
               "policy_background_mode": "Background",
               "Value #A": "Evaluations",
               "Value #B": "Failures"
+            },
+            "indexByName": {
+              "cluster": 0,
+              "policy_name": 1,
+              "policy_validation_mode": 2,
+              "policy_background_mode": 3,
+              "Value #A": 4,
+              "Value #B": 5
             }
           }
         }
