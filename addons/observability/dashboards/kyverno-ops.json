@@ -1,0 +1,1642 @@
+{
+  "uid": "lab-kyverno-ops",
+  "title": "Kyverno — Daily Operations",
+  "description": "Day-to-day view of tenant admission control on the spokes: is enforcement working, what was blocked and why, is Kyverno healthy. Tenant panels exclude admission-probes, the smoke test's probe namespace.",
+  "tags": [
+    "gitops-lab",
+    "kyverno",
+    "security",
+    "operations"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "links": [
+    {
+      "title": "Runbook: KyvernoDown",
+      "type": "link",
+      "url": "https://github.com/brunobml/gitops-control-plane/blob/main/docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-kyvernodown",
+      "targetBlank": true,
+      "icon": "doc"
+    },
+    {
+      "title": "Logs & events",
+      "type": "link",
+      "url": "/d/lab-logs?var-namespace=kyverno",
+      "icon": "dashboard"
+    },
+    {
+      "title": "Kyverno (detail)",
+      "type": "link",
+      "url": "/d/lab-kyverno-test",
+      "icon": "dashboard"
+    },
+    {
+      "title": "Alerts",
+      "type": "link",
+      "url": "/alerting/list?search=Kyverno",
+      "icon": "bolt"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "name": "Kyverno restarts",
+        "enable": true,
+        "iconColor": "orange",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "expr": "changes(kube_pod_container_status_restarts_total{namespace=\"kyverno\", cluster=~\"$cluster\"}[2m]) > 0",
+        "titleFormat": "Kyverno restart",
+        "textFormat": "{{cluster}} {{pod}}",
+        "step": "1m"
+      },
+      {
+        "name": "Kyverno alerts",
+        "enable": true,
+        "iconColor": "red",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "expr": "ALERTS{alertname=~\"Kyverno.*\", alertstate=\"firing\"}",
+        "titleFormat": "{{alertname}}",
+        "textFormat": "{{cluster}}",
+        "step": "1m"
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "cluster",
+        "label": "Spoke",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(kyverno_admission_requests_total, cluster)",
+        "query": {
+          "query": "label_values(kyverno_admission_requests_total, cluster)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Right now: is admission control working?",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Admission controllers ready",
+      "description": "Ready replicas of kyverno-admission-controller per spoke (2 desired). 0 = tenant pods cannot be created at all: the image webhook has failurePolicy Fail.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 5,
+        "h": 5
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "horizontal",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "NO DATA: agent down?",
+          "links": [
+            {
+              "title": "Runbook: KyvernoDown",
+              "url": "https://github.com/brunobml/gitops-control-plane/blob/main/docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-kyvernodown",
+              "targetBlank": true
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (cluster) (kube_deployment_status_replicas_available{namespace=\"kyverno\", deployment=\"kyverno-admission-controller\", cluster=~\"$cluster\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "range": false,
+          "legendFormat": "{{cluster}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Kyverno alerts firing",
+      "description": "KyvernoDown (critical) and KyvernoSlowAdmission (warning) from the hub Prometheus. Click for the runbook.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 5,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "horizontal",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "None",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "links": [
+            {
+              "title": "Runbook: KyvernoDown",
+              "url": "https://github.com/brunobml/gitops-control-plane/blob/main/docs/runbooks/host-reboot-and-cluster-lifecycle.md#alert-kyvernodown",
+              "targetBlank": true
+            },
+            {
+              "title": "Alerting",
+              "url": "/alerting/list?search=Kyverno"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(ALERTS{alertname=~\"Kyverno.*\", alertstate=\"firing\"}) or vector(0)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Enforcement self-test (24 h)",
+      "description": "Did Kyverno deny the smoke test's unsigned probe image in the last 24 h (make test, Gate 11b, namespace admission-probes)? 'Verified' proves enforcement end to end; 'Not verified' means no test ran, not that enforcement is off: run make test.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 9,
+        "y": 1,
+        "w": 5,
+        "h": 5
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "horizontal",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.5
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "range",
+              "options": {
+                "from": 0.5,
+                "to": 1000000000.0,
+                "result": {
+                  "text": "Verified",
+                  "color": "green"
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 0,
+                "to": 0.5,
+                "result": {
+                  "text": "Not verified",
+                  "color": "orange"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (cluster) (increase(kyverno_admission_requests_total{resource_namespace=\"admission-probes\", request_allowed=\"false\", cluster=~\"$cluster\"}[24h])) or on() vector(0)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "range": false,
+          "legendFormat": "{{cluster}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "p95 admission time (1 h)",
+      "description": "p95 of Kyverno admission reviews over the last hour, all traffic. The image webhook times out at 30 s and the KyvernoSlowAdmission alert fires at 15 s. Signature checks call ghcr.io, so a few seconds are normal.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 14,
+        "y": 1,
+        "w": 5,
+        "h": 5
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "horizontal",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 15
+              },
+              {
+                "color": "red",
+                "value": 25
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "No admissions in 1 h"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(kyverno_admission_review_duration_seconds_bucket{cluster=~\"$cluster\"}[1h])))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Tenant pods blocked (24 h)",
+      "description": "Tenant pod creations Kyverno denied in the last 24 h (smoke-test probes excluded). Each one is a deployment that did not roll out: see 'Blocked tenant deployments' below.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 19,
+        "y": 1,
+        "w": 5,
+        "h": 5
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "horizontal",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.5
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "range",
+              "options": {
+                "from": 0,
+                "to": 0.5,
+                "result": {
+                  "text": "None",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(kyverno_admission_requests_total{request_allowed=\"false\", resource_namespace!=\"admission-probes\", cluster=~\"$cluster\"}[24h])) or vector(0)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Tenants: what was admitted, what was blocked, and why",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Tenant pod admissions per hour",
+      "description": "Tenant pod admission reviews per hour (smoke-test probes excluded). Red bars are blocked pods.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 10,
+        "h": 8
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 70,
+            "gradientMode": "opacity",
+            "showPoints": "auto",
+            "pointSize": 6,
+            "spanNulls": false,
+            "axisSoftMin": 0,
+            "thresholdsStyle": {
+              "mode": "off"
+            },
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "decimals": 0,
+          "noValue": "No tenant admissions in range"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "admitted"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "blocked"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(kyverno_admission_requests_total{request_allowed=\"true\", resource_namespace!=\"admission-probes\", cluster=~\"$cluster\"}[1h]))",
+          "legendFormat": "admitted",
+          "interval": "1h"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(increase(kyverno_admission_requests_total{request_allowed=\"false\", resource_namespace!=\"admission-probes\", cluster=~\"$cluster\"}[1h]))",
+          "legendFormat": "blocked",
+          "interval": "1h"
+        }
+      ],
+      "interval": "1h"
+    },
+    {
+      "id": 9,
+      "type": "bargauge",
+      "title": "Blocked tenant pods by namespace (range)",
+      "description": "Denied tenant pod creations per namespace in the selected range (probes excluded).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 7,
+        "w": 5,
+        "h": 8
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "namePlacement": "left",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "minVizHeight": 16,
+        "maxVizHeight": 28,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "noValue": "None blocked",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "legendFormat": "{{cluster}}/{{resource_namespace}}",
+          "expr": "sum by (cluster, resource_namespace) (increase(kyverno_admission_requests_total{request_allowed=\"false\", resource_namespace!=\"admission-probes\", cluster=~\"$cluster\"}[$__range])) > 0"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "logs",
+      "title": "Blocked tenant deployments (Kubernetes events)",
+      "description": "FailedCreate events in tenant namespaces: the controller (ReplicaSet, Job, ...) tried to create a pod and admission refused it. The message names the layer: Pod Security (violates PodSecurity), the registry allowlist (ValidatingAdmissionPolicy 'tenant-image-registry-allowlist') or Kyverno (tenant-images-signed).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 7,
+        "w": 9,
+        "h": 8
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{job=\"kubernetes-events\", namespace=~\"orders-.*|tenant-.*\", cluster=~\"$cluster\"} |~ \"reason=FailedCreate\"",
+          "queryType": "range",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "Supply chain: image signature checks",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Image signature checks per hour (tenants)",
+      "description": "Evaluations of policy tenant-images-signed for tenant pods: pass = signed by the orders-processor CI workflow.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 10,
+        "h": 8
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 70,
+            "gradientMode": "opacity",
+            "showPoints": "auto",
+            "pointSize": 6,
+            "spanNulls": false,
+            "axisSoftMin": 0,
+            "thresholdsStyle": {
+              "mode": "off"
+            },
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "decimals": 0,
+          "noValue": "No signature checks in range"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "pass"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "fail"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (result) (increase(kyverno_image_validating_policy_results_total{resource_namespace!=\"admission-probes\", cluster=~\"$cluster\"}[1h]))",
+          "legendFormat": "{{result}}",
+          "interval": "1h"
+        }
+      ],
+      "interval": "1h"
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Signature check time p95 (policy execution)",
+      "description": "p95 time Kyverno spends verifying signatures and SBOM attestations (calls to ghcr.io and the Sigstore transparency log). Dashed lines: KyvernoSlowAdmission at 15 s, webhook timeout at 30 s.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 16,
+        "w": 7,
+        "h": 8
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "always",
+            "pointSize": 6,
+            "spanNulls": false,
+            "axisSoftMin": 0,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 15
+              },
+              {
+                "color": "red",
+                "value": 30
+              }
+            ]
+          },
+          "noValue": "No checks in range",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kyverno_image_validating_policy_execution_duration_seconds_bucket{cluster=~\"$cluster\"}[30m])))",
+          "legendFormat": "{{cluster}}"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "logs",
+      "title": "Image verification failures (smoke-test probe excluded)",
+      "description": "Kyverno's own reason for each failed check: missing signature, wrong signer identity, missing SBOM attestation. The smoke test's unsigned probe image is filtered out.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 17,
+        "y": 16,
+        "w": 7,
+        "h": 8
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{namespace=\"kyverno\", job=\"loki.source.kubernetes.pods\", cluster=~\"$cluster\"} |~ \"\\\\x1b\\\\[31mERR\" |~ \"image verification failed\" !~ \"c7e8f5d9038ad202da6d37e0be76aa342a482bd4d6b37279b0891792584cf32f\" | regexp \"\\\\x1b\\\\[\\\\d+m(?P<level>[A-Z]{3})\\\\x1b\\\\[0m\" | label_format level=`{{ if eq .level \"ERR\" }}error{{ else if eq .level \"WRN\" }}warning{{ else }}info{{ end }}`",
+          "queryType": "range",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "row",
+      "title": "Kyverno itself: health and capacity",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Admission latency p50 / p95 (all traffic)",
+      "description": "Admission review time per spoke, 30-minute window. Dashed lines: alert at 15 s, timeout at 30 s.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 8,
+        "h": 8
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "always",
+            "pointSize": 6,
+            "spanNulls": false,
+            "axisSoftMin": 0,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 15
+              },
+              {
+                "color": "red",
+                "value": 30
+              }
+            ]
+          },
+          "noValue": "No admissions in range",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le, cluster) (rate(kyverno_admission_review_duration_seconds_bucket{cluster=~\"$cluster\"}[30m])))",
+          "legendFormat": "{{cluster}} p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kyverno_admission_review_duration_seconds_bucket{cluster=~\"$cluster\"}[30m])))",
+          "legendFormat": "{{cluster}} p95"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Memory use, % of limit",
+      "description": "Resident memory of each Kyverno pod as a share of its memory limit. Above 90 % the pod risks an OOM kill.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 25,
+        "w": 8,
+        "h": 8
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "auto",
+            "pointSize": 6,
+            "spanNulls": false,
+            "axisSoftMin": 0,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (cluster, pod) (process_resident_memory_bytes{job=\"kyverno\", cluster=~\"$cluster\"}) / on (cluster, pod) sum by (cluster, pod) (kube_pod_container_resource_limits{namespace=\"kyverno\", resource=\"memory\", cluster=~\"$cluster\"})",
+          "legendFormat": "{{cluster}} {{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "CPU use (cores)",
+      "description": "CPU used by each Kyverno pod.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 25,
+        "w": 8,
+        "h": 8
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cores",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "auto",
+            "pointSize": 6,
+            "spanNulls": false,
+            "axisSoftMin": 0,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (cluster, pod) (rate(process_cpu_seconds_total{job=\"kyverno\", cluster=~\"$cluster\"}[$__rate_interval]))",
+          "legendFormat": "{{cluster}} {{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "type": "table",
+      "title": "Kyverno pods",
+      "description": "One row per running Kyverno pod (completed job pods are left out): ready containers, restarts in the last 24 h, memory as % of limit. Sorted by restarts.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 14,
+        "h": 7
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Restarts (24 h)",
+            "desc": true
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ready"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "NOT READY",
+                        "color": "red"
+                      }
+                    }
+                  },
+                  {
+                    "type": "range",
+                    "options": {
+                      "from": 1,
+                      "to": 99,
+                      "result": {
+                        "text": "ready",
+                        "color": "green"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Restarts (24 h)"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 3
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Memory % of limit"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.8
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.9
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "expr": "sum by (cluster, pod) (kube_pod_container_status_ready{namespace=\"kyverno\", cluster=~\"$cluster\"}) and on (cluster, pod) (kube_pod_status_phase{namespace=\"kyverno\", phase=\"Running\", cluster=~\"$cluster\"} == 1)"
+        },
+        {
+          "refId": "B",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "expr": "round(sum by (cluster, pod) (increase(kube_pod_container_status_restarts_total{namespace=\"kyverno\", cluster=~\"$cluster\"}[24h]))) and on (cluster, pod) (kube_pod_status_phase{namespace=\"kyverno\", phase=\"Running\", cluster=~\"$cluster\"} == 1)"
+        },
+        {
+          "refId": "C",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "expr": "sum by (cluster, pod) (process_resident_memory_bytes{job=\"kyverno\", cluster=~\"$cluster\"}) / on (cluster, pod) sum by (cluster, pod) (kube_pod_container_resource_limits{namespace=\"kyverno\", resource=\"memory\", cluster=~\"$cluster\"})"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "cluster": "Cluster",
+              "pod": "Pod",
+              "Value #A": "Ready",
+              "Value #B": "Restarts (24 h)",
+              "Value #C": "Memory % of limit"
+            },
+            "indexByName": {
+              "cluster": 0,
+              "pod": 1,
+              "Value #A": 2,
+              "Value #B": 3,
+              "Value #C": 4
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "Kyverno errors (24 h)",
+      "description": "Log lines Kyverno wrote at level ERR in the last 24 h, excluding image-verification failures (those are policy decisions, shown above). Typical causes: API server or lease problems, webhook TLS, crashes.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 14,
+        "y": 33,
+        "w": 5,
+        "h": 7
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "horizontal",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "None",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "noValue": "None"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({namespace=\"kyverno\", job=\"loki.source.kubernetes.pods\", cluster=~\"$cluster\"} |~ \"\\\\x1b\\\\[31mERR\" !~ \"image verification failed\" [24h])) or vector(0)",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "Kyverno warning events (24 h)",
+      "description": "Kubernetes Warning events in namespace kyverno in the last 24 h (failed probes, back-off, scheduling).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 19,
+        "y": 33,
+        "w": 5,
+        "h": 7
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "orientation": "horizontal",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "None",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "noValue": "None"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({job=\"kubernetes-events\", namespace=\"kyverno\", cluster=~\"$cluster\"} |~ \"type=Warning\" [24h])) or vector(0)",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "row",
+      "title": "Investigate: Kyverno errors and warning events",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 23,
+      "type": "logs",
+      "title": "Kyverno errors (not policy decisions)",
+      "description": "Level-ERR log lines of Kyverno, without image-verification failures. Expand a line for its labels.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 12,
+        "h": 9
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{namespace=\"kyverno\", job=\"loki.source.kubernetes.pods\", cluster=~\"$cluster\"} |~ \"\\\\x1b\\\\[31mERR\" !~ \"image verification failed\" | regexp \"\\\\x1b\\\\[\\\\d+m(?P<level>[A-Z]{3})\\\\x1b\\\\[0m\" | label_format level=`{{ if eq .level \"ERR\" }}error{{ else if eq .level \"WRN\" }}warning{{ else }}info{{ end }}`",
+          "queryType": "range",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "type": "logs",
+      "title": "Warning events in namespace kyverno",
+      "description": "Kubernetes Warning events for Kyverno pods and objects.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 41,
+        "w": 12,
+        "h": 9
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{job=\"kubernetes-events\", namespace=\"kyverno\", cluster=~\"$cluster\"} |~ \"type=Warning\"",
+          "queryType": "range",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ]
+    }
+  ]
+}

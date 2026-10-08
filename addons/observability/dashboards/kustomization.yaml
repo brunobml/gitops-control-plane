@@ -11,3 +11,4 @@ configMapGenerator:
       - logs-and-events.json
       - kyverno.json
       - kyverno-test.json
+      - kyverno-ops.json
