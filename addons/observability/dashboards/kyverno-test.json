@@ -9,7 +9,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 4,
+  "version": 5,
   "editable": true,
   "graphTooltip": 1,
   "refresh": "30s",
@@ -337,8 +337,8 @@
     {
       "id": 5,
       "type": "stat",
-      "title": "Webhook 5xx (range)",
-      "description": "5xx HTTP responses returned by Kyverno admission webhooks in the selected time range.",
+      "title": "Webhook calls (range)",
+      "description": "Calls to Kyverno's webhook server in the selected range. Kyverno v1.19 records no HTTP status code, so this is volume, not errors (the former '5xx' query matched a label that does not exist and always showed 0).",
       "gridPos": {
         "x": 16,
         "y": 1,
@@ -365,12 +365,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "blue",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
               }
             ]
           }
@@ -378,7 +374,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(kyverno_http_requests_total{code=~\"5..\", cluster=~\"$cluster\"}[$__range])) or vector(0)",
+          "expr": "round(sum(increase(kyverno_http_requests_total{cluster=~\"$cluster\"}[$__range]))) or vector(0)",
           "refId": "A"
         }
       ]

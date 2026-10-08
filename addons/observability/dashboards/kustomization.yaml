@@ -12,3 +12,4 @@ configMapGenerator:
       - kyverno.json
       - kyverno-test.json
       - kyverno-ops.json
+      - kyverno-community.json
