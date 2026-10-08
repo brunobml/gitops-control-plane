@@ -70,8 +70,16 @@ PROBE_NS=admission-probes
     [ "$status" -eq 0 ]
     # the hub reaches the spoke API through its load balancer; without credentials Traefik refuses
     port=8081; [ "$spoke" = spoke-prod ] && port=8082
-    code=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: k3d-${spoke}-serverlb" "http://127.0.0.1:${port}/pr-core/v1/namespaces")
+    code=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: k3d-${spoke}-serverlb" "http://127.0.0.1:${port}/pr-core/v2/sources")
     [ "$code" = "401" ]
+    # with the credentials the UI uses, the API must list the image policy as a source: an empty
+    # list means the REST API is off or every report is filtered out, and the UI stays empty
+    local netrc sources
+    netrc=$(mktemp)
+    printf 'machine 127.0.0.1 login policy-reporter password %s\n' "$(cat "${SECRET_DIR}/policy-reporter-api.password")" > "$netrc"
+    sources=$(curl -s --netrc-file "$netrc" -H "Host: k3d-${spoke}-serverlb" "http://127.0.0.1:${port}/pr-core/v2/sources")
+    rm -f "$netrc"
+    [[ "$sources" == *'"KyvernoImageValidatingPolicy"'* ]]
   done
   run kubectl --context k3d-hub-cluster -n policy-reporter rollout status deployment/policy-reporter-ui --timeout=30s
   [ "$status" -eq 0 ]

@@ -34,7 +34,7 @@ browser ── policy-reporter.localhost ──> hub: policy-reporter-ui (Keyclo
 ## Verify
 
 ```bash
-make test        # Gate 11d (APIs on both spokes, 401 without credentials, UI on the hub redirects to Keycloak), Gate 12g (metrics)
+make test        # Gate 11d (APIs on both spokes: 401 without credentials, the image policy listed with them; UI on the hub redirects to Keycloak), Gate 12g (metrics)
 kubectl --context k3d-spoke-nonprod get policyreports.wgpolicyk8s.io -A
 kubectl --context k3d-spoke-nonprod get clusterpolicyreports.wgpolicyk8s.io
 kubectl --context k3d-hub-cluster -n policy-reporter get deploy,ingress
@@ -47,6 +47,9 @@ kubectl --context k3d-hub-cluster -n policy-reporter get deploy,ingress
 | The UI shows no cluster or an API error | Hub Secrets `policy-reporter-cluster-<spoke>` exist (`kubectl -n policy-reporter get secrets`); the spoke route answers 401 without credentials: `curl -s -o /dev/null -w '%{http_code}' -H 'Host: k3d-spoke-nonprod-serverlb' http://127.0.0.1:8081/pr-core/v1/namespaces` |
 | Keycloak says "Invalid redirect uri" | the client `policy-reporter` in the realm and `ui.openIDConnect.callbackUrl` disagree; `make ci` (stage sso-urls) |
 | Keycloak login fails with "invalid client credentials" | the client secret was regenerated: re-run `scripts/setup-keycloak-secrets.sh` and `scripts/setup-policy-reporter-secrets.sh`, then restart Keycloak and the UI |
+| UI loads but shows no results; its log says `failed to call core API: EOF` | the spoke core's REST API is off: the chart enables it only with a local UI, so `values-spoke.yaml` sets `rest.enabled: true` |
+| API answers `[]` for `/v2/sources` although PolicyReports exist | a source filter drops them: `tenant-images-signed` evaluates Pods (autogen off), so `values-spoke.yaml` sets `uncontrolledOnly: false` |
+| Every second request to a spoke route or tenant app returns 404 | the spoke load balancer kept stale node IPs after a restart: `docker exec k3d-<spoke>-serverlb nginx -s reload` (done by `make start`; Gate 9b detects it) |
 | No results at all | `kyverno-reports-controller` running on the spoke; PolicyReports exist (commands above) |
 
 PolicyReports describe the current state of existing resources; they are not a history of blocked
