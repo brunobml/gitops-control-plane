@@ -5,6 +5,11 @@
 # credentials scripts/setup-policy-reporter-secrets.sh creates (Traefik basic auth,
 # addons/policy-reporter/spoke/middlewares.yaml); inside the cluster the APIs stay ClusterIP.
 # The per-spoke ingress host (k3d-<spoke>-serverlb) is set by applicationsets/addons-spoke-policy-reporter.yaml.
+# the hub UI reads results through the core's REST API; the chart enables it only together with a
+# local UI (--rest-enabled = rest.enabled or ui.enabled), and there is no UI on the spokes
+rest:
+  enabled: true
+
 metrics:
   enabled: true
   mode: simple   # no per-resource names in time series
