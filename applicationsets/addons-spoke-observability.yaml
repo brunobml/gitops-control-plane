@@ -45,6 +45,10 @@ spec:
         - repoURL: https://github.com/brunobml/gitops-control-plane.git
           targetRevision: main
           path: addons/probes
+        # admission self-test namespace for the smoke test's dry-run probes (Gate 11b/11c)
+        - repoURL: https://github.com/brunobml/gitops-control-plane.git
+          targetRevision: main
+          path: addons/admission-probes
       destination:
         server: "{{ .server }}"
         namespace: monitoring

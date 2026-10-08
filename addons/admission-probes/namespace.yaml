@@ -1,0 +1,15 @@
+# Admission self-test namespace on each spoke (smoke test Gate 11b/11c). The smoke test sends its
+# admission probes here with --dry-run=server, so nothing ever runs in it: an unsigned
+# orders-processor image (Kyverno must deny), an arbitrary image (the registry-allowlist VAP must
+# deny) and the running signed image (must be admitted). It carries the same opt-in label and Pod
+# Security level as the tenant namespaces, so it exercises exactly the tenant admission chain, while
+# the probes no longer count as tenant denials on the Kyverno dashboards.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: admission-probes
+  labels:
+    platform.lab/image-verification: "enabled"
+    platform.lab/purpose: admission-self-test
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
