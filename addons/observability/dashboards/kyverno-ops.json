@@ -13,7 +13,7 @@
   "graphTooltip": 1,
   "refresh": "1m",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "time": {
     "from": "now-24h",
     "to": "now"
@@ -648,11 +648,15 @@
       "options": {
         "orientation": "horizontal",
         "displayMode": "basic",
-        "namePlacement": "left",
+        "namePlacement": "top",
         "valueMode": "color",
         "showUnfilled": true,
-        "minVizHeight": 16,
-        "maxVizHeight": 28,
+        "minVizHeight": 14,
+        "maxVizHeight": 22,
+        "text": {
+          "titleSize": 13,
+          "valueSize": 16
+        },
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -907,7 +911,7 @@
     {
       "id": 14,
       "type": "logs",
-      "title": "Signature failures, probe excluded (empty = none)",
+      "title": "Signature failures (empty = none)",
       "description": "Kyverno's own reason for each failed check: missing signature, wrong signer identity, missing SBOM attestation. The smoke test's unsigned probe image is filtered out.",
       "datasource": {
         "type": "loki",
