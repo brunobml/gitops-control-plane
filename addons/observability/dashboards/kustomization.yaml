@@ -10,3 +10,4 @@ configMapGenerator:
       - platform-overview.json
       - logs-and-events.json
       - kyverno.json
+      - kyverno-test.json

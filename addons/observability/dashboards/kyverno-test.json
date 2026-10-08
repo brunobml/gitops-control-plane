@@ -1,0 +1,1555 @@
+{
+ "uid": "lab-kyverno-test",
+ "title": "Kyverno supply-chain & admissions TEST",
+ "description": "Kyverno observability: webhook health (latency/traffic/errors/saturation), image supply-chain verification, controller internals, operational readiness, and decision logs. Cleaned for GitOps lab environment.",
+ "tags": [
+  "gitops-lab",
+  "kyverno",
+  "security"
+ ],
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "version": 3,
+ "editable": true,
+ "graphTooltip": 1,
+ "refresh": "30s",
+ "time": {
+  "from": "now-6h",
+  "to": "now"
+ },
+ "annotations": {
+  "list": [
+   {
+    "name": "Kyverno pod restarts",
+    "enable": true,
+    "iconColor": "orange",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "expr": "changes(kube_pod_container_status_restarts_total{namespace=\"kyverno\", cluster=~\"$cluster\"}[2m]) > 0",
+    "titleFormat": "Kyverno restart",
+    "textFormat": "{{pod}} / {{container}}",
+    "step": "1m"
+   }
+  ]
+ },
+ "links": [
+  {
+   "title": "Kyverno metrics reference",
+   "type": "link",
+   "url": "https://kyverno.io/docs/monitoring/",
+   "targetBlank": true,
+   "icon": "doc"
+  }
+ ],
+ "templating": {
+  "list": [
+   {
+    "name": "ds_prom",
+    "label": "Prometheus",
+    "type": "datasource",
+    "query": "prometheus",
+    "current": {
+     "text": "prometheus",
+     "value": "prometheus"
+    },
+    "hide": 0
+   },
+   {
+    "name": "ds_loki",
+    "label": "Loki",
+    "type": "datasource",
+    "query": "loki",
+    "current": {
+     "text": "loki",
+     "value": "loki"
+    },
+    "hide": 0
+   },
+   {
+    "name": "kyverno_ns",
+    "label": "Kyverno namespace",
+    "type": "constant",
+    "query": "kyverno",
+    "hide": 2
+   },
+   {
+    "name": "cluster",
+    "label": "Cluster",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "definition": "label_values(kyverno_admission_requests_total, cluster)",
+    "query": {
+     "query": "label_values(kyverno_admission_requests_total, cluster)",
+     "refId": "StandardVariableQuery"
+    },
+    "refresh": 2,
+    "sort": 1,
+    "includeAll": true,
+    "allValue": ".*",
+    "multi": true,
+    "current": {
+     "text": "All",
+     "value": "$__all"
+    }
+   },
+   {
+    "name": "namespace",
+    "label": "Resource namespace",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "definition": "label_values(kyverno_admission_requests_total{cluster=~\"$cluster\"}, resource_namespace)",
+    "query": {
+     "query": "label_values(kyverno_admission_requests_total{cluster=~\"$cluster\"}, resource_namespace)",
+     "refId": "StandardVariableQuery"
+    },
+    "refresh": 2,
+    "sort": 1,
+    "includeAll": true,
+    "allValue": ".*",
+    "multi": true,
+    "current": {
+     "text": "All",
+     "value": "$__all"
+    }
+   }
+  ]
+ },
+ "panels": [
+  {
+   "id": 100,
+   "type": "row",
+   "title": "Health at a glance",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 1,
+   "type": "stat",
+   "title": "Kyverno targets up",
+   "description": "Number of healthy Prometheus scrape targets across Kyverno controllers.",
+   "gridPos": {
+    "x": 0,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "yellow",
+        "value": 1
+       },
+       {
+        "color": "green",
+        "value": 2
+       }
+      ]
+     }
+    }
+   },
+   "targets": [
+    {
+     "expr": "sum(up{job=\"kyverno\", cluster=~\"$cluster\"}) or vector(0)",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "type": "stat",
+   "title": "Webhook p99 latency",
+   "description": "p99 of Kyverno admission review duration. Should stay well below the webhook timeoutSeconds (default 10s).",
+   "gridPos": {
+    "x": 4,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "decimals": 2,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "yellow",
+        "value": 0.5
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     }
+    }
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.99, sum by (le) (increase(kyverno_admission_review_duration_seconds_bucket{cluster=~\"$cluster\"}[$__range]))) or avg(kyverno_admission_review_duration_seconds_sum{cluster=~\"$cluster\"} / clamp_min(kyverno_admission_review_duration_seconds_count{cluster=~\"$cluster\"}, 1))",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "type": "stat",
+   "title": "Admission requests/s",
+   "gridPos": {
+    "x": 8,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "graphMode": "area"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "decimals": 2,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     }
+    }
+   },
+   "targets": [
+    {
+     "expr": "sum(rate(kyverno_admission_requests_total{cluster=~\"$cluster\", resource_namespace=~\"$namespace\"}[5m])) or vector(0)",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "type": "stat",
+   "title": "Denied requests (range)",
+   "description": "Admission requests Kyverno denied in the selected time range.",
+   "gridPos": {
+    "x": 12,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       }
+      ]
+     }
+    }
+   },
+   "targets": [
+    {
+     "expr": "sum(increase(kyverno_admission_requests_total{request_allowed=\"false\", cluster=~\"$cluster\", resource_namespace=~\"$namespace\"}[$__range])) or vector(0)",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "id": 5,
+   "type": "stat",
+   "title": "Webhook HTTP errors (range)",
+   "description": "5xx HTTP responses returned by Kyverno admission webhooks in the selected time range.",
+   "gridPos": {
+    "x": 16,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     }
+    }
+   },
+   "targets": [
+    {
+     "expr": "sum(increase(kyverno_http_requests_total{code=~\"5..\", cluster=~\"$cluster\"}[$__range])) or vector(0)",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "id": 6,
+   "type": "stat",
+   "title": "Pod restarts (range)",
+   "gridPos": {
+    "x": 20,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     }
+    }
+   },
+   "targets": [
+    {
+     "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"$kyverno_ns\", cluster=~\"$cluster\"}[$__range])) or vector(0)",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "id": 200,
+   "type": "row",
+   "title": "Admission webhook (latency / traffic / errors)",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 5,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 7,
+   "type": "timeseries",
+   "title": "Kyverno admission latency (p50 / p95 / p99)",
+   "gridPos": {
+    "x": 0,
+    "y": 6,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 10,
+      "lineInterpolation": "smooth",
+      "thresholdsStyle": {
+       "mode": "dashed"
+      }
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     }
+    }
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.50, sum by (le, cluster) (rate(kyverno_admission_review_duration_seconds_bucket{cluster=~\"$cluster\"}[$__rate_interval])))",
+     "legendFormat": "{{cluster}} p50",
+     "refId": "A"
+    },
+    {
+     "expr": "histogram_quantile(0.95, sum by (le, cluster) (rate(kyverno_admission_review_duration_seconds_bucket{cluster=~\"$cluster\"}[$__rate_interval])))",
+     "legendFormat": "{{cluster}} p95",
+     "refId": "B"
+    },
+    {
+     "expr": "histogram_quantile(0.99, sum by (le, cluster) (rate(kyverno_admission_review_duration_seconds_bucket{cluster=~\"$cluster\"}[$__rate_interval])))",
+     "legendFormat": "{{cluster}} p99",
+     "refId": "C"
+    }
+   ]
+  },
+  {
+   "id": 9,
+   "type": "timeseries",
+   "title": "Admission requests by operation & verdict",
+   "gridPos": {
+    "x": 12,
+    "y": 6,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 10,
+      "lineInterpolation": "smooth"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": ".*allowed=false.*"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "red"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "targets": [
+    {
+     "expr": "sum by (cluster, resource_request_operation, request_allowed) (rate(kyverno_admission_requests_total{cluster=~\"$cluster\", resource_namespace=~\"$namespace\"}[$__rate_interval]))",
+     "legendFormat": "{{cluster}} {{resource_request_operation}} allowed={{request_allowed}}",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "id": 300,
+   "type": "row",
+   "title": "Supply chain: image verification",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 14,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 11,
+   "type": "stat",
+   "title": "Passed image policy evaluations (range)",
+   "gridPos": {
+    "x": 0,
+    "y": 15,
+    "w": 8,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "graphMode": "area"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     }
+    }
+   },
+   "targets": [
+    {
+     "expr": "sum(increase(kyverno_image_validating_policy_results_total{result=\"pass\", cluster=~\"$cluster\", resource_namespace=~\"$namespace\"}[$__range])) or vector(0)",
+     "refId": "A"
+    }
+   ],
+   "description": "Passing image policy evaluations are not necessarily unique admitted images."
+  },
+  {
+   "id": 12,
+   "type": "stat",
+   "title": "Failed image policy evaluations (range)",
+   "gridPos": {
+    "x": 8,
+    "y": 15,
+    "w": 8,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "area"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     }
+    }
+   },
+   "targets": [
+    {
+     "expr": "sum(increase(kyverno_image_validating_policy_results_total{result=\"fail\", cluster=~\"$cluster\", resource_namespace=~\"$namespace\"}[$__range])) or vector(0)",
+     "refId": "A"
+    }
+   ],
+   "description": "Failures include Audit actions; not all failures result in admission denial."
+  },
+  {
+   "id": 13,
+   "type": "gauge",
+   "title": "Image verification failure ratio (range)",
+   "description": "Share of image policy evaluations failing, regardless of enforcement mode.",
+   "gridPos": {
+    "x": 16,
+    "y": 15,
+    "w": 8,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "min": 0,
+     "max": 1,
+     "decimals": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "yellow",
+        "value": 0.05
+       },
+       {
+        "color": "red",
+        "value": 0.2
+       }
+      ]
+     }
+    }
+   },
+   "targets": [
+    {
+     "expr": "(sum(increase(kyverno_image_validating_policy_results_total{result=\"fail\", cluster=~\"$cluster\", resource_namespace=~\"$namespace\"}[$__range])) or vector(0)) / clamp_min(sum(increase(kyverno_image_validating_policy_results_total{cluster=~\"$cluster\", resource_namespace=~\"$namespace\"}[$__range])), 1)",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "id": 14,
+   "type": "timeseries",
+   "title": "Image validations over time (pass vs fail)",
+   "gridPos": {
+    "x": 0,
+    "y": 19,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ops",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 15,
+      "lineInterpolation": "smooth"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": ".*fail.*"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "red"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": ".*pass.*"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "green"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "targets": [
+    {
+     "expr": "sum by (cluster, result) (rate(kyverno_image_validating_policy_results_total{cluster=~\"$cluster\", resource_namespace=~\"$namespace\"}[$__rate_interval]))",
+     "legendFormat": "{{cluster}} - {{result}}",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "id": 15,
+   "type": "bargauge",
+   "title": "Top 10 namespaces with failed image validations (range)",
+   "gridPos": {
+    "x": 12,
+    "y": 19,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "options": {
+    "orientation": "horizontal",
+    "displayMode": "gradient",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "orange",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 10
+       }
+      ]
+     }
+    }
+   },
+   "targets": [
+    {
+     "expr": "topk(10, sum by (cluster, resource_namespace) (increase(kyverno_image_validating_policy_results_total{result=\"fail\", cluster=~\"$cluster\", resource_namespace=~\"$namespace\"}[$__range])) > 0)",
+     "legendFormat": "{{cluster}}/{{resource_namespace}}",
+     "instant": true,
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "id": 16,
+   "type": "table",
+   "title": "Image validations by cluster & namespace (range)",
+   "gridPos": {
+    "x": 0,
+    "y": 27,
+    "w": 24,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "options": {
+    "showHeader": true,
+    "sortBy": [
+     {
+      "displayName": "fail",
+      "desc": true
+     }
+    ]
+   },
+   "fieldConfig": {
+    "defaults": {
+     "decimals": 0
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "fail"
+      },
+      "properties": [
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background"
+        }
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "transparent",
+           "value": null
+          },
+          {
+           "color": "red",
+           "value": 1
+          }
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "transformations": [
+    {
+     "id": "labelsToFields",
+     "options": {
+      "mode": "columns",
+      "valueLabel": "result"
+     }
+    },
+    {
+     "id": "merge",
+     "options": {}
+    },
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true
+      }
+     }
+    }
+   ],
+   "targets": [
+    {
+     "expr": "round(sum by (cluster, resource_namespace, result) (increase(kyverno_image_validating_policy_results_total{cluster=~\"$cluster\", resource_namespace=~\"$namespace\"}[$__range])))",
+     "format": "time_series",
+     "instant": true,
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "id": 400,
+   "type": "row",
+   "title": "Kyverno internals & saturation",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 35,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 17,
+   "type": "timeseries",
+   "title": "Controller reconcile rate",
+   "gridPos": {
+    "x": 0,
+    "y": 36,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ops",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 10
+     }
+    }
+   },
+   "targets": [
+    {
+     "expr": "sum by (controller_name) (rate(kyverno_controller_reconcile_total{cluster=~\"$cluster\"}[$__rate_interval]))",
+     "legendFormat": "{{controller_name}}",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "id": 18,
+   "type": "timeseries",
+   "title": "Controller dropped items (should be 0)",
+   "description": "Items dropped after retries. Investigate when positive; interpret with controller logs.",
+   "gridPos": {
+    "x": 8,
+    "y": 36,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ops",
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "red"
+     },
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 60
+     }
+    }
+   },
+   "targets": [
+    {
+     "expr": "sum by (controller_name) (rate(kyverno_controller_drop_total{cluster=~\"$cluster\"}[$__rate_interval])) > 0",
+     "legendFormat": "{{controller_name}}",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "id": 20,
+   "type": "timeseries",
+   "title": "CPU usage by pod",
+   "gridPos": {
+    "x": 16,
+    "y": 36,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "cores",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 10
+     }
+    }
+   },
+   "targets": [
+    {
+     "expr": "sum by (pod) (rate(process_cpu_seconds_total{job=\"kyverno\", cluster=~\"$cluster\"}[$__rate_interval]))",
+     "legendFormat": "{{pod}}",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "id": 21,
+   "type": "timeseries",
+   "title": "Memory working set vs limit",
+   "gridPos": {
+    "x": 0,
+    "y": 44,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 10
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": ".*limit.*"
+      },
+      "properties": [
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          10,
+          10
+         ]
+        }
+       },
+       {
+        "id": "custom.fillOpacity",
+        "value": 0
+       }
+      ]
+     }
+    ]
+   },
+   "targets": [
+    {
+     "expr": "sum by (pod) (process_resident_memory_bytes{job=\"kyverno\", cluster=~\"$cluster\"})",
+     "legendFormat": "{{pod}}",
+     "refId": "A"
+    },
+    {
+     "expr": "sum by (pod) (kube_pod_container_resource_limits{namespace=\"$kyverno_ns\", resource=\"memory\", cluster=~\"$cluster\"})",
+     "legendFormat": "{{pod}} limit",
+     "refId": "B"
+    }
+   ]
+  },
+  {
+   "id": 24,
+   "type": "timeseries",
+   "title": "Goroutines & Open File Descriptors",
+   "gridPos": {
+    "x": 12,
+    "y": 44,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "fillOpacity": 10
+     }
+    }
+   },
+   "targets": [
+    {
+     "expr": "sum by (pod) (go_goroutines{job=\"kyverno\", cluster=~\"$cluster\"})",
+     "legendFormat": "{{pod}} goroutines",
+     "refId": "A"
+    },
+    {
+     "expr": "sum by (pod) (process_open_fds{job=\"kyverno\", cluster=~\"$cluster\"})",
+     "legendFormat": "{{pod}} open fds",
+     "refId": "B"
+    }
+   ]
+  },
+  {
+   "id": 500,
+   "type": "row",
+   "title": "Logs (Loki)",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 52,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 22,
+   "type": "timeseries",
+   "title": "Denials & errors in Kyverno logs",
+   "gridPos": {
+    "x": 0,
+    "y": 53,
+    "w": 24,
+    "h": 6
+   },
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds_loki}"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "bars",
+      "fillOpacity": 60,
+      "stacking": {
+       "mode": "normal"
+      }
+     }
+    }
+   },
+   "targets": [
+    {
+     "expr": "sum by (container) (count_over_time({namespace=\"$kyverno_ns\", cluster=~\"$cluster\"} |~ \"(?i)(error|denied|blocked|fail)\" [$__auto]))",
+     "legendFormat": "{{container}}",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "id": 23,
+   "type": "logs",
+   "title": "Policy decisions & errors",
+   "description": "Filtered to denials, failures and errors. Remove the line filter in Explore for the full stream.",
+   "gridPos": {
+    "x": 0,
+    "y": 59,
+    "w": 24,
+    "h": 12
+   },
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds_loki}"
+   },
+   "options": {
+    "showTime": true,
+    "showLabels": false,
+    "wrapLogMessage": true,
+    "prettifyLogMessage": false,
+    "enableLogDetails": true,
+    "dedupStrategy": "signature",
+    "sortOrder": "Descending"
+   },
+   "targets": [
+    {
+     "expr": "{namespace=\"$kyverno_ns\", cluster=~\"$cluster\"} |~ \"(?i)(error|denied|blocked|fail|violation)\"",
+     "refId": "A"
+    }
+   ]
+  },
+  {
+   "id": 510,
+   "type": "row",
+   "title": "Policy evaluations | admission vs background",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 71,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 511,
+   "type": "timeseries",
+   "title": "Policy evaluations by result (rate)",
+   "description": "CEL and image policy evaluations. Audit failures do not equal admission rejections.",
+   "gridPos": {
+    "x": 0,
+    "y": 72,
+    "w": 12,
+    "h": 7
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "targets": [
+    {
+     "expr": "sum by (result,execution_cause) (rate({__name__=~\"kyverno_(image_validating|validating)?_policy_results_total|kyverno_policy_results\",cluster=~\"$cluster\",resource_namespace=~\"$namespace\"}[$__rate_interval]))",
+     "refId": "A",
+     "legendFormat": "{{execution_cause}} {{result}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ops"
+    }
+   }
+  },
+  {
+   "id": 513,
+   "type": "bargauge",
+   "title": "Top failing policies (range)",
+   "description": "Counts policy evaluation failures in selected range across policies.",
+   "gridPos": {
+    "x": 12,
+    "y": 72,
+    "w": 12,
+    "h": 7
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "targets": [
+    {
+     "expr": "topk(10, sum by (policy_name) (increase({__name__=~\"kyverno_(image_validating|validating)?_policy_results_total\",result=\"fail\",cluster=~\"$cluster\",resource_namespace=~\"$namespace\"}[$__range])))",
+     "refId": "A",
+     "legendFormat": "{{policy_name}}",
+     "instant": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    }
+   },
+   "options": {
+    "orientation": "horizontal",
+    "displayMode": "gradient",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    }
+   }
+  },
+  {
+   "id": 514,
+   "type": "bargauge",
+   "title": "Audit vs Deny: failed validations (range)",
+   "description": "Distinguishes failed policy evaluations by configured policy validation mode.",
+   "gridPos": {
+    "x": 0,
+    "y": 79,
+    "w": 12,
+    "h": 7
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "targets": [
+    {
+     "expr": "sum by (policy_validation_mode) (increase({__name__=~\"kyverno_(image_validating|validating)?_policy_results_total\",result=\"fail\",cluster=~\"$cluster\",resource_namespace=~\"$namespace\"}[$__range]))",
+     "refId": "A",
+     "legendFormat": "{{policy_validation_mode}}",
+     "instant": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    }
+   },
+   "options": {
+    "orientation": "horizontal",
+    "displayMode": "gradient",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    }
+   }
+  },
+  {
+   "id": 515,
+   "type": "timeseries",
+   "title": "Policy p95 execution time",
+   "description": "Per-policy processing duration in seconds.",
+   "gridPos": {
+    "x": 12,
+    "y": 79,
+    "w": 12,
+    "h": 7
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.95, sum by (le,policy_name) (rate({__name__=~\"kyverno_(image_validating|validating)?_policy_execution_duration_seconds_bucket\",cluster=~\"$cluster\"}[$__rate_interval])))",
+     "refId": "A",
+     "legendFormat": "{{policy_name}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s"
+    }
+   }
+  },
+  {
+   "id": 516,
+   "type": "row",
+   "title": "Governance | policy inventory and lifecycle",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 86,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 518,
+   "type": "bargauge",
+   "title": "Policy client operations by action (range)",
+   "description": "Client-go policy operations (watch, update, get) reported by Kyverno.",
+   "gridPos": {
+    "x": 0,
+    "y": 87,
+    "w": 12,
+    "h": 7
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "targets": [
+    {
+     "expr": "sum by (operation, resource_kind) (increase(kyverno_client_queries_total{client_type=\"kyverno\", cluster=~\"$cluster\"}[$__range]))",
+     "legendFormat": "{{operation}} {{resource_kind}}",
+     "instant": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    }
+   },
+   "options": {
+    "orientation": "horizontal",
+    "displayMode": "gradient",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    }
+   }
+  },
+  {
+   "id": 519,
+   "type": "table",
+   "title": "Recent policy client operations (range)",
+   "description": "Audit of operations performed against policy CRDs in Kubernetes.",
+   "gridPos": {
+    "x": 12,
+    "y": 87,
+    "w": 12,
+    "h": 7
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "targets": [
+    {
+     "expr": "topk(20, sum by (resource_kind, operation) (increase(kyverno_client_queries_total{client_type=\"kyverno\", cluster=~\"$cluster\"}[$__range])))",
+     "refId": "A",
+     "format": "table",
+     "instant": true
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    }
+   }
+  },
+  {
+   "id": 520,
+   "type": "row",
+   "title": "Operational readiness | Kubernetes workloads",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 94,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 521,
+   "type": "timeseries",
+   "title": "Kyverno unavailable replicas",
+   "description": "Pending/unavailable replicas per deployment; 0 is healthy when desired replicas > 0.",
+   "gridPos": {
+    "x": 0,
+    "y": 95,
+    "w": 12,
+    "h": 7
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "targets": [
+    {
+     "expr": "sum by (cluster,deployment) (kube_deployment_spec_replicas{namespace=\"$kyverno_ns\",cluster=~\"$cluster\"} - kube_deployment_status_replicas_available{namespace=\"$kyverno_ns\",cluster=~\"$cluster\"})",
+     "refId": "A",
+     "legendFormat": "{{cluster}}/{{deployment}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    }
+   }
+  },
+  {
+   "id": 522,
+   "type": "timeseries",
+   "title": "Kyverno admission controller available replicas",
+   "description": "Available replicas for Kyverno admission controller deployments.",
+   "gridPos": {
+    "x": 12,
+    "y": 95,
+    "w": 12,
+    "h": 7
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "targets": [
+    {
+     "expr": "sum by (cluster,deployment) (kube_deployment_status_replicas_available{namespace=\"$kyverno_ns\",deployment=~\".*admission.*\",cluster=~\"$cluster\"})",
+     "refId": "A",
+     "legendFormat": "{{cluster}}/{{deployment}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    }
+   }
+  },
+  {
+   "id": 523,
+   "type": "timeseries",
+   "title": "Unready Kyverno containers",
+   "description": "Non-ready controller containers; distinguishes startup/rollouts from incidents.",
+   "gridPos": {
+    "x": 0,
+    "y": 102,
+    "w": 12,
+    "h": 7
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "targets": [
+    {
+     "expr": "sum by (cluster,pod) (kube_pod_container_status_ready{namespace=\"$kyverno_ns\",container=\"kyverno\",cluster=~\"$cluster\"} == 0)",
+     "refId": "A",
+     "legendFormat": "{{cluster}}/{{pod}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    }
+   }
+  },
+  {
+   "id": 524,
+   "type": "timeseries",
+   "title": "Restart rate by controller pod",
+   "description": "Increases across the selected rate window, not lifetime total.",
+   "gridPos": {
+    "x": 12,
+    "y": 102,
+    "w": 12,
+    "h": 7
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${ds_prom}"
+   },
+   "targets": [
+    {
+     "expr": "sum by (cluster,pod) (increase(kube_pod_container_status_restarts_total{namespace=\"$kyverno_ns\",cluster=~\"$cluster\"}[$__rate_interval]))",
+     "refId": "A",
+     "legendFormat": "{{cluster}}/{{pod}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    }
+   }
+  }
+ ]
+}
