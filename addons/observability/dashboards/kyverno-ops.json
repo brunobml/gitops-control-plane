@@ -13,7 +13,7 @@
   "graphTooltip": 1,
   "refresh": "1m",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "time": {
     "from": "now-24h",
     "to": "now"
@@ -198,7 +198,7 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "Kyverno alerts firing",
+      "title": "Alerts firing",
       "description": "KyvernoDown (critical) and KyvernoSlowAdmission (warning) from the hub Prometheus. Click for the runbook.",
       "datasource": {
         "type": "prometheus",
@@ -326,7 +326,7 @@
               },
               {
                 "color": "green",
-                "value": 0.5
+                "value": 1
               }
             ]
           },
@@ -335,35 +335,27 @@
           },
           "mappings": [
             {
-              "type": "range",
+              "type": "value",
               "options": {
-                "from": 0.5,
-                "to": 1000000000.0,
-                "result": {
+                "1": {
                   "text": "Verified",
                   "color": "green"
-                }
-              }
-            },
-            {
-              "type": "range",
-              "options": {
-                "from": 0,
-                "to": 0.5,
-                "result": {
+                },
+                "0": {
                   "text": "Not verified",
                   "color": "orange"
                 }
               }
             }
-          ]
+          ],
+          "noValue": "Not verified: run make test"
         },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (cluster) (increase(kyverno_admission_requests_total{resource_namespace=\"admission-probes\", request_allowed=\"false\", cluster=~\"$cluster\"}[24h])) or on() vector(0)",
+          "expr": "clamp_max((sum by (cluster) (increase(kyverno_admission_requests_total{resource_namespace=\"admission-probes\", request_allowed=\"false\", cluster=~\"$cluster\"}[24h])) > 0) or (min by (cluster) (min_over_time(timestamp(kyverno_admission_requests_total{resource_namespace=\"admission-probes\", request_allowed=\"false\", cluster=~\"$cluster\"})[24h:1m])) > time() - 86340), 1) or sum by (cluster) (0 * kyverno_admission_requests_total{resource_namespace=\"admission-probes\", request_allowed=\"false\", cluster=~\"$cluster\"})",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -549,7 +541,7 @@
       "gridPos": {
         "x": 0,
         "y": 7,
-        "w": 10,
+        "w": 9,
         "h": 8
       },
       "options": {
@@ -641,16 +633,16 @@
     {
       "id": 9,
       "type": "bargauge",
-      "title": "Blocked tenant pods by namespace (range)",
+      "title": "Blocked pods by namespace (range)",
       "description": "Denied tenant pod creations per namespace in the selected range (probes excluded).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 10,
+        "x": 9,
         "y": 7,
-        "w": 5,
+        "w": 6,
         "h": 8
       },
       "options": {
@@ -687,7 +679,7 @@
           "refId": "A",
           "instant": true,
           "range": false,
-          "legendFormat": "{{cluster}}/{{resource_namespace}}",
+          "legendFormat": "{{resource_namespace}}",
           "expr": "sum by (cluster, resource_namespace) (increase(kyverno_admission_requests_total{request_allowed=\"false\", resource_namespace!=\"admission-probes\", cluster=~\"$cluster\"}[$__range])) > 0"
         }
       ]
@@ -695,7 +687,7 @@
     {
       "id": 10,
       "type": "logs",
-      "title": "Blocked tenant deployments (Kubernetes events)",
+      "title": "Blocked tenant deployments (events; empty = none)",
       "description": "FailedCreate events in tenant namespaces: the controller (ReplicaSet, Job, ...) tried to create a pod and admission refused it. The message names the layer: Pod Security (violates PodSecurity), the registry allowlist (ValidatingAdmissionPolicy 'tenant-image-registry-allowlist') or Kyverno (tenant-images-signed).",
       "datasource": {
         "type": "loki",
@@ -915,7 +907,7 @@
     {
       "id": 14,
       "type": "logs",
-      "title": "Image verification failures (smoke-test probe excluded)",
+      "title": "Signature failures, probe excluded (empty = none)",
       "description": "Kyverno's own reason for each failed check: missing signature, wrong signer identity, missing SBOM attestation. The smoke test's unsigned probe image is filtered out.",
       "datasource": {
         "type": "loki",
@@ -1212,6 +1204,30 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "Pod"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 330
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Cluster"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 120
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "Ready"
             },
             "properties": [
@@ -1473,7 +1489,7 @@
     {
       "id": 21,
       "type": "stat",
-      "title": "Kyverno warning events (24 h)",
+      "title": "Warning events (24 h)",
       "description": "Kubernetes Warning events in namespace kyverno in the last 24 h (failed probes, back-off, scheduling).",
       "datasource": {
         "type": "loki",
@@ -1567,7 +1583,7 @@
     {
       "id": 23,
       "type": "logs",
-      "title": "Kyverno errors (not policy decisions)",
+      "title": "Kyverno errors, not policy decisions (empty = none)",
       "description": "Level-ERR log lines of Kyverno, without image-verification failures. Expand a line for its labels.",
       "datasource": {
         "type": "loki",
@@ -1604,7 +1620,7 @@
     {
       "id": 24,
       "type": "logs",
-      "title": "Warning events in namespace kyverno",
+      "title": "Warning events in namespace kyverno (empty = none)",
       "description": "Kubernetes Warning events for Kyverno pods and objects.",
       "datasource": {
         "type": "loki",
