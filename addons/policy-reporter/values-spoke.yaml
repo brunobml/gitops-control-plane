@@ -10,6 +10,17 @@
 rest:
   enabled: true
 
+# Keep reports about controller-owned pods. tenant-images-signed evaluates Pods directly (its
+# autogen is off), so all its PolicyReports are about pods owned by a ReplicaSet; the chart's
+# default (uncontrolledOnly: true) would drop every one of them and the UI would stay empty.
+sourceFilters:
+  - selector:
+      sources: [kyverno, KyvernoValidatingPolicy, KyvernoImageValidatingPolicy]
+    uncontrolledOnly: false
+    disableClusterReports: false
+    kinds:
+      exclude: []
+
 metrics:
   enabled: true
   mode: simple   # no per-resource names in time series
