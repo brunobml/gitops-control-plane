@@ -1,0 +1,76 @@
+# Policy Reporter on both Kyverno spokes: core + Kyverno plugin, read by the single UI on the
+# hub (applicationsets/addon-policy-reporter.yaml, http://policy-reporter.localhost) through each
+# spoke's load balancer (routes /pr-core and /pr-kyverno, basic auth). Runbook:
+# docs/runbooks/policy-reporter.md.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: addons-spoke-policy-reporter
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            addons-managed: "true"
+            kyverno: enabled
+  template:
+    metadata:
+      name: "addon-policy-reporter-{{ .name }}"
+      labels:
+        app.kubernetes.io/part-of: platform-addons
+        addon: policy-reporter
+    spec:
+      project: platform-addons
+      sources:
+        - chart: policy-reporter
+          repoURL: https://kyverno.github.io/policy-reporter
+          targetRevision: "3.9.1"
+          helm:
+            releaseName: policy-reporter
+            valueFiles:
+              - "$values/addons/policy-reporter/values-spoke.yaml"
+            valuesObject:
+              # the hub reaches this spoke at http://k3d-<spoke>-serverlb (shared Docker network)
+              ingress:
+                hosts:
+                  - host: "k3d-{{ .name }}-serverlb"
+                    paths: [{path: /pr-core, pathType: Prefix}]
+              plugin:
+                kyverno:
+                  ingress:
+                    hosts:
+                      - host: "k3d-{{ .name }}-serverlb"
+                        paths: [{path: /pr-kyverno, pathType: Prefix}]
+        - repoURL: https://github.com/brunobml/gitops-control-plane.git
+          targetRevision: main
+          ref: values
+        - repoURL: https://github.com/brunobml/gitops-control-plane.git
+          targetRevision: main
+          path: addons/policy-reporter/spoke
+      destination:
+        server: "{{ .server }}"
+        namespace: policy-reporter
+      syncPolicy:
+        automated:
+          prune: false
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+        managedNamespaceMetadata:
+          labels:
+            pod-security.kubernetes.io/enforce: restricted
+            pod-security.kubernetes.io/enforce-version: latest
+            pod-security.kubernetes.io/warn: restricted
+            pod-security.kubernetes.io/audit: restricted
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m

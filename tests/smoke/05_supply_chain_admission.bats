@@ -56,3 +56,27 @@ PROBE_NS=admission-probes
     [ "$status" -eq 0 ]
   done
 }
+
+@test "Gate 11d: Policy Reporter: reports controller and APIs on both spokes (routes need credentials), UI on the hub behind Keycloak" {
+  for spoke in spoke-nonprod spoke-prod; do
+    local ctx="k3d-${spoke}" port code
+    run kubectl --context "$ctx" -n kyverno rollout status deployment/kyverno-reports-controller --timeout=30s
+    [ "$status" -eq 0 ]
+    for deployment in policy-reporter policy-reporter-kyverno-plugin; do
+      run kubectl --context "$ctx" -n policy-reporter rollout status "deployment/$deployment" --timeout=30s
+      [ "$status" -eq 0 ]
+    done
+    run kubectl --context "$ctx" get policyreports.wgpolicyk8s.io --all-namespaces -o name
+    [ "$status" -eq 0 ]
+    # the hub reaches the spoke API through its load balancer; without credentials Traefik refuses
+    port=8081; [ "$spoke" = spoke-prod ] && port=8082
+    code=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: k3d-${spoke}-serverlb" "http://127.0.0.1:${port}/pr-core/v1/namespaces")
+    [ "$code" = "401" ]
+  done
+  run kubectl --context k3d-hub-cluster -n policy-reporter rollout status deployment/policy-reporter-ui --timeout=30s
+  [ "$status" -eq 0 ]
+  # the UI sends an anonymous visitor to Keycloak (client policy-reporter)
+  local loc
+  loc=$(curl -s -o /dev/null -L --max-redirs 3 -w '%{url_effective}' http://policy-reporter.localhost/)
+  [[ "$loc" == "${ISSUER}/protocol/openid-connect/auth?"*"client_id=policy-reporter"* ]]
+}

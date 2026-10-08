@@ -1,0 +1,35 @@
+# Policy Reporter on each Kyverno spoke (chart 3.9.1): the core (reads PolicyReports) and the
+# Kyverno plugin (policy details, incl. ImageValidatingPolicies). No UI here: the one UI runs on
+# the hub (values-hub.yaml, http://policy-reporter.localhost) and reads both spokes through
+# their load balancers. The ingress routes /pr-core and /pr-kyverno only answer with the
+# credentials scripts/setup-policy-reporter-secrets.sh creates (Traefik basic auth,
+# addons/policy-reporter/spoke/middlewares.yaml); inside the cluster the APIs stay ClusterIP.
+# The per-spoke ingress host (k3d-<spoke>-serverlb) is set by applicationsets/addons-spoke-policy-reporter.yaml.
+metrics:
+  enabled: true
+  mode: simple   # no per-resource names in time series
+
+resources:
+  requests: {cpu: 10m, memory: 64Mi}
+  limits: {memory: 256Mi}
+
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: policy-reporter-pr-auth@kubernetescrd,policy-reporter-pr-core-strip@kubernetescrd
+
+ui:
+  enabled: false
+
+plugin:
+  kyverno:
+    enabled: true
+    resources:
+      requests: {cpu: 10m, memory: 64Mi}
+      limits: {memory: 256Mi}
+    ingress:
+      enabled: true
+      className: traefik
+      annotations:
+        traefik.ingress.kubernetes.io/router.middlewares: policy-reporter-pr-auth@kubernetescrd,policy-reporter-pr-kyverno-strip@kubernetescrd

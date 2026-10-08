@@ -13,6 +13,7 @@ export NOW_EPOCH="${SMOKE_NOW_EPOCH:-$(date +%s)}"
 export PLATFORM_BASELINE_APPS=(
   "argo-cd" "addon-headlamp" "addon-keycloak" "addon-oauth2-proxy"
   "addon-kyverno-spoke-nonprod" "addon-kyverno-spoke-prod"
+  "addon-policy-reporter" "addon-policy-reporter-spoke-nonprod" "addon-policy-reporter-spoke-prod"
   "addon-prometheus" "addon-grafana" "addon-blackbox" "addon-lab-exporters"
   "addon-observability-spoke-nonprod" "addon-observability-spoke-prod"
   "addon-loki" "addon-alloy"

@@ -197,6 +197,7 @@ make status   # Applications, spoke controllers and moto queues
 | **Argo CD** (desired state, all clusters) | http://localhost or http://argocd.localhost | "Log in via Keycloak", or the local break-glass `platform-admin` |
 | **Headlamp** (runtime state, all clusters) | http://headlamp.localhost | Keycloak (via oauth2-proxy) |
 | **Grafana** (metrics, logs, alerts) | http://grafana.localhost | Keycloak: `platform-user` = Admin, `tenant-a-user` = Viewer |
+| **Policy Reporter** (Kyverno policy reports of both spokes) | http://policy-reporter.localhost ([runbook](docs/runbooks/policy-reporter.md)) | Keycloak: `platform-user`, `tenant-a-user` |
 | **Keycloak admin** | http://keycloak.localhost/admin/ | `kc-admin` |
 | **Orders dashboards** | `make open-dev` / `open-test` / `open-prod` (port-forward) | — |
 

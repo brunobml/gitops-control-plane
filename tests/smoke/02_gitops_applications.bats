@@ -10,7 +10,7 @@ setup() {
   [ "$status" -eq 0 ]
   local all_apps="$output"
 
-  # Assert all 37 fixed platform baseline applications exist
+  # Assert all fixed platform baseline applications exist
   for expected in "${PLATFORM_BASELINE_APPS[@]}"; do
     [[ " $all_apps " == *" $expected "* ]]
   done

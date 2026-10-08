@@ -106,6 +106,9 @@ def render_helm(app, src, refs, repos, work):
                 v = helm[key]
                 fh.write(v if isinstance(v, str) else yaml.safe_dump(v))
             args += ["-f", f"/work/inline-{n}.yaml"]
+    for parameter in helm.get("parameters", []):
+        flag = "--set-string" if parameter.get("forceString") else "--set"
+        args += [flag, f"{parameter['name']}={parameter['value']}"]
     os.makedirs(os.path.join(CACHE, "helm"), exist_ok=True)
     env = {"HELM_CACHE_HOME": "/cache/cache", "HELM_CONFIG_HOME": "/cache/config", "HELM_DATA_HOME": "/cache/data"}
     return docker(TOOLS["HELM_IMAGE"], args, mounts, env)

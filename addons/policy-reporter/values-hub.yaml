@@ -1,0 +1,37 @@
+# Policy Reporter UI on the hub (chart 3.9.1), one view of both spokes.
+# The core is scaled to 0 (no Kyverno, no PolicyReports on the hub); the UI reads the spokes'
+# APIs. ui.name equals a listed cluster, so the chart adds no "Default" (hub) cluster.
+replicaCount: 0
+
+plugin:
+  kyverno:
+    enabled: false
+
+ui:
+  enabled: true
+  name: spoke-nonprod
+  clusters:
+    - name: spoke-nonprod
+      secretRef: policy-reporter-cluster-spoke-nonprod
+    - name: spoke-prod
+      secretRef: policy-reporter-cluster-spoke-prod
+  openIDConnect:
+    enabled: true
+    # discoveryUrl, clientId, clientSecret
+    secretRef: policy-reporter-oidc
+    callbackUrl: http://policy-reporter.localhost/callback
+    groupClaim: groups
+    scopes: [openid, profile, email]
+  ingress:
+    enabled: true
+    className: traefik
+    annotations:
+      argocd.argoproj.io/ignore-default-links: "true"
+    hosts:
+      - host: policy-reporter.localhost
+        paths:
+          - path: /
+            pathType: Prefix
+  resources:
+    requests: {cpu: 10m, memory: 64Mi}
+    limits: {memory: 256Mi}

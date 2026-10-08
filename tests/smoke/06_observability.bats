@@ -77,3 +77,17 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" =~ "id=\"kc-form-login\"" ]]
 }
+
+@test "Gate 12g: Hub receives Policy Reporter metrics from both spokes" {
+  for spoke in spoke-nonprod spoke-prod; do
+    local t0 value=""
+    t0=$(date +%s)
+    until [ -n "$value" ]; do
+      value=$(promq "up{job=\"policy-reporter\",cluster=\"${spoke}\"}" | jq -r '.data.result[0].value[1] // empty')
+      [ -n "$value" ] && break
+      [ $(( $(date +%s) - t0 )) -le 60 ] || break
+      sleep 2
+    done
+    [ "$value" = "1" ]
+  done
+}

@@ -172,6 +172,41 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "policy-reporter",
+      "name": "Policy Reporter",
+      "description": "Confidential client for the Policy Reporter UI on the hub (Kyverno policy results of both spokes).",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "${LAB_POLICY_REPORTER_CLIENT_SECRET}",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "rootUrl": "http://policy-reporter.localhost",
+      "redirectUris": [
+        "http://policy-reporter.localhost/callback"
+      ],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://policy-reporter.localhost##http://policy-reporter.localhost/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
     }
   ]
 }

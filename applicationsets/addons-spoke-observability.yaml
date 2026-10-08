@@ -33,6 +33,14 @@ spec:
             releaseName: prometheus-agent
             valueFiles:
               - "$values/controllers/observability/values-agent.yaml"
+            valuesObject:
+              # Append Policy Reporter without replacing the catalog's scrape jobs.
+              extraScrapeConfigs: |
+                - job_name: policy-reporter
+                  kubernetes_sd_configs: [{role: endpoints, namespaces: {names: [policy-reporter]}}]
+                  relabel_configs:
+                    - {source_labels: [__meta_kubernetes_service_name], regex: policy-reporter, action: keep}
+                    - {source_labels: [__meta_kubernetes_endpoint_port_name], regex: http, action: keep}
             parameters:
               - name: server.global.external_labels.cluster
                 value: "{{ .name }}"

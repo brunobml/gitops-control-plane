@@ -1,0 +1,50 @@
+# Policy Reporter UI on the hub: http://policy-reporter.localhost, Keycloak SSO (client
+# policy-reporter in addons/keycloak/realm-lab.json). It shows both spokes; their Policy Reporter
+# APIs come from applicationsets/addons-spoke-policy-reporter.yaml. The core service of the chart
+# is scaled to 0 here: the hub runs no Kyverno and has no PolicyReports of its own.
+# Secrets (never in Git): scripts/setup-policy-reporter-secrets.sh creates policy-reporter-oidc
+# and one policy-reporter-cluster-<spoke> Secret per spoke (API URL and basic-auth credentials).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: addon-policy-reporter
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: policy-reporter
+    app.kubernetes.io/part-of: platform-addons
+  annotations:
+    link.argocd.argoproj.io/external-link: "http://policy-reporter.localhost"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: control-plane
+  sources:
+    - repoURL: https://kyverno.github.io/policy-reporter
+      chart: policy-reporter
+      targetRevision: "3.9.1"
+      helm:
+        releaseName: policy-reporter
+        valueFiles:
+          - "$values/addons/policy-reporter/values-hub.yaml"
+    - repoURL: https://github.com/brunobml/gitops-control-plane.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: policy-reporter
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/enforce: restricted
+        pod-security.kubernetes.io/enforce-version: latest
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m

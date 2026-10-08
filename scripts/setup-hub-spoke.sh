@@ -149,6 +149,8 @@ echo -e "\n${YELLOW}[5/7] Registering spokes into Hub Argo CD...${NC}"
 bash "${SCRIPT_DIR}/register-spokes.sh"
 # Phase 5: remote-write and Grafana secrets (hub and spokes), outside Git.
 bash "${SCRIPT_DIR}/setup-observability-secrets.sh"
+# Policy Reporter: UI OIDC + per-spoke API credentials (hub and spokes), outside Git.
+bash "${SCRIPT_DIR}/setup-policy-reporter-secrets.sh"
 
 # 5b. Configure Headlamp Multi-Cluster Credentials
 echo -e "\n${YELLOW}[5b/7] Configuring Headlamp Multi-Cluster Credentials on ${HUB_CLUSTER}...${NC}"

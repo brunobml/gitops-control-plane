@@ -7,10 +7,12 @@ Every OIDC relying party and Keycloak must agree on the issuer and on each other
 to one of them alone breaks login (the main risk of moving hosts or ports). Checks:
   1. one issuer everywhere: Keycloak KC_HOSTNAME + /realms/lab, Argo CD oidc.config issuer,
      oauth2-proxy oidc_issuer_url and endpoints, Grafana auth/token/api/signout URLs, the blackbox
-     probe target, the smoke test's ISSUER;
+     probe target, the smoke test's ISSUER, the Policy Reporter UI's discovery URL (set by
+     scripts/setup-policy-reporter-secrets.sh);
   2. every relying-party URL is registered in the realm: Argo CD url + additionalUrls ->
      <url>/auth/callback (client argocd); oauth2-proxy redirect_url (client headlamp); Grafana
-     root_url + /login/generic_oauth (client grafana); each post-logout target allowed;
+     root_url + /login/generic_oauth (client grafana); Policy Reporter callbackUrl (client
+     policy-reporter); each post-logout target allowed;
   3. no hub URL with the old host ports 8080/8443 left in configuration or scripts (Track I, O-6).
 """
 import json, os, re, subprocess, sys
@@ -48,6 +50,8 @@ graf = yaml.safe_load(open(os.path.join(root, "addons/observability/values-grafa
 g_oauth = graf["auth.generic_oauth"]
 
 prom = open(os.path.join(root, "addons/observability/values-prometheus-hub.yaml")).read()
+pr_ui = yaml.safe_load(open(os.path.join(root, "addons/policy-reporter/values-hub.yaml")))["ui"]
+pr_script = open(os.path.join(root, "scripts/setup-policy-reporter-secrets.sh")).read()
 smoke_paths = [
     os.path.join(root, "tests/smoke/common.bash"),
     os.path.join(root, "scripts/smoke-test-hub-spoke.sh"),
@@ -69,6 +73,8 @@ m = re.search(r'targets:\s*\["(http[^"]*\.well-known/openid-configuration)"\]', 
 issuer_users["blackbox target"] = m.group(1) if m else None
 m = re.search(r'^(?:export\s+)?ISSUER="([^"]+)"', smoke, re.M)
 issuer_users["smoke ISSUER"] = m.group(1) if m else None
+m = re.search(r'"(http[^"]*/\.well-known/openid-configuration)"', pr_script)
+issuer_users["Policy Reporter discoveryUrl"] = m.group(1) if m else None
 for who, val in issuer_users.items():
     if not val:
         err(f"{who}: not found")
@@ -96,6 +102,9 @@ if not allowed(o2p_kv.get("redirect_url", ""), clients["headlamp"]["redirectUris
 g_cb = f"{graf['server']['root_url'].rstrip('/')}/login/generic_oauth"
 if not allowed(g_cb, clients["grafana"]["redirectUris"]):
     err(f"Grafana {g_cb} is not a redirect URI of realm client grafana")
+pr_cb = pr_ui["openIDConnect"]["callbackUrl"]
+if not allowed(pr_cb, clients.get("policy-reporter", {}).get("redirectUris", [])):
+    err(f"Policy Reporter callbackUrl {pr_cb} is not a redirect URI of realm client policy-reporter")
 m = re.search(r"post_logout_redirect_uri=([^&]+)", graf["auth"]["signout_redirect_url"])
 if m:
     from urllib.parse import unquote

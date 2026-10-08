@@ -36,6 +36,11 @@ spec:
             releaseName: kyverno
             valueFiles:
               - "$values/controllers/kyverno/values-kyverno.yaml"
+            parameters:
+              # Policy Reporter consumes PolicyReports. The catalog's admission-only
+              # default disables their producer, so enable it on both spokes.
+              - name: reportsController.enabled
+                value: "true"
         - repoURL: https://github.com/brunobml/platform-catalog.git
           targetRevision: '{{ index .metadata.annotations "blueprints-revision" }}'
           ref: values

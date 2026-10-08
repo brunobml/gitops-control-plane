@@ -1,0 +1,31 @@
+# Traefik middlewares for the spoke's Policy Reporter routes (read by the hub UI only).
+# pr-auth: basic auth; the htpasswd Secret is created by scripts/setup-policy-reporter-secrets.sh
+# (never in Git). The strip middlewares remove the route prefix before the request reaches the
+# API, which serves /v1, /v2, /vpol, /ivpol at its root.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: pr-auth
+  namespace: policy-reporter
+spec:
+  basicAuth:
+    secret: policy-reporter-api-htpasswd
+    removeHeader: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: pr-core-strip
+  namespace: policy-reporter
+spec:
+  stripPrefix:
+    prefixes: ["/pr-core"]
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: pr-kyverno-strip
+  namespace: policy-reporter
+spec:
+  stripPrefix:
+    prefixes: ["/pr-kyverno"]
