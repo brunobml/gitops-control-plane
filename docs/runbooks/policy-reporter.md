@@ -24,8 +24,14 @@ All policies live in `platform-catalog/blueprints/` and reach the spokes through
 | `require-recommended-labels` | Audit | Best Practices, low |
 | `restrict-service-types` | Audit | Network Security, medium |
 
-The Audit policies (`audit-policies.yaml`, 2026-10-08) only report, with `failurePolicy: Ignore`; they are
-on both spokes (spoke-nonprod `main`, spoke-prod tag `v1.10.0`). Policy
+The Audit policies (`audit-policies.yaml`, 2026-10-08) only report, with `failurePolicy: Ignore`, on both
+spokes (spoke-nonprod `main`, spoke-prod tag `v1.11.0`). They cover **every namespace except** `kube-system`
+(managed by k3s), `kyverno` (no self-policing), `kube-public` and `kube-node-lease`; new namespaces are
+covered automatically. `tenant-images-signed` (Deny) stays tenant-only. Kyverno evaluates the Pods and the
+Deployments, DaemonSets, StatefulSets, Jobs and CronJobs behind them, not ReplicaSets (old revisions would
+report outdated templates). The UI has two boards: **Tenants** (orders-*) and **Platform** (ack-system, kro,
+monitoring, platform-probes, policy-reporter, platform-network, admission-probes). The hub runs no Kyverno,
+so its namespaces are not covered. Policy
 Reporter's **Policy Dashboard** lists every policy by title, grouped by its `policies.kyverno.io/category`
 annotation, with pass/fail counts and the severity badge. A new policy needs those annotations
 (`title`, `category`, `severity`, `description`), otherwise it lands in category "Other".
@@ -75,6 +81,7 @@ kubectl --context k3d-hub-cluster -n policy-reporter get deploy,ingress
 | UI loads but shows no results; its log says `failed to call core API: EOF` | the spoke core's REST API is off: the chart enables it only with a local UI, so `values-spoke.yaml` sets `rest.enabled: true` |
 | API answers `[]` for `/v2/sources` although PolicyReports exist | a source filter drops them: `tenant-images-signed` evaluates Pods (autogen off), so `values-spoke.yaml` sets `uncontrolledOnly: false` |
 | Every second request to a spoke route or tenant app returns 404 | the spoke load balancer kept stale node IPs after a restart: `docker exec k3d-<spoke>-serverlb nginx -s reload` (done by `make start`; Gate 9b detects it) |
+| A fixed workload still shows old failures | reports of objects Kyverno no longer evaluates (e.g. ReplicaSets before autogen excluded them) are only dropped at the next background scan (about 1 h); deleting them is safe, Kyverno regenerates what still applies: `kubectl get policyreports -A -o json \| jq -r '.items[] \| select(.scope.kind=="ReplicaSet") \| "\(.metadata.namespace) \(.metadata.name)"'` then `kubectl -n <ns> delete policyreport <name>` |
 | No results at all | `kyverno-reports-controller` running on the spoke; PolicyReports exist (commands above) |
 
 PolicyReports describe the current state of existing resources; they are not a history of blocked
