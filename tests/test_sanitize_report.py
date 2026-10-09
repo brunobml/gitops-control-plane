@@ -61,11 +61,12 @@ class TestSanitizeReport(unittest.TestCase):
         output_xml = self.dir_path / "clean.xml"
 
         dummy_key = "AKIA" + "TESTEXACTKEY123"
+        home_dir = str(Path.home())
         xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <testsuites time="1.0">
 <testsuite name="smoke.bats" tests="2" failures="1" errors="0" skipped="0" hostname="OMEN30L">
     <testcase classname="smoke.bats" name="test failure" time="0.5">
-        <failure message="Error SuperSecretPassword123!">Trace: /home/bleite/test.sh failed with SuperSecretPassword123!</failure>
+        <failure message="Error SuperSecretPassword123!">Trace: {home_dir}/test.sh failed with SuperSecretPassword123!</failure>
     </testcase>
     <testcase classname="smoke.bats" name="test pass" time="0.5">
         <system-out>Passed test with key {dummy_key}</system-out>
@@ -79,7 +80,7 @@ class TestSanitizeReport(unittest.TestCase):
         clean_text = output_xml.read_text(encoding="utf-8")
         self.assertNotIn("SuperSecretPassword123!", clean_text)
         self.assertNotIn(dummy_key, clean_text)
-        self.assertNotIn("/home/bleite", clean_text)
+        self.assertNotIn(home_dir, clean_text)
         self.assertNotIn("OMEN30L", clean_text)
         self.assertIn("[REDACTED:test-password.secret]", clean_text)
         self.assertIn("[REDACTED:test-key.secret]", clean_text)
@@ -119,9 +120,12 @@ class TestSanitizeReport(unittest.TestCase):
         self.assertIn("[TRUNCATED", clean)
 
     def test_secret_source_kubectl_failure_blocks_publication(self):
-        with patch("sanitize_report.subprocess.run", side_effect=FileNotFoundError("kubectl")):
-            with self.assertRaises(FileNotFoundError):
-                load_known_secrets()
+        config_dir = self.dir_path / ".config" / "gitops-lab"
+        config_dir.mkdir(parents=True)
+        with patch("sanitize_report.Path.home", return_value=self.dir_path):
+            with patch("sanitize_report.subprocess.run", side_effect=FileNotFoundError("kubectl")):
+                with self.assertRaises(FileNotFoundError):
+                    load_known_secrets()
 
     def test_encoded_secret_and_host_in_unsanitized_attribute_fail_closed(self):
         secret = "SecretWithSymbols+/="
