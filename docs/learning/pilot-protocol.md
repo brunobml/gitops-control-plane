@@ -8,7 +8,7 @@ The learning assessment is at **8.0 / 10**, a score of the *teaching material*. 
 ## 2. Who
 | Role | Who | Notes |
 |---|---|---|
-| Learners | **2–3 people new to the lab** (owner decision O-4). The owner may count as one, but has seen the material, so the owner's numbers are reported separately | the agents (Claude, Codex, Antigravity) do **not** count |
+| Learners | **2–3 people new to the lab** (owner decision O-4). The owner may rehearse the labs, but is reported separately and does not count toward the new-learner sample | the agents (Claude, Codex, Antigravity) do **not** count |
 | Facilitator | the owner | observes, times, records; does not teach |
 | Re-scorer | Codex, Antigravity or the owner, **not Claude** | after the results are written |
 
@@ -16,7 +16,7 @@ Learner profile: knows `kubectl` basics (contexts, namespaces, `get`/`logs`/`des
 
 ## 3. Where and how
 * **Machine:** the owner's lab host (`OMEN30L`), in person or by screen share with remote control. The lab must already be running; learners never rebuild it.
-* **Learner terminal:** a fresh terminal in `~`, logged in as the owner's Linux user. ⚠ This user can read every lab secret in `~/.config/gitops-lab`; this is acceptable for this single-user lab (lab security preferences), but tell the learner to stay within the lab documents.
+* **Learner terminal:** a fresh terminal in `~`, logged in as the owner's Linux user only for learners the owner trusts with that account. This user can read every lab secret in `~/.config/gitops-lab` and other files available to the owner. Tell the learner to stay within the lab documents; use a separate Linux user if that access is inappropriate.
 * **Two sessions per learner**, on the same day or on two days:
   * **A: Lab 0** ([guided tour](../lab-0-guided-tour.md)): stations 0–8. **Skip the optional Git step**: it pushes to a shared repository.
   * **B: Lab 1** ([write a blueprint](../lab-1-write-a-blueprint.md)): steps 0–6 including the stretch, the clean-up, and "Check yourself".

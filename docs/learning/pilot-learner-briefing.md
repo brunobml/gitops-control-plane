@@ -8,7 +8,7 @@ Thank you for trying two short labs on a GitOps platform. **We are testing the d
 | A | [Lab 0: Tour the Running Lab](../lab-0-guided-tour.md) | about 60 min | how one application travels from Git to (mock) AWS, through Argo CD, kro and ACK; what a tenant may and may not do; watch two controllers repair things |
 | B | [Lab 1: Write a Blueprint](../lab-1-write-a-blueprint.md) | about 60–90 min | write your own kro blueprint in a throwaway cluster, watch it fail on purpose, and fix it |
 
-Everything happens on a lab that is already running. Nothing you do there can break it: every command in the labs is either read-only or repaired by a controller within minutes. Lab 1 runs in its own throwaway cluster.
+The lab is already running. The required Lab 0 actions are read-only or designed to be repaired by a controller; one step briefly deletes a mock cloud queue while ACK recreates it. Lab 1 runs in its own throwaway cluster. If a command fails or a resource does not come back, stop and tell the facilitator.
 
 ## How to work
 * **Copy and paste the commands**, in order, into one terminal. You do not need to type YAML.
