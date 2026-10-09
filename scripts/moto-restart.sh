@@ -149,10 +149,18 @@ for spoke in "${SPOKES[@]}"; do
     -o jsonpath='{range .items[?(@.metadata.annotations.services\.k8s\.aws/adopted=="true")]}{.kind}{" "}{.metadata.namespace}{" "}{.metadata.name}{"\n"}{end}' 2>/dev/null || true)
   echo "  ✔ ${spoke}: cleared ${cleared} adopted markers"
 done
+if kubectl --context k3d-spoke-nonprod -n platform-reports get bucket gitops-lab-reports >/dev/null 2>&1; then
+  kubectl --context k3d-spoke-nonprod -n platform-reports annotate bucket gitops-lab-reports \
+    services.k8s.aws/adopted- >/dev/null 2>&1 || true
+fi
 
 # 6. Scale up ACK deployments on both spokes
 echo "[5.5/10] Seeding Moto S3 encryption before ACK S3 resumes..."
 bash "${SCRIPT_DIR}/ensure-moto-report-bucket.sh"
+if kubectl --context k3d-spoke-nonprod -n platform-reports get bucket gitops-lab-reports >/dev/null 2>&1; then
+  kubectl --context k3d-spoke-nonprod -n platform-reports patch bucket gitops-lab-reports \
+    --subresource=status --type=merge -p '{"status":{"conditions":[]}}' >/dev/null
+fi
 
 # 6. Scale up ACK deployments on both spokes
 echo "[6/10] Scaling up ACK controllers on both spokes..."
@@ -196,6 +204,19 @@ for spoke in "${SPOKES[@]}"; do
   done
   echo "  ✔ ${spoke}: all 6 network resources synced in Moto"
 done
+if kubectl --context k3d-spoke-nonprod -n platform-reports get testreportviewer bats-reports >/dev/null 2>&1; then
+  t0=$(date +%s)
+  until [[ "$(kubectl --context k3d-spoke-nonprod -n platform-reports get bucket gitops-lab-reports -o json 2>/dev/null | jq -r '[.status.conditions[]? | select(.type=="ACK.ResourceSynced" and .status=="True")] | length' 2>/dev/null || echo 0)" == 1 ]]; do
+    if (( $(date +%s) - t0 > 120 )); then
+      echo "❌ Timed out waiting for ACK S3 report bucket to sync" >&2
+      exit 1
+    fi
+    sleep 3
+  done
+  owner=$(kubectl --context k3d-spoke-nonprod -n platform-reports get bucket gitops-lab-reports -o jsonpath='{.status.ackResourceMetadata.ownerAccountID}')
+  [[ "$owner" == 111111111111 ]] || { echo "❌ Report bucket is in account ${owner}, expected 111111111111" >&2; exit 1; }
+  echo "  ✔ nonprod report bucket synced in account ${owner}"
+fi
 
 # 9. Assert Moto default account 123456789012 is clean (no leaked resources, F-6 verification)
 echo "[9/10] Asserting Moto default account 123456789012 is empty..."
@@ -217,14 +238,16 @@ leaked_sgs=$(read_default_account ec2 describe-security-groups --query "Security
 leaked_igws=$(read_default_account ec2 describe-internet-gateways --query "InternetGateways[?Tags[?Key=='services.k8s.aws/namespace']].InternetGatewayId" --output text)
 leaked_sqs=$(read_default_account sqs list-queues --query 'QueueUrls' --output text)
 leaked_roles=$(read_default_account iam list-roles --query "Roles[?starts_with(RoleName, 'team-') || starts_with(RoleName, 'ack-')].RoleName" --output text)
+leaked_bats_bucket=$(read_default_account s3api list-buckets --query "Buckets[?Name=='gitops-lab-reports'].Name" --output text)
 
-if [[ -n "$leaked_vpcs" || -n "$leaked_sgs" || -n "$leaked_igws" || ("$leaked_sqs" != "None" && -n "$leaked_sqs") || -n "$leaked_roles" ]]; then
+if [[ -n "$leaked_vpcs" || -n "$leaked_sgs" || -n "$leaked_igws" || ("$leaked_sqs" != "None" && -n "$leaked_sqs") || -n "$leaked_roles" || -n "$leaked_bats_bucket" ]]; then
   echo "❌ Error: leaked resources found in Moto default account 123456789012!" >&2
   echo "   VPCs:  ${leaked_vpcs}" >&2
   echo "   SGs:   ${leaked_sgs}" >&2
   echo "   IGWs:  ${leaked_igws}" >&2
   echo "   SQS:   ${leaked_sqs}" >&2
   echo "   Roles: ${leaked_roles}" >&2
+  echo "   S3 report bucket: ${leaked_bats_bucket}" >&2
   exit 1
 fi
 echo "  ✔ Moto default account 123456789012 is completely empty"
