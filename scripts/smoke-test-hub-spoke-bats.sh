@@ -68,13 +68,46 @@ fi
 # Default flags if no custom flags provided
 DEFAULT_FLAGS=(--timing --print-output-on-failure)
 
+RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$(openssl rand -hex 3)"
+START_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+RAW_REPORT_DIR=$(mktemp -d)
+trap 'rm -rf "${RAW_REPORT_DIR}"' EXIT
+
 echo "============================================================"
 echo " Running Bats Smoke Test Suite: $(bats -v)"
 echo " Target: ${TEST_TARGET}"
+echo " Run ID: ${RUN_ID}"
 echo "============================================================"
 
-if [[ $# -eq 0 ]]; then
-  bats "${DEFAULT_FLAGS[@]}" "${TEST_TARGET}"
+bats_exit=0
+has_target=false
+for arg in "$@"; do
+  if [[ -f "$arg" || -d "$arg" ]]; then
+    has_target=true
+    break
+  fi
+done
+
+if [[ "$has_target" == "true" ]]; then
+  bats "${DEFAULT_FLAGS[@]}" --report-formatter junit --output "${RAW_REPORT_DIR}" "$@" || bats_exit=$?
+elif [[ $# -eq 0 ]]; then
+  bats "${DEFAULT_FLAGS[@]}" --report-formatter junit --output "${RAW_REPORT_DIR}" "${TEST_TARGET}" || bats_exit=$?
 else
-  bats "${DEFAULT_FLAGS[@]}" "$@" "${TEST_TARGET}"
+  bats "${DEFAULT_FLAGS[@]}" --report-formatter junit --output "${RAW_REPORT_DIR}" "$@" "${TEST_TARGET}" || bats_exit=$?
 fi
+
+END_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Publish report to Moto S3 and GitHub (non-blocking; preserves bats exit code)
+if [[ -f "${RAW_REPORT_DIR}/report.xml" ]]; then
+  bash "${SCRIPT_DIR}/publish-bats-report.sh" \
+    "${RAW_REPORT_DIR}/report.xml" \
+    "${RUN_ID}" \
+    "${START_TIME}" \
+    "${END_TIME}" \
+    "${bats_exit}" \
+    "smoke" \
+    "$*" || true
+fi
+
+exit "${bats_exit}"
