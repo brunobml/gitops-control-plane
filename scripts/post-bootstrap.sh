@@ -212,4 +212,6 @@ if ! bash "${SCRIPT_DIR}/prune-orphan-platform-vpcs.sh" 2>&1 | sed 's/^/  /'; th
 fi
 
 echo "[9/9] Smoke test (Bats suite)..."
-bash "${SCRIPT_DIR}/smoke-test-hub-spoke-bats.sh"
+bash "${SCRIPT_DIR}/setup-bats-reporter-secret.sh"
+bash "${SCRIPT_DIR}/ensure-moto-report-bucket.sh" --repair-controller
+BATS_REPORT_CALLER=post-bootstrap bash "${SCRIPT_DIR}/smoke-test-hub-spoke-bats.sh"

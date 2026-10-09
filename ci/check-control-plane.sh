@@ -143,6 +143,11 @@ if stage sandbox-guards "Lab 1 sandbox guards fail closed (validation-04 V3-1, V
   bash "$REPO/tests/test-sandbox-guards.sh" || fail "sandbox guards"
 fi
 
+if stage bats-publisher "Bats report sanitization and publisher regressions"; then
+  (cd "$REPO" && python3 -m unittest tests.test_sanitize_report -v) || fail "Bats report sanitizer"
+  bash -n "$REPO/scripts/publish-bats-report.sh" "$REPO/scripts/smoke-test-hub-spoke-bats.sh" || fail "Bats report publisher syntax"
+fi
+
 if stage alloy "Alloy configuration"; then
   alloy_syntax "$REPO/addons/observability/values-alloy-hub.yaml"
 fi

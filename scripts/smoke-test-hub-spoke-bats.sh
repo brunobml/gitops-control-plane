@@ -14,6 +14,7 @@
 #   ./scripts/smoke-test-hub-spoke-bats.sh -F junit -o ./ci  # Generate JUnit XML report
 
 set -euo pipefail
+umask 077
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
@@ -107,7 +108,8 @@ if [[ -f "${RAW_REPORT_DIR}/report.xml" ]]; then
     "${END_TIME}" \
     "${bats_exit}" \
     "smoke" \
-    "$*" || true
+    "$*" \
+    "${BATS_REPORT_CALLER:-direct}" || true
 fi
 
 exit "${bats_exit}"

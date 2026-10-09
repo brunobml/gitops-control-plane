@@ -7,13 +7,14 @@ import json
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 # Add scripts/lib to path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts" / "lib"))
 
-from sanitize_report import sanitize_xml, sanitize_text, build_redaction_pairs
+from sanitize_report import sanitize_xml, sanitize_text, build_redaction_pairs, load_known_secrets
 
 
 class TestSanitizeReport(unittest.TestCase):
@@ -106,6 +107,34 @@ class TestSanitizeReport(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             sanitize_xml(input_xml, output_xml, known_with_leak)
         self.assertIn("SECURITY ALERT", str(ctx.exception))
+
+    def test_secret_across_diagnostic_limit_is_removed_before_truncation(self):
+        secret = "BoundarySecret123456789"
+        pairs = build_redaction_pairs({secret: "boundary.secret"})
+        raw = "x" * (8192 - 7) + secret + " trailing output"
+        clean = sanitize_text(raw, pairs, "/home/bleite", "OMEN30L")
+        self.assertNotIn(secret, clean)
+        self.assertNotIn(secret[:7], clean[-100:])
+        self.assertNotIn("[REDACT", clean)
+        self.assertIn("[TRUNCATED", clean)
+
+    def test_secret_source_kubectl_failure_blocks_publication(self):
+        with patch("sanitize_report.subprocess.run", side_effect=FileNotFoundError("kubectl")):
+            with self.assertRaises(FileNotFoundError):
+                load_known_secrets()
+
+    def test_encoded_secret_and_host_in_unsanitized_attribute_fail_closed(self):
+        secret = "SecretWithSymbols+/="
+        encoded = __import__("base64").b64encode(secret.encode()).decode()
+        raw = self.dir_path / "raw-attribute.xml"
+        clean = self.dir_path / "clean-attribute.xml"
+        raw.write_text(
+            f'<testsuites><testsuite name="{encoded}"><testcase name="case" time="0"/></testsuite></testsuites>',
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "SECURITY ALERT"):
+            sanitize_xml(raw, clean, {secret: "test.secret"})
+        self.assertFalse(clean.exists())
 
 
 if __name__ == "__main__":

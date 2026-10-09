@@ -8,7 +8,8 @@ metadata:
     app.kubernetes.io/part-of: platform-reports
 spec:
   bucketName: gitops-lab-reports
+  retentionDays: 14
   replicas: 1
-  image: bats-test-reporter:v0.1.0
+  image: ghcr.io/brunobml/bats-test-reporter@sha256:a1abfb925a6158a1a8c16bd01e8f0a129d09c1f2615211468aaa18731ec92489
   ingressHost: bats-reports.localhost
   resultsRepoUrl: https://github.com/brunobml/bats-test-results.git

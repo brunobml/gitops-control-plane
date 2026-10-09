@@ -109,7 +109,7 @@ bootstrap:
 	@echo "✔ Projects & Root application deployed to Hub Argo CD"
 
 test:
-	@bash $(ROOT_DIR)/scripts/smoke-test-hub-spoke-bats.sh $(ARGS)
+	@BATS_REPORT_CALLER=make-test bash $(ROOT_DIR)/scripts/smoke-test-hub-spoke-bats.sh $(ARGS)
 
 test-bats: test
 

@@ -5,6 +5,7 @@
 # Designed for safe, non-blocking execution from smoke-test-hub-spoke-bats.sh.
 #
 set -euo pipefail
+umask 077
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
@@ -17,6 +18,7 @@ BUCKET_NAME="${BATS_REPORT_BUCKET:-gitops-lab-reports}"
 MOTO_ENDPOINT="${MOTO_ENDPOINT:-http://localhost:5000}"
 
 mkdir -p "${REPORTS_BASE}/staging" "${REPORTS_BASE}/archive"
+chmod 700 "${REPORTS_BASE}" "${REPORTS_BASE}/staging" "${REPORTS_BASE}/archive"
 
 # Function to upload to Moto S3
 upload_to_s3() {
@@ -25,27 +27,24 @@ upload_to_s3() {
 
   # Get temporary credentials for account 111111111111
   local creds
-  creds=$(AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret \
-    aws --endpoint-url="${MOTO_ENDPOINT}" --region us-east-1 sts assume-role \
+  creds=$(AWS_MAX_ATTEMPTS=1 AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret \
+    timeout 30s aws --cli-connect-timeout 5 --cli-read-timeout 20 --endpoint-url="${MOTO_ENDPOINT}" --region us-east-1 sts assume-role \
       --role-arn "arn:aws:iam::111111111111:role/provisioner" \
-      --role-session-name "publish-${run_id}" --query Credentials --output json 2>/dev/null || true)
+      --role-session-name "publish-${run_id}" --query Credentials --output json 2>/dev/null) || return 1
 
   if [[ -z "$creds" || "$creds" == "null" ]]; then
-    # Fallback to direct call with mock keys
-    AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret \
-      aws --endpoint-url="${MOTO_ENDPOINT}" --region us-east-1 s3 cp "${report_xml}" "${s3_dest}/report.xml" >/dev/null 2>&1 && \
-    AWS_ACCESS_KEY_ID=mock-key AWS_SECRET_ACCESS_KEY=mock-secret \
-      aws --endpoint-url="${MOTO_ENDPOINT}" --region us-east-1 s3 cp "${meta_json}" "${s3_dest}/metadata.json" >/dev/null 2>&1
-  else
-    AWS_ACCESS_KEY_ID=$(jq -r .AccessKeyId <<<"$creds") \
-    AWS_SECRET_ACCESS_KEY=$(jq -r .SecretAccessKey <<<"$creds") \
-    AWS_SESSION_TOKEN=$(jq -r .SessionToken <<<"$creds") \
-      aws --endpoint-url="${MOTO_ENDPOINT}" --region us-east-1 s3 cp "${report_xml}" "${s3_dest}/report.xml" >/dev/null 2>&1 && \
-    AWS_ACCESS_KEY_ID=$(jq -r .AccessKeyId <<<"$creds") \
-    AWS_SECRET_ACCESS_KEY=$(jq -r .SecretAccessKey <<<"$creds") \
-    AWS_SESSION_TOKEN=$(jq -r .SessionToken <<<"$creds") \
-      aws --endpoint-url="${MOTO_ENDPOINT}" --region us-east-1 s3 cp "${meta_json}" "${s3_dest}/metadata.json" >/dev/null 2>&1
+    return 1
   fi
+  local access_key secret_key session_token
+  access_key=$(jq -er .AccessKeyId <<<"$creds") || return 1
+  secret_key=$(jq -er .SecretAccessKey <<<"$creds") || return 1
+  session_token=$(jq -er .SessionToken <<<"$creds") || return 1
+  AWS_MAX_ATTEMPTS=1 AWS_ACCESS_KEY_ID="$access_key" AWS_SECRET_ACCESS_KEY="$secret_key" AWS_SESSION_TOKEN="$session_token" \
+    timeout 30s aws --cli-connect-timeout 5 --cli-read-timeout 20 --endpoint-url="${MOTO_ENDPOINT}" --region us-east-1 \
+      s3 cp "${report_xml}" "${s3_dest}/report.xml" >/dev/null 2>&1 || return 1
+  AWS_MAX_ATTEMPTS=1 AWS_ACCESS_KEY_ID="$access_key" AWS_SECRET_ACCESS_KEY="$secret_key" AWS_SESSION_TOKEN="$session_token" \
+    timeout 30s aws --cli-connect-timeout 5 --cli-read-timeout 20 --endpoint-url="${MOTO_ENDPOINT}" --region us-east-1 \
+      s3 cp "${meta_json}" "${s3_dest}/metadata.json" >/dev/null 2>&1
 }
 
 # Function to commit and push to bats-test-results
@@ -55,31 +54,44 @@ push_to_github() {
     return 1
   fi
 
-  local target_dir="${RESULTS_REPO}/runs/${date_path}/${run_id}"
-  mkdir -p "${target_dir}"
-  cp -f "${report_xml}" "${target_dir}/report.xml"
-  cp -f "${meta_json}" "${target_dir}/metadata.json"
+  # This alias must resolve to the dedicated, repo-scoped deploy key.
+  if [[ "$(git -C "${RESULTS_REPO}" remote get-url --push origin 2>/dev/null)" != "git@github-bats-results:brunobml/bats-test-results.git" ]]; then
+    return 1
+  fi
 
   (
+    flock -x 9
     cd "${RESULTS_REPO}"
-    git add "runs/${date_path}/${run_id}" >/dev/null 2>&1 || true
-    if git diff --cached --quiet; then
-      return 0
-    fi
-    git commit -m "chore(report): record test run ${run_id}" >/dev/null 2>&1 || true
+    [[ "$(git branch --show-current)" == "main" ]] || git checkout main >/dev/null 2>&1 || return 1
+    timeout 15s git fetch origin main >/dev/null 2>&1 || return 1
+    git rebase origin/main >/dev/null 2>&1 || { git rebase --abort >/dev/null 2>&1 || true; return 1; }
 
-    # Retry git push with rebase in case of concurrent updates
-    local push_ok=false
-    for _ in {1..3}; do
-      if timeout 10s git push origin main >/dev/null 2>&1; then
-        push_ok=true
-        break
+    local target_dir="runs/${date_path}/${run_id}"
+    mkdir -p "$target_dir"
+    for name in report.xml metadata.json; do
+      local source="$report_xml"
+      [[ "$name" == "metadata.json" ]] && source="$meta_json"
+      if [[ -f "${target_dir}/${name}" ]] && ! cmp -s "$source" "${target_dir}/${name}"; then
+        return 1
       fi
-      git fetch origin main >/dev/null 2>&1 || true
-      git rebase origin/main >/dev/null 2>&1 || git rebase --abort >/dev/null 2>&1 || true
+      cp "$source" "${target_dir}/${name}"
     done
-    [[ "$push_ok" == "true" ]]
-  )
+    git add "$target_dir" >/dev/null 2>&1 || return 1
+    if ! git diff --cached --quiet; then
+      git commit -m "chore(report): record test run ${run_id}" >/dev/null 2>&1 || return 1
+    fi
+
+    for _ in {1..3}; do
+      if timeout 15s git push origin main >/dev/null 2>&1; then
+        timeout 15s git fetch origin main >/dev/null 2>&1 || return 1
+        [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]]
+        return
+      fi
+      timeout 15s git fetch origin main >/dev/null 2>&1 || return 1
+      git rebase origin/main >/dev/null 2>&1 || { git rebase --abort >/dev/null 2>&1 || true; return 1; }
+    done
+    return 1
+  ) 9>"${REPORTS_BASE}/.results-push.lock"
 }
 
 # Mode: Retry failed uploads
@@ -142,6 +154,7 @@ END_TIME="${4:-}"
 EXIT_CODE="${5:-0}"
 SUITE="${6:-smoke}"
 FILTER="${7:-}"
+CALLER="${8:-direct}"
 
 if [[ -z "$RAW_XML" || ! -f "$RAW_XML" || -z "$RUN_ID" ]]; then
   echo "Usage: $0 <raw_report.xml> <run_id> <start_time_utc> <end_time_utc> <exit_code> [suite] [filter]" >&2
@@ -167,6 +180,7 @@ if ! python3 "${SCRIPT_DIR}/lib/sanitize_report.py" \
     --bats-version "${BATS_VER}" \
     --suite "${SUITE}" \
     --filter "${FILTER}" \
+    --caller "${CALLER}" \
     --commit "${GIT_COMMIT}"; then
   echo "✘ Sanitization check failed. Test results quarantined locally; no outbound data sent." >&2
   rm -rf "${STAGING_DIR}"
@@ -210,5 +224,9 @@ s3_label="✔ ok"
 gh_label="✔ ok"
 [[ "$GH_SUCCESS" == "true" ]] || gh_label="✘ failed"
 
-echo "✔ Published test run ${RUN_ID} (S3: ${s3_label}, GitHub: ${gh_label})"
+if [[ "$S3_SUCCESS" == "true" && "$GH_SUCCESS" == "true" ]]; then
+  echo "✔ Published test run ${RUN_ID} (S3: ${s3_label}, GitHub: ${gh_label})"
+else
+  echo "✘ Publication incomplete for ${RUN_ID} (S3: ${s3_label}, GitHub: ${gh_label}); retry with scripts/publish-bats-report.sh --retry" >&2
+fi
 rm -rf "${STAGING_DIR}"

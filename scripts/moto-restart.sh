@@ -151,6 +151,10 @@ for spoke in "${SPOKES[@]}"; do
 done
 
 # 6. Scale up ACK deployments on both spokes
+echo "[5.5/10] Seeding Moto S3 encryption before ACK S3 resumes..."
+bash "${SCRIPT_DIR}/ensure-moto-report-bucket.sh"
+
+# 6. Scale up ACK deployments on both spokes
 echo "[6/10] Scaling up ACK controllers on both spokes..."
 for spoke in "${SPOKES[@]}"; do
   ctx="k3d-${spoke}"

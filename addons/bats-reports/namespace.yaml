@@ -3,6 +3,8 @@ kind: Namespace
 metadata:
   name: platform-reports
   labels:
+    # The current tenant-images-signed policy attests orders-processor only.
+    # Reporter image is signed and pinned, but signature admission is not yet enforced here.
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted

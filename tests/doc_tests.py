@@ -238,6 +238,7 @@ def settle(aws_as, limit=480, bats=True, quiet=False):
         time.sleep(20)
     if not bats:
         return True
+    env["BATS_REPORT_CALLER"] = "test-docs"
     b = subprocess.run(["bash", "scripts/smoke-test-hub-spoke-bats.sh"], cwd=ROOT, env=env, capture_output=True, text=True)
     notok = sum(1 for l in b.stdout.splitlines() if l.startswith("not ok"))
     good = b.returncode == 0 and notok == 0
