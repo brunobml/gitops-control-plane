@@ -77,6 +77,11 @@ spec:
       namespace: "policy-reporter"
     - server: "https://k3d-spoke-prod-server-0:6443"
       namespace: "policy-reporter"
+    # Bats Test Reporter
+    - name: "spoke-nonprod"
+      namespace: "platform-reports"
+    - server: "https://k3d-spoke-nonprod-server-0:6443"
+      namespace: "platform-reports"
   # Controllers ship CRDs, ClusterRoles and webhooks; cluster-scoped access is intended here
   # (narrowed later by C.3 kro aggregation and C.2 destination impersonation).
   clusterResourceWhitelist:

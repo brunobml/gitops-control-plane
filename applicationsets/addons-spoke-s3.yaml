@@ -1,0 +1,46 @@
+# ACK S3 controller deployed to spoke-nonprod (Phase 3: keep prod out of first rollout).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: addons-spoke-s3
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            addons-managed: "true"
+            environment: nonprod
+  template:
+    metadata:
+      name: "addon-ack-s3-{{ .name }}"
+      labels:
+        app.kubernetes.io/part-of: platform-addons
+        addon: ack-s3
+    spec:
+      project: platform-addons
+      sources:
+        - chart: s3-chart
+          repoURL: public.ecr.aws/aws-controllers-k8s
+          targetRevision: "1.13.0"
+          helm:
+            releaseName: ack-s3-controller
+            valueFiles:
+              - "$values/controllers/ack/values-s3.yaml"
+        - repoURL: https://github.com/brunobml/platform-catalog.git
+          targetRevision: '{{ index .metadata.annotations "blueprints-revision" }}'
+          ref: values
+      destination:
+        server: "{{ .server }}"
+        namespace: ack-system
+      syncPolicy:
+        automated:
+          prune: false
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

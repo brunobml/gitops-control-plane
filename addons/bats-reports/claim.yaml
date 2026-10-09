@@ -1,0 +1,14 @@
+apiVersion: kro.run/v1alpha1
+kind: TestReportViewer
+metadata:
+  name: bats-reports
+  namespace: platform-reports
+  labels:
+    app.kubernetes.io/name: bats-test-reporter
+    app.kubernetes.io/part-of: platform-reports
+spec:
+  bucketName: gitops-lab-reports
+  replicas: 1
+  image: bats-test-reporter:v0.1.0
+  ingressHost: bats-reports.localhost
+  resultsRepoUrl: https://github.com/brunobml/bats-test-results.git

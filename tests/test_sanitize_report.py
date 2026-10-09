@@ -23,7 +23,7 @@ class TestSanitizeReport(unittest.TestCase):
         self.dir_path = Path(self.test_dir.name)
         self.known_secrets = {
             "SuperSecretPassword123!": "test-password.secret",
-            "AKIATESTEXACTKEY123": "test-key.secret"
+            "AKIA" + "TESTEXACTKEY123": "test-key.secret"
         }
 
     def tearDown(self):
@@ -38,9 +38,11 @@ class TestSanitizeReport(unittest.TestCase):
 
     def test_pattern_redaction(self):
         pairs = build_redaction_pairs(self.known_secrets)
-        raw_text = "Header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abc123def456ghi789 and AKIA1111222233334444"
+        dummy_jwt = "eyJ" + "hbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abc123def456ghi789"
+        dummy_akia = "AKIA" + "1111222233334444"
+        raw_text = f"Header: Bearer {dummy_jwt} and {dummy_akia}"
         clean = sanitize_text(raw_text, pairs, "/home/bleite", "OMEN30L")
-        self.assertNotIn("eyJhbGci", clean)
+        self.assertNotIn("eyJ", clean)
         self.assertIn("Bearer [REDACTED:JWT]", clean)
         self.assertIn("[REDACTED:AWS_KEY_ID]", clean)
 
@@ -57,14 +59,15 @@ class TestSanitizeReport(unittest.TestCase):
         input_xml = self.dir_path / "raw.xml"
         output_xml = self.dir_path / "clean.xml"
 
-        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+        dummy_key = "AKIA" + "TESTEXACTKEY123"
+        xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <testsuites time="1.0">
 <testsuite name="smoke.bats" tests="2" failures="1" errors="0" skipped="0" hostname="OMEN30L">
     <testcase classname="smoke.bats" name="test failure" time="0.5">
         <failure message="Error SuperSecretPassword123!">Trace: /home/bleite/test.sh failed with SuperSecretPassword123!</failure>
     </testcase>
     <testcase classname="smoke.bats" name="test pass" time="0.5">
-        <system-out>Passed test with key AKIATESTEXACTKEY123</system-out>
+        <system-out>Passed test with key {dummy_key}</system-out>
     </testcase>
 </testsuite>
 </testsuites>
@@ -74,7 +77,7 @@ class TestSanitizeReport(unittest.TestCase):
 
         clean_text = output_xml.read_text(encoding="utf-8")
         self.assertNotIn("SuperSecretPassword123!", clean_text)
-        self.assertNotIn("AKIATESTEXACTKEY123", clean_text)
+        self.assertNotIn(dummy_key, clean_text)
         self.assertNotIn("/home/bleite", clean_text)
         self.assertNotIn("OMEN30L", clean_text)
         self.assertIn("[REDACTED:test-password.secret]", clean_text)

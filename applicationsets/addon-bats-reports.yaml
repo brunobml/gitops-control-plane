@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: addon-bats-reports-spoke-nonprod
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: bats-reports
+    app.kubernetes.io/part-of: platform-addons
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-addons
+  source:
+    repoURL: https://github.com/brunobml/gitops-control-plane.git
+    targetRevision: main
+    path: addons/bats-reports
+  destination:
+    name: spoke-nonprod
+    namespace: platform-reports
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
