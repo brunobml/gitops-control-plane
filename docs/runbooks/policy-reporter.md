@@ -26,7 +26,7 @@ All policies live in `platform-catalog/blueprints/` and reach the spokes through
 | `require-pod-security-namespace-label` (Namespaces, cluster-scoped: "Cluster Scoped Results") | Audit | Pod Security, high |
 
 The Audit policies (`audit-policies.yaml`, 2026-10-08) only report, with `failurePolicy: Ignore`, on both
-spokes (spoke-nonprod `main`, spoke-prod tag `v1.12.0`). They cover **every namespace except** `kube-system`
+spokes (spoke-nonprod `main`, spoke-prod tag `v1.13.0`). They cover **every namespace except** `kube-system`
 (managed by k3s), `kyverno` (no self-policing), `kube-public` and `kube-node-lease`; new namespaces are
 covered automatically. `tenant-images-signed` (Deny) stays tenant-only. Kyverno evaluates the Pods and the
 Deployments, DaemonSets, StatefulSets, Jobs and CronJobs behind them, not ReplicaSets (old revisions would
