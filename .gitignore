@@ -13,3 +13,7 @@ Thumbs.db
 # Python bytecode (2026-10-03 Step 0.7)
 __pycache__/
 *.pyc
+
+# Lab command notebook environment (scripts/setup-notebook.sh)
+.venv-notebook/
+.ipynb_checkpoints/

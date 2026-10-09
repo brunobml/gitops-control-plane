@@ -1,0 +1,7 @@
+{
+    // Lab command notebook (docs/learning/notebooks): scroll long outputs instead of cutting them,
+    // and keep wide tables (argocd app list, kubectl custom-columns) on one line.
+    "notebook.output.scrolling": true,
+    "notebook.output.textLineLimit": 50,
+    "notebook.output.wordWrap": false
+}
