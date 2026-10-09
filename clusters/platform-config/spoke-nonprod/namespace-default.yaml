@@ -1,0 +1,13 @@
+# The `default` namespace is created by k3s; Git manages only its Pod Security labels (server-side
+# apply merges these fields and leaves the rest alone). Found by the audit policy
+# require-pod-security-namespace-label (platform-catalog): without them a pod created in `default`
+# would run without Pod Security checks. Argo CD never prunes or deletes this namespace.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: default
+  annotations:
+    argocd.argoproj.io/sync-options: ServerSideApply=true,Prune=false,Delete=false
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
