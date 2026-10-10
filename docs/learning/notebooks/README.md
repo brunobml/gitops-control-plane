@@ -65,9 +65,10 @@ To use the browser instead of VS Code:
 - **No secrets in output.** Never print `make password`, a decoded Secret, a token or a
   kubeconfig. The `nbstripout` filter stops outputs from reaching Git, but they still sit in
   your local file and on screen.
-- **Explain the output.** Follow a command with a Markdown cell starting with **Reading the output.**: what each
-  column or line means, what a healthy result looks like, and the next step when it is not. Keep it short
-  (a few bullets or a small table), base it on what the lab actually prints, and write *kro* in lowercase.
+- **Say why the output matters.** When a result hides something worth knowing, follow the command
+  with a Markdown cell starting with **Why it matters.**: what is important in it and why (a trap,
+  a design decision, the next step when it is wrong). Skip it when the output explains itself.
+  Base it on what the lab actually prints, and write *kro* in lowercase.
 - **Name the cluster.** Use `--context "$HUB"`, `"$NONPROD"` or `"$PROD"`, never the current
   context.
 - **End every cell with a command that succeeds.** The Bash kernel reports a cell as failed when
