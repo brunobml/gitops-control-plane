@@ -1,6 +1,7 @@
 # Portable lab toolbox: plan
 
-> **Status: Revision 4 (2026-10-09), conditional approval pending the Phase 0 spike.** Author:
+> **Status: Revision 4 (2026-10-09), ON HOLD: the Phase 0 Mac spike is paused by the owner
+> (no date yet).** Conditional approval pending that spike. Author:
 > Claude. Next steps: owner sign-off, the Phase 0 spike, then `implemented-NN` records and an
 > independent `validated-NN`. The author does not validate this plan's implementation.
 
@@ -18,6 +19,7 @@
 | --- | --- |
 | 2026-10-09 | **Mac engine: Docker Desktop.** Revision 2 prefers networking option B (port proxy), which needs no Docker Desktop setting; option A, the fallback, uses Docker Desktop's host networking (off by default). The Phase 0 spike records the Docker Desktop version and settings. OrbStack and Colima are not supported. |
 | 2026-10-09 | **Apple Silicon only.** Macs with Intel CPUs are not supported or tested. Images are still built for `linux/amd64` and `linux/arm64`: amd64 for the current Windows + WSL2 host and Linux, arm64 for Apple Silicon. |
+| 2026-10-09 | **Phase 0 on hold.** The owner has no time for the Mac run now; no date set. Nothing after Phase 0 starts until its report exists. |
 | 2026-10-09 | **Networking: option B** (join `k3d-cloud-net` + port proxy inside the toolbox). No Docker Desktop host-networking setting needed; same behaviour on WSL2 and macOS. Option A (host network) stays the fallback if the Phase 0 spike finds a problem with the proxy. |
 | 2026-10-09 | **Notebook server authentication: the Jupyter token, not Keycloak.** Single-user server on `127.0.0.1`; the notebook must keep working when the hub (and its Keycloak) is down. Revisit only for a multi-user JupyterHub. |
 | 2026-10-09 | **Toolbox image: published, with a local build option.** CI publishes a signed image to GHCR (public), and `lab` uses it by default; `lab --build` (or `make toolbox-build`) builds the same image locally from `toolbox/Dockerfile` and `toolbox/versions.env`, for offline use or to try a tool change before CI. |
@@ -215,8 +217,8 @@ JupyterLab from the WSL2 host on `127.0.0.1`.
    for personal use; check its terms if the lab is used inside a larger company.
 2. ~~Intel Macs~~: decided 2026-10-09, Apple Silicon only.
 3. ~~Toolbox image~~: decided 2026-10-09, published to GHCR with a local build option.
-4. **Where the Phase 0 spike runs:** whose Mac, and when. Nothing after Phase 0 starts without its
-   report.
+4. **Where the Phase 0 spike runs:** the owner's Mac; **on hold** since 2026-10-09, no date yet.
+   Nothing after Phase 0 starts without its report.
 
 ## Codex review comments (2026-10-09)
 
