@@ -33,7 +33,14 @@ fi
 echo "✔ Python environment: ${VENV}"
 
 "${VENV}/bin/python" -m bash_kernel.install --user >/dev/null
-echo "✔ Jupyter kernel 'bash' registered for $(id -un) (uses ${VENV})"
+# WSL appends the Windows PATH (/mnt/c/...), which WSL reads slowly: bash_kernel answers every
+# completion request VS Code sends with `compgen -c`, a scan of the whole PATH, which then takes
+# minutes and blocks the cells queued behind it. The kernel gets this PATH without /mnt/*
+# (fixed at setup time: re-run after installing tools into a new directory).
+KERNEL_PATH=$(tr ':' '\n' <<<"$PATH" | grep -v '^/mnt/' | awk 'NF && !seen[$0]++' | paste -sd:)
+KERNEL_JSON="$("${VENV}/bin/jupyter" kernelspec list --json | jq -r '.kernelspecs.bash.resource_dir')/kernel.json"
+jq --arg path "$KERNEL_PATH" '.env.PATH = $path' "$KERNEL_JSON" > "${KERNEL_JSON}.tmp" && mv "${KERNEL_JSON}.tmp" "$KERNEL_JSON"
+echo "✔ Jupyter kernel 'bash' registered for $(id -un) (uses ${VENV}; PATH without /mnt/*)"
 
 (cd "$ROOT_DIR" && "${VENV}/bin/nbstripout" --install)
 echo "✔ nbstripout filter installed in this clone: notebook outputs are stripped on commit"
