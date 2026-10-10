@@ -19,35 +19,53 @@ It runs on the lab host, not in a container. It needs what the host already has:
 
 ## Setup (once)
 
+```bash
+make notebook-setup        # same as: bash scripts/setup-notebook.sh
+```
+
+The script does three things:
+
+- It creates `.venv-notebook/`, which is git-ignored and pinned by
+  [`requirements.txt`](requirements.txt).
+- It registers the Jupyter kernel **Bash** for your user.
+- It installs the `nbstripout` Git filter in your clone, so cell outputs are removed when you
+  commit.
+
+Re-running it is safe. Then open the notebook in either of the two ways below.
+
+### Option 1: JupyterLab in the browser (no VS Code needed)
+
+```bash
+make notebook              # NOTEBOOK_PORT=8899 make notebook for another port
+```
+
+1. Open the `http://127.0.0.1:8888/lab?token=…` link the command prints. On WSL, the Windows
+   browser reaches it through `127.0.0.1` as well.
+2. Open `lab-commands.ipynb`. The kernel is **Bash** by default; the top right of the notebook says
+   so.
+3. Run the first cell (*Setup and tool check*).
+
+The server runs on the lab host, so the notebook has the host's tools, kube contexts and
+`~/.config/gitops-lab`. It listens on `127.0.0.1` only and requires its token: a notebook server is a
+web shell with your cluster credentials. Don't change either, and don't paste the token anywhere.
+Ctrl+C in the terminal stops it.
+
+A generic Jupyter container (for example `quay.io/jupyter/scipy-notebook`) is **not** a substitute:
+it has none of the lab's tools, no Bash kernel and no access to the clusters (its `127.0.0.1` is
+the container itself). The planned lab toolbox image solves that
+(`docs/roadmaps/2026-10-09-portable-lab-toolbox-plan.md`).
+
+### Option 2: VS Code
+
 1. Install the VS Code extensions **Jupyter** (`ms-toolsai.jupyter`) and, on Windows, **WSL**
    (`ms-vscode-remote.remote-wsl`). Open this repo through WSL with `code .` in the WSL terminal.
-2. Run the setup script:
-
-   ```bash
-   make notebook-setup        # same as: bash scripts/setup-notebook.sh
-   ```
-
-   The script does three things:
-   - It creates `.venv-notebook/`, which is git-ignored and pinned by
-     [`requirements.txt`](requirements.txt).
-   - It registers the Jupyter kernel **Bash** for your user.
-   - It installs the `nbstripout` Git filter in your clone, so cell outputs are removed when you
-     commit.
-
-   Re-running it is safe.
-3. Open `docs/learning/notebooks/lab-commands.ipynb`. Click **Select Kernel** (top right), choose
+2. Open `docs/learning/notebooks/lab-commands.ipynb`. Click **Select Kernel** (top right), choose
    **Jupyter Kernel…**, then **Bash**. If Bash is missing, run **Developer: Reload Window**.
    Do **not** pick a *Python Environment*, even `.venv-notebook`: the cells are Bash, and a
    Python kernel either fails to start (`No module named ipykernel_launcher`) or doesn't run them.
    The top-right corner must read **Bash**.
-4. Run the first cell (*Setup and tool check*). It defines the variables the other cells use and
+3. Run the first cell (*Setup and tool check*). It defines the variables the other cells use and
    marks any missing tool or context with ✘.
-
-To use the browser instead of VS Code:
-
-```bash
-.venv-notebook/bin/jupyter lab docs/learning/notebooks/lab-commands.ipynb
-```
 
 ## Use
 
@@ -87,6 +105,7 @@ To use the browser instead of VS Code:
 | Symptom | Fix |
 | --- | --- |
 | ▶ does nothing, or the cell shows no output | The kernel is not **Bash**. Check the top-right corner; choose *Select Kernel → Jupyter Kernel… → Bash*. |
+| `SyntaxError: invalid syntax` on a Bash line (`Cell In[2]`, an IPython traceback) | A **Python** kernel runs the notebook. A Jupyter without the Bash kernel (for example a generic Jupyter container with the repo mounted) saves the notebook as `python3`. Restore it (`git checkout -- docs/learning/notebooks/lab-commands.ipynb`, after saving any notes you added), then open it with `make notebook`, which offers only the Bash kernel. `make notebook-check` fails while the kernel is not `bash`. |
 | `No module named ipykernel_launcher` | A Python kernel was picked. Switch to **Bash** as above. |
 | **Bash** is not in the kernel list | Run `make notebook-setup` again, then **Developer: Reload Window**. |
 | Long outputs are cut off | The repo's `.vscode/settings.json` makes outputs scrollable after 50 lines. Per output: click *…open in a scrollable element* or *open in a text editor*. |

@@ -9,6 +9,8 @@
 #   outputs never reach a commit
 # - --check runs every cell headless against the running lab and fails on the first error
 #   (nothing is saved; the notebook is read-only by design)
+# - --lab serves JupyterLab in the browser (no VS Code needed) on 127.0.0.1 only: it is a web shell
+#   with your kubeconfig and lab secrets, so it never listens on other interfaces and keeps its token
 # Re-runs are safe.
 set -euo pipefail
 
@@ -17,8 +19,21 @@ VENV="${ROOT_DIR}/.venv-notebook"
 REQ="${ROOT_DIR}/docs/learning/notebooks/requirements.txt"
 NOTEBOOK="${ROOT_DIR}/docs/learning/notebooks/lab-commands.ipynb"
 
+if [[ "${1:-}" == "--lab" ]]; then
+  [[ -x "${VENV}/bin/jupyter" ]] || { echo "Run scripts/setup-notebook.sh first." >&2; exit 1; }
+  echo "JupyterLab on 127.0.0.1 only; open the http://127.0.0.1:<port>/lab?token=... link printed below."
+  echo "Pick the Bash kernel. Ctrl+C stops the server."
+  exec "${VENV}/bin/jupyter" lab --ip=127.0.0.1 --port="${NOTEBOOK_PORT:-8888}" --no-browser \
+    --ServerApp.root_dir="$(dirname "$NOTEBOOK")" --MultiKernelManager.default_kernel_name=bash \
+    --KernelSpecManager.allowed_kernelspecs=bash   # the cells are Bash: hide the venv's python3 kernel
+fi
+
 if [[ "${1:-}" == "--check" ]]; then
   [[ -x "${VENV}/bin/jupyter" ]] || { echo "Run scripts/setup-notebook.sh first." >&2; exit 1; }
+  # A Jupyter without the Bash kernel (e.g. a generic Jupyter image) rewrites the notebook to
+  # python3 on save; its cells then fail with SyntaxError. Fail here instead of committing that.
+  kernel=$(jq -r '.metadata.kernelspec.name // "none"' "$NOTEBOOK")
+  [[ "$kernel" == "bash" ]] || { echo "✘ ${NOTEBOOK##*/}: kernelspec is '${kernel}', expected 'bash'" >&2; exit 1; }
   cd "$(dirname "$NOTEBOOK")"
   exec "${VENV}/bin/jupyter" execute --kernel_name=bash "$NOTEBOOK"
 fi
