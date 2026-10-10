@@ -86,5 +86,5 @@ To use the browser instead of VS Code:
 | `No module named ipykernel_launcher` | A Python kernel was picked. Switch to **Bash** as above. |
 | **Bash** is not in the kernel list | Run `make notebook-setup` again, then **Developer: Reload Window**. |
 | Long outputs are cut off | The repo's `.vscode/settings.json` makes outputs scrollable after 50 lines. Per output: click *…open in a scrollable element* or *open in a text editor*. |
-| Cells take minutes, or stay `[*]` although the command is done (WSL) | The kernel was started with the Windows PATH (`/mnt/c/...`): every completion VS Code asks for scans it for minutes. Run `make notebook-setup` again (it registers the kernel with a PATH without `/mnt/*`), then *Restart* the kernel. |
+| Cells take minutes, hang at `[*]`, or print `--More--` / `Display all … possibilities` | The kernel predates the fix: run `make notebook-setup` again, then *Restart* the kernel. It now starts with readline completion off (`kernel.inputrc`; a tab in a cell is otherwise tab completion in Bash) and without the Windows PATH (`/mnt/c/...`, which WSL scans slowly for every completion VS Code asks for). The repo's `.vscode/settings.json` makes VS Code indent cells with spaces. |
 | A cell fails with "variable not set" or an empty `--context` | The kernel was restarted. Run the first cell again. |

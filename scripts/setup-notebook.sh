@@ -39,8 +39,10 @@ echo "✔ Python environment: ${VENV}"
 # (fixed at setup time: re-run after installing tools into a new directory).
 KERNEL_PATH=$(tr ':' '\n' <<<"$PATH" | grep -v '^/mnt/' | awk 'NF && !seen[$0]++' | paste -sd:)
 KERNEL_JSON="$("${VENV}/bin/jupyter" kernelspec list --json | jq -r '.kernelspecs.bash.resource_dir')/kernel.json"
-jq --arg path "$KERNEL_PATH" '.env.PATH = $path' "$KERNEL_JSON" > "${KERNEL_JSON}.tmp" && mv "${KERNEL_JSON}.tmp" "$KERNEL_JSON"
-echo "✔ Jupyter kernel 'bash' registered for $(id -un) (uses ${VENV}; PATH without /mnt/*)"
+# A tab in a cell must not trigger readline completion (see kernel.inputrc).
+jq --arg path "$KERNEL_PATH" --arg inputrc "${ROOT_DIR}/docs/learning/notebooks/kernel.inputrc" \
+  '.env.PATH = $path | .env.INPUTRC = $inputrc' "$KERNEL_JSON" > "${KERNEL_JSON}.tmp" && mv "${KERNEL_JSON}.tmp" "$KERNEL_JSON"
+echo "✔ Jupyter kernel 'bash' registered for $(id -un) (uses ${VENV}; PATH without /mnt/*; no tab completion)"
 
 (cd "$ROOT_DIR" && "${VENV}/bin/nbstripout" --install)
 echo "✔ nbstripout filter installed in this clone: notebook outputs are stripped on commit"

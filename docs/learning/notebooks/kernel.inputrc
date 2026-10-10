@@ -1,0 +1,5 @@
+# readline settings of the notebook's Bash kernel (INPUTRC, set by scripts/setup-notebook.sh).
+# The kernel types each cell into an interactive bash. A tab in a cell (editors may indent with
+# tabs) would otherwise trigger tab completion: a PATH scan and a "Display all ... possibilities"
+# pager that waits for a key, so the cell hangs. With completion off a tab is just whitespace.
+set disable-completion on

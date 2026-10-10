@@ -3,5 +3,10 @@
     // and keep wide tables (argocd app list, kubectl custom-columns) on one line.
     "notebook.output.scrolling": true,
     "notebook.output.textLineLimit": 50,
-    "notebook.output.wordWrap": false
+    "notebook.output.wordWrap": false,
+    // Indent notebook cells with spaces, overriding a user-level "insertSpaces": false.
+    "notebook.editorOptionsCustomizations": {
+        "editor.insertSpaces": true,
+        "editor.tabSize": 2
+    }
 }
